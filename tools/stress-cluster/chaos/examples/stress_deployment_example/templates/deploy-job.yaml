@@ -8,6 +8,7 @@ spec:
     - name: deployment-example
       image: mcr.microsoft.com/azure-cli
       command: ['bash', '-c']
+      {{- include "stress-test-addons.container-env" . | nindent 6 }}
       args:
         - |
             source $ENV_FILE &&
