@@ -41,8 +41,9 @@ spec:
 
 {{- define "stress-test-addons.deploy-job-template.from-pod" -}}
 {{- $top := first . -}}
-{{- $jobOverride := include "stress-test-addons.job-wrapper.tpl" . -}}
-{{- $jobOverride -}}
+{{- $jobOverride := fromYaml (include "stress-test-addons.job-wrapper.tpl" .) -}}
+{{- $tpl := fromYaml (include "stress-test-addons.deploy-job-template.tpl" $top) -}}
+{{- toYaml (merge $jobOverride $tpl) -}}
 {{- /* 
 - include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.job-wrapper.tpl") 
 */}}
