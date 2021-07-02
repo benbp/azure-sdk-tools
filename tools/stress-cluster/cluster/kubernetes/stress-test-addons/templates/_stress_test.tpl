@@ -32,7 +32,7 @@ spec:
 {{- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.tpl") -}}
 {{- end -}}
 
-{{- define "stress-test-addons.deploy-job-template.job-wrapper.tpl" -}}
+{{- define "stress-test-addons.job-wrapper.tpl" -}}
 spec:
   template:
     {{- include (index . 1) (first .) | nindent 4 -}}
@@ -40,7 +40,12 @@ spec:
 
 
 {{- define "stress-test-addons.deploy-job-template.from-pod" -}}
-{{- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.job-wrapper.tpl") -}}
+{{- $top := first . -}}
+{{- $jobOverride := include "stress-test-addons.job-wrapper.tpl" . -}}
+{{- $jobOverride -}}
+{{- /* 
+- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.job-wrapper.tpl") 
+*/}}
 {{- end -}}
 
 {{- define "stress-test-addons.env-job-template.tpl" -}}
