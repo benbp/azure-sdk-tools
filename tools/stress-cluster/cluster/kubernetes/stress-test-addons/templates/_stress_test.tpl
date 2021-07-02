@@ -27,26 +27,24 @@ spec:
 
 {{- define "stress-test-addons.deploy-job-template" -}}
 # Configmap template that adds the stress test ARM template for mounting
-#{{- include "stress-test-addons.deploy-configmap" (first .) }}
-#---
+{{- include "stress-test-addons.deploy-configmap" (first .) }}
+---
 {{- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.tpl") -}}
 {{- end -}}
 
 {{- define "stress-test-addons.job-wrapper.tpl" -}}
 spec:
   template:
-    {{- include (index . 1) (first .) | nindent 4 -}}
+    {{- include (index . 1) (index . 0) | nindent 4 -}}
 {{- end -}}
 
-
 {{- define "stress-test-addons.deploy-job-template.from-pod" -}}
-{{- $top := first . -}}
+# Configmap template that adds the stress test ARM template for mounting
+{{- include "stress-test-addons.deploy-configmap" (first .) }}
+---
 {{- $jobOverride := fromYaml (include "stress-test-addons.job-wrapper.tpl" .) -}}
-{{- $tpl := fromYaml (include "stress-test-addons.deploy-job-template.tpl" $top) -}}
+{{- $tpl := fromYaml (include "stress-test-addons.deploy-job-template.tpl" (first .)) -}}
 {{- toYaml (merge $jobOverride $tpl) -}}
-{{- /* 
-- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.job-wrapper.tpl") 
-*/}}
 {{- end -}}
 
 {{- define "stress-test-addons.env-job-template.tpl" -}}
@@ -74,4 +72,10 @@ spec:
 
 {{- define "stress-test-addons.env-job-template" -}}
 {{- include "stress-test-addons.util.merge" (append . "stress-test-addons.env-job-template.tpl") -}}
+{{- end -}}
+
+{{- define "stress-test-addons.env-job-template.from-pod" -}}
+{{- $jobOverride := fromYaml (include "stress-test-addons.job-wrapper.tpl" .) -}}
+{{- $tpl := fromYaml (include "stress-test-addons.env-job-template.tpl" (first .)) -}}
+{{- toYaml (merge $jobOverride $tpl) -}}
 {{- end -}}
