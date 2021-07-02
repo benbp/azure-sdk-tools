@@ -24,11 +24,23 @@ spec:
         # Init container template for deploying azure resources on startup and adding deployment outputs to the env
         {{- include "stress-test-addons.init-deploy" . | nindent 8 }}
 {{- end -}}
+
 {{- define "stress-test-addons.deploy-job-template" -}}
 # Configmap template that adds the stress test ARM template for mounting
-{{- include "stress-test-addons.deploy-configmap" (first .) }}
----
+#{{- include "stress-test-addons.deploy-configmap" (first .) }}
+#---
 {{- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.tpl") -}}
+{{- end -}}
+
+{{- define "stress-test-addons.deploy-job-template.job-wrapper.tpl" -}}
+spec:
+  template:
+    {{- include (index . 1) (first .) | nindent 4 -}}
+{{- end -}}
+
+
+{{- define "stress-test-addons.deploy-job-template.from-pod" -}}
+{{- include "stress-test-addons.util.merge" (append . "stress-test-addons.deploy-job-template.job-wrapper.tpl") -}}
 {{- end -}}
 
 {{- define "stress-test-addons.env-job-template.tpl" -}}
@@ -53,6 +65,7 @@ spec:
         # (e.g. app insights instrumentation key, azure client credentials)
         {{- include "stress-test-addons.init-env" . | nindent 8 }}
 {{- end -}}
+
 {{- define "stress-test-addons.env-job-template" -}}
 {{- include "stress-test-addons.util.merge" (append . "stress-test-addons.env-job-template.tpl") -}}
 {{- end -}}
