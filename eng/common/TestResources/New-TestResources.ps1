@@ -167,9 +167,19 @@ try {
         Get-ChildItem -Path $root -Filter "$_" -Recurse | ForEach-Object {
             Write-Verbose "Found template '$($_.FullName)'"
             if ($_.Extension -eq '.bicep') {
-                $templateFiles += (BuildBicepFile $_)
+                $path = (BuildBicepFile $_)
+                $envOutput = $_.FullName -replace ".bicep$",".json.env"
+                $templateFiles += @{
+                    Path = $path
+                    # Preserve env file naming consistency
+                    $EnvOutput = $($_.FullName -replace ".bicep$",".json.env")
+                }
             } else {
-                $templateFiles += $_.FullName
+                $path = $_.FullName
+                $templateFiles += @{
+                    Path = $path
+                    EnvOutput = "$path.env"
+                }
             }
         }
     }
@@ -457,8 +467,8 @@ try {
     # Deploy the templates
     foreach ($templateFile in $templateFiles) {
         # Deployment fails if we pass in more parameters than are defined.
-        Write-Verbose "Removing unnecessary parameters from template '$templateFile'"
-        $templateJson = Get-Content -LiteralPath $templateFile | ConvertFrom-Json
+        Write-Verbose "Removing unnecessary parameters from template '$($templateFile.Path)'"
+        $templateJson = Get-Content -LiteralPath $templateFile.Path | ConvertFrom-Json
         $templateParameterNames = $templateJson.parameters.PSObject.Properties.Name
 
         $templateFileParameters = $templateParameters.Clone()
@@ -469,20 +479,20 @@ try {
             }
         }
 
-        $preDeploymentScript = $templateFile | Split-Path | Join-Path -ChildPath 'test-resources-pre.ps1'
+        $preDeploymentScript = $templateFile.Path | Split-Path | Join-Path -ChildPath 'test-resources-pre.ps1'
         if (Test-Path $preDeploymentScript) {
             Log "Invoking pre-deployment script '$preDeploymentScript'"
             &$preDeploymentScript -ResourceGroupName $ResourceGroupName @PSBoundParameters
         }
 
-        Log "Deploying template '$templateFile' to resource group '$($resourceGroup.ResourceGroupName)'"
+        Log "Deploying template '$($templateFile.Path)' to resource group '$($resourceGroup.ResourceGroupName)'"
         $deployment = Retry {
             $lastDebugPreference = $DebugPreference
             try {
                 if ($CI) {
                     $DebugPreference = 'Continue'
                 }
-                New-AzResourceGroupDeployment -Name $BaseName -ResourceGroupName $resourceGroup.ResourceGroupName -TemplateFile $templateFile -TemplateParameterObject $templateFileParameters -Force:$Force
+                New-AzResourceGroupDeployment -Name $BaseName -ResourceGroupName $resourceGroup.ResourceGroupName -TemplateFile $templateFile.Path -TemplateParameterObject $templateFileParameters -Force:$Force
             } catch {
                 Write-Output @'
 #####################################################
@@ -498,7 +508,7 @@ try {
 
         if ($deployment.ProvisioningState -eq 'Succeeded') {
             # New-AzResourceGroupDeployment would've written an error and stopped the pipeline by default anyway.
-            Write-Verbose "Successfully deployed template '$templateFile' to resource group '$($resourceGroup.ResourceGroupName)'"
+            Write-Verbose "Successfully deployed template '$($templateFile.Path)' to resource group '$($resourceGroup.ResourceGroupName)'"
         }
 
         $serviceDirectoryPrefix = $serviceName.ToUpperInvariant() + "_"
@@ -536,15 +546,13 @@ try {
                 Write-Host 'File option is supported only on Windows'
             }
 
-            $outputFile = "$templateFile.env"
-
             $environmentText = $deploymentOutputs | ConvertTo-Json;
             $bytes = ([System.Text.Encoding]::UTF8).GetBytes($environmentText)
             $protectedBytes = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
 
-            Set-Content $outputFile -Value $protectedBytes -AsByteStream -Force
+            Set-Content $templateFile.EnvOutput -Value $protectedBytes -AsByteStream -Force
 
-            Write-Host "Test environment settings`n $environmentText`nstored into encrypted $outputFile"
+            Write-Host "Test environment settings`n $environmentText`nstored into encrypted $($templateFile.EnvOutput)"
         } else {
 
             if (!$CI) {
@@ -574,15 +582,15 @@ try {
             }
         }
 
-        $postDeploymentScript = $templateFile | Split-Path | Join-Path -ChildPath 'test-resources-post.ps1'
+        $postDeploymentScript = $templateFile.Path | Split-Path | Join-Path -ChildPath 'test-resources-post.ps1'
         if (Test-Path $postDeploymentScript) {
             Log "Invoking post-deployment script '$postDeploymentScript'"
             &$postDeploymentScript -ResourceGroupName $ResourceGroupName -DeploymentOutputs $deploymentOutputs @PSBoundParameters
         }
 
-        if ($templateFile.EndsWith('.compiled.json')) {
-            Write-Verbose "Removing compiled bicep file $templateFile"
-            Remove-Item $templateFile
+        if ($templateFile.Path.EndsWith('.compiled.json')) {
+            Write-Verbose "Removing compiled bicep file $($templateFile.Path)"
+            Remove-Item $templateFile.Path
         }
     }
 
