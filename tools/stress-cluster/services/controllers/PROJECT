@@ -1,0 +1,6 @@
+domain: azsdk.stress
+layout:
+- go.kubebuilder.io/v3
+projectName: controllers
+repo: github.com/azure/azure-sdk-tools/tools/stress-cluster/services/controllers
+version: "3"
