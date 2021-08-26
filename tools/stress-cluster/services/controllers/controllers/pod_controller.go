@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,7 +38,8 @@ type PodReconciler struct {
 	log    logr.Logger
 }
 
-const chaosAnnotation = "stress/chaos/started"
+const chaosStartedAnnotation = "stress/chaos.started"
+const chaosMeshPauseAnnotation = "experiment.chaos-mesh.org/pause"
 const chaosLabelSelector = "testInstance"
 
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
@@ -51,48 +53,113 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	pod := corev1.Pod{}
 	if err := r.Client.Get(ctx, req.NamespacedName, &pod); err != nil {
-		r.log.Error(err, "Failed to get pod resource")
+		r.log.Error(err, "Failed to get pod resource.")
 		return ctrl.Result{}, nil
 	}
 
-	r.log = r.log.WithValues("Pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
+	if pod.Namespace == "kube-system" || pod.Namespace == "stress-infra" {
+		return ctrl.Result{}, nil
+	}
 
-	err := r.handleChaos(ctx, &pod)
+	if pod.Status.Phase != corev1.PodRunning {
+		r.log.Info(
+			fmt.Sprintf("Pod is in '%s', not '%s' phase, ignoring.",
+				pod.Status.Phase, corev1.PodRunning))
+		return ctrl.Result{}, nil
+	}
+
+	requeue, err := r.handleChaos(ctx, &pod)
 	if err != nil {
+		r.log.Error(err, "Error handling chaos for pod.")
+		if requeue {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *PodReconciler) handleChaos(ctx context.Context, pod *corev1.Pod) error {
+func (r *PodReconciler) handleChaos(ctx context.Context, pod *corev1.Pod) (requeue bool, err error) {
 	networkChaosList := chaosMesh.NetworkChaosList{}
 	listOpt := client.ListOptions{Namespace: pod.Namespace}
 	if err := r.Client.List(ctx, &networkChaosList, &listOpt); err != nil {
-		r.log.Error(err, "Failed to get network chaos resources")
-		return err
+		r.log.Error(err, "Failed to get network chaos resources.")
+		return false, err
 	}
 
 	labels := pod.GetLabels()
 	annotations := pod.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
 
-	if chaosStarted, ok := annotations[chaosAnnotation]; ok && chaosStarted == "true" {
-		r.log.Info("Pod has already been enabled for chaos")
+	if chaosStarted, ok := annotations[chaosStartedAnnotation]; ok && chaosStarted == "true" {
+		r.log.Info("Pod has already been enabled for chaos.")
 	} else if chaos, ok := labels["chaos"]; ok && chaos == "true" {
-		r.log.Info("Enabling chaos for pod")
+		r.log.Info("Enabling chaos for pod.")
 		testInstance, ok := labels[chaosLabelSelector]
 		if !ok {
-			return fmt.Errorf("Chaos enabled pod is missing %s label", chaosLabelSelector)
+			return false, fmt.Errorf("Chaos enabled pod is missing %s label", chaosLabelSelector)
 		}
-		for _, res := range networkChaosList.Items {
-			if chaosInstance, ok := res.Spec.Selector.LabelSelectors[chaosLabelSelector]; ok {
-				if chaosInstance == testInstance {
-					r.log.Info("Found match!", "TestInstance", chaosInstance)
+		for _, chaosResource := range networkChaosList.Items {
+			if chaosInstance, ok := chaosResource.Spec.Selector.LabelSelectors[chaosLabelSelector]; ok {
+				if chaosInstance != testInstance {
+					continue
+				}
+				r.log.Info("Found matching pod for network chaos.", "TestInstance", chaosInstance)
+				if err := r.startChaos(ctx, &chaosResource); err != nil {
+					return true, err
+				}
+				if err := r.annotatePodChaosHandled(ctx, pod, annotations); err != nil {
+					return true, err
 				}
 			}
 		}
 	} else {
-		r.log.Info("Ignoring pod for chaos")
+		r.log.Info("Ignoring pod for chaos.")
+	}
+
+	return false, nil
+}
+
+func (r *PodReconciler) startChaos(
+	ctx context.Context,
+	chaosResource *chaosMesh.NetworkChaos,
+) error {
+	annotations := chaosResource.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	patcher, err := patch.NewHelper(chaosResource.DeepCopy(), r.Client)
+	if err != nil {
+		return err
+	}
+
+	delete(annotations, chaosMeshPauseAnnotation)
+	chaosResource.SetAnnotations(annotations)
+	r.log.WithValues("ChaosResource", chaosResource.Name).Info("Starting chaos.")
+	if err := patcher.Patch(ctx, chaosResource.DeepCopy()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *PodReconciler) annotatePodChaosHandled(
+	ctx context.Context,
+	pod *corev1.Pod,
+	annotations map[string]string,
+) error {
+	annotations[chaosStartedAnnotation] = "true"
+	patcher, err := patch.NewHelper(pod.DeepCopy(), r.Client)
+	if err != nil {
+		return err
+	}
+	pod.SetAnnotations(annotations)
+	if err := patcher.Patch(ctx, pod.DeepCopy()); err != nil {
+		return err
 	}
 
 	return nil
