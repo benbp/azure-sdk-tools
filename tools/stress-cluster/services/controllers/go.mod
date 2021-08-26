@@ -3,7 +3,12 @@ module github.com/azure/azure-sdk-tools/tools/stress-cluster/services/controller
 go 1.16
 
 require (
-	k8s.io/apimachinery v0.20.2
-	k8s.io/client-go v0.20.2
-	sigs.k8s.io/controller-runtime v0.8.3
+	github.com/chaos-mesh/chaos-mesh/api/v1alpha1 v0.0.0-20210826134604-1f23fe6e5d8a // indirect
+	github.com/go-logr/logr v0.4.0
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.14.0
+	k8s.io/api v0.21.3
+	k8s.io/apimachinery v0.21.3
+	k8s.io/client-go v0.21.3
+	sigs.k8s.io/controller-runtime v0.9.5
 )
