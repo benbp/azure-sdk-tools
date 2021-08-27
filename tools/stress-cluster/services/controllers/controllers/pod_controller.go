@@ -80,11 +80,9 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 func (r *PodReconciler) handleChaos(ctx context.Context, pod *corev1.Pod) (requeue bool, err error) {
-	networkChaosList := chaosMesh.NetworkChaosList{}
-	listOpt := client.ListOptions{Namespace: pod.Namespace}
-	if err := r.Client.List(ctx, &networkChaosList, &listOpt); err != nil {
-		r.log.Error(err, "Failed to get network chaos resources.")
-		return false, err
+	chaosResources, err := r.listAllChaosResources(ctx, pod.Namespace)
+	if err != nil {
+		return true, err
 	}
 
 	labels := pod.GetLabels()
@@ -95,19 +93,20 @@ func (r *PodReconciler) handleChaos(ctx context.Context, pod *corev1.Pod) (reque
 
 	if chaosStarted, ok := annotations[chaosStartedAnnotation]; ok && chaosStarted == "true" {
 		r.log.Info("Pod has already been enabled for chaos.")
+		return false, nil
 	} else if chaos, ok := labels["chaos"]; ok && chaos == "true" {
 		r.log.Info("Enabling chaos for pod.")
 		testInstance, ok := labels[chaosLabelSelector]
 		if !ok {
 			return false, fmt.Errorf("Chaos enabled pod is missing %s label", chaosLabelSelector)
 		}
-		for _, chaosResource := range networkChaosList.Items {
-			if chaosInstance, ok := chaosResource.Spec.Selector.LabelSelectors[chaosLabelSelector]; ok {
+		for _, chaosResource := range chaosResources {
+			if chaosInstance, ok := chaosResource.Labels[chaosLabelSelector]; ok {
 				if chaosInstance != testInstance {
 					continue
 				}
-				r.log.Info("Found matching pod for network chaos.", "TestInstance", chaosInstance)
-				if err := r.resumeChaosResource(ctx, chaosResource.DeepCopy()); err != nil {
+				r.log.Info("Found matching pod for chaos.", "TestInstance", chaosInstance)
+				if err := r.resumeChaosResource(ctx, chaosResource.Resource); err != nil {
 					return true, err
 				}
 				if err := r.annotatePodChaosHandled(ctx, pod, annotations); err != nil {
@@ -117,8 +116,10 @@ func (r *PodReconciler) handleChaos(ctx context.Context, pod *corev1.Pod) (reque
 		}
 	} else {
 		r.log.Info("Ignoring pod for chaos.")
+		return false, nil
 	}
 
+	r.log.Info("Failed to find matching chaos resources for pod.")
 	return false, nil
 }
 
@@ -158,6 +159,70 @@ func (r *PodReconciler) resumeChaosResource(
 	}
 	delete(annotations, chaosMesh.PauseAnnotationKey)
 	return patcher.Patch(ctx, chaosResource)
+}
+
+func (r *PodReconciler) listAllChaosResources(ctx context.Context, namespace string) ([]chaosResource, error) {
+	networkChaosList := chaosMesh.NetworkChaosList{}
+	stressChaosList := chaosMesh.StressChaosList{}
+	httpChaosList := chaosMesh.HTTPChaosList{}
+	ioChaosList := chaosMesh.IOChaosList{}
+	kernelChaosList := chaosMesh.KernelChaosList{}
+	timeChaosList := chaosMesh.TimeChaosList{}
+	jvmChaosList := chaosMesh.JVMChaosList{}
+
+	listOpt := client.ListOptions{Namespace: namespace}
+	chaosItems := []chaosResource{}
+
+	if err := r.Client.List(ctx, &networkChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get network chaos resources.")
+	}
+	for _, c := range networkChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+	if err := r.Client.List(ctx, &stressChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get stress chaos resources.")
+	}
+	for _, c := range stressChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+	if err := r.Client.List(ctx, &httpChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get http chaos resources.")
+	}
+	for _, c := range httpChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+	if err := r.Client.List(ctx, &ioChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get io chaos resources.")
+	}
+	for _, c := range ioChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+	if err := r.Client.List(ctx, &kernelChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get kernel chaos resources.")
+	}
+	for _, c := range kernelChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+	if err := r.Client.List(ctx, &timeChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get time chaos resources.")
+	}
+	for _, c := range timeChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+
+	if err := r.Client.List(ctx, &jvmChaosList, &listOpt); err != nil {
+		r.log.Error(err, "Failed to get jvm chaos resources.")
+	}
+	for _, c := range jvmChaosList.Items {
+		chaosItems = append(chaosItems, chaosResource{Resource: c.DeepCopy(), Labels: c.Spec.Selector.LabelSelectors})
+	}
+
+	return chaosItems, nil
+}
+
+type chaosResource struct {
+	Resource client.Object
+	Labels   map[string]string
 }
 
 // SetupWithManager sets up the controller with the Manager.
