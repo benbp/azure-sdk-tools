@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -143,7 +142,7 @@ func (r *PodReconciler) annotatePodChaosHandled(
 
 func (r *PodReconciler) resumeChaosResource(
 	ctx context.Context,
-	chaosResource genericChaosResource,
+	chaosResource client.Object,
 ) error {
 	log := r.log.WithValues("ChaosResource", chaosResource.GetName())
 	annotations := chaosResource.GetAnnotations()
@@ -153,69 +152,12 @@ func (r *PodReconciler) resumeChaosResource(
 	}
 	log.Info("Starting chaos.")
 
-	if networkChaos, ok := chaosResource.(*chaosMesh.NetworkChaos); ok {
-		patcher, err := patch.NewHelper(networkChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, networkChaos.DeepCopy())
+	patcher, err := patch.NewHelper(chaosResource.DeepCopyObject().(client.Object), r.Client)
+	if err != nil {
+		return err
 	}
-	if stressChaos, ok := chaosResource.(*chaosMesh.StressChaos); ok {
-		patcher, err := patch.NewHelper(stressChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, stressChaos.DeepCopy())
-	}
-	if httpChaos, ok := chaosResource.(*chaosMesh.HTTPChaos); ok {
-		patcher, err := patch.NewHelper(httpChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, httpChaos.DeepCopy())
-	}
-	if ioChaos, ok := chaosResource.(*chaosMesh.IOChaos); ok {
-		patcher, err := patch.NewHelper(ioChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, ioChaos.DeepCopy())
-	}
-	if kernelChaos, ok := chaosResource.(*chaosMesh.KernelChaos); ok {
-		patcher, err := patch.NewHelper(kernelChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, kernelChaos.DeepCopy())
-	}
-	if timeChaos, ok := chaosResource.(*chaosMesh.TimeChaos); ok {
-		patcher, err := patch.NewHelper(timeChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, timeChaos.DeepCopy())
-	}
-	if jvmChaos, ok := chaosResource.(*chaosMesh.JVMChaos); ok {
-		patcher, err := patch.NewHelper(jvmChaos.DeepCopy(), r.Client)
-		if err != nil {
-			return err
-		}
-		delete(annotations, chaosMesh.PauseAnnotationKey)
-		return patcher.Patch(ctx, jvmChaos.DeepCopy())
-	}
-
-	return nil
-}
-
-type genericChaosResource interface {
-	metav1.Object
-	GetAnnotations() map[string]string
+	delete(annotations, chaosMesh.PauseAnnotationKey)
+	return patcher.Patch(ctx, chaosResource)
 }
 
 // SetupWithManager sets up the controller with the Manager.
