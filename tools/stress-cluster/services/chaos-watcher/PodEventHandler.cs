@@ -5,9 +5,9 @@ using k8s;
 
 namespace chaos_watcher
 {
-    class PodEventHandler
+    public class PodEventHandler
     {
-        private string podChaosHandledPatch = @"
+        private string PodChaosHandledPatch = @"
 {
     ""metadata"": {
         ""annotations"": {
@@ -16,7 +16,7 @@ namespace chaos_watcher
     }
 }";
 
-        private string podChaosResumePatch = @"
+        private string PodChaosResumePatch = @"
 {
     ""metadata"": {
         ""annotations"": {
@@ -25,13 +25,19 @@ namespace chaos_watcher
     }
 }";
 
-        private Kubernetes Client;
-        private GenericClient GenericClient;
+        private V1Patch PodChaosHandledPatchBody;
+        private V1Patch PodChaosResumePatchBody;
 
-        public PodEventHandler(Kubernetes client, GenericClient genericClient)
+        private Kubernetes Client;
+        private GenericChaosClient ChaosClient;
+
+        public PodEventHandler(Kubernetes client, GenericChaosClient chaosClient)
         {
             Client = client;
-            GenericClient = genericClient;
+            ChaosClient = chaosClient;
+
+            // PodChaosHandledPatchBody = new V1Patch(PodChaosHandledPatch, V1Patch.PatchType.MergePatch);
+            // PodChaosResumePatchBody = new V1Patch(PodChaosResumePatchBody, V1Patch.PatchType.MergePatch);
         }
 
         public Watcher<V1Pod> Watch()
@@ -48,8 +54,7 @@ namespace chaos_watcher
 
         private void HandlePodEvent(WatchEventType type, V1Pod pod)
         {
-            var task = ResumeChaos(type, pod);
-            task.ContinueWith(t => {
+            ResumeChaos(type, pod).ContinueWith(t => {
                 if (t.Exception != null) {
                     Log(t.Exception.ToString());
                 }
@@ -64,8 +69,9 @@ namespace chaos_watcher
             }
 
             Log($"Marking pod chaos started for {pod.Namespace()}/{pod.Name()};");
-            var body = new V1Patch(podChaosHandledPatch, V1Patch.PatchType.MergePatch);
-            Client.PatchNamespacedPod(body, pod.Name(), pod.Namespace());
+
+            var podChaosHandledPatchBody = new V1Patch(PodChaosHandledPatch, V1Patch.PatchType.MergePatch);
+            Client.PatchNamespacedPod(podChaosHandledPatchBody, pod.Name(), pod.Namespace());
 
             await StartChaosResources(pod);
         }
@@ -74,17 +80,17 @@ namespace chaos_watcher
         {
             Log($"Resuming chaos for {pod.Namespace()}/{pod.Name()};");
 
-            var body = new V1Patch(podChaosResumePatch, V1Patch.PatchType.MergePatch);
-            var resp = await Client.PatchNamespacedCustomObjectWithHttpMessagesAsync(
-                        body,
-                        "chaos-mesh.org",
-                        "v1alpha1",
-                        pod.Namespace(),
-                        "networkchaos",
-                        "network-example-15");
+            var chaos = await ChaosClient.ListNamespacedAsync(pod.Namespace());
+            foreach (var cr in chaos.Items)
+            {
+                Log($"{cr}");
+            }
+
+            //var resp = await Client.PatchNamespacedCustomObjectWithHttpMessagesAsync(
+            //            PodChaosResumePatchBody, "chaos-mesh.org", "v1alpha1", pod.Namespace(), "networkchaos", "network-example-15");
 
             Log("result");
-            Log(resp.Response.StatusCode.ToString());
+            //Log(resp.Response.StatusCode.ToString());
             Log("fin");
         }
 
