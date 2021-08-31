@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using k8s.Models;
 using k8s;
@@ -36,8 +37,8 @@ namespace chaos_watcher
             Client = client;
             ChaosClient = chaosClient;
 
-            // PodChaosHandledPatchBody = new V1Patch(PodChaosHandledPatch, V1Patch.PatchType.MergePatch);
-            // PodChaosResumePatchBody = new V1Patch(PodChaosResumePatchBody, V1Patch.PatchType.MergePatch);
+            PodChaosHandledPatchBody = new V1Patch(PodChaosHandledPatch, V1Patch.PatchType.MergePatch);
+            PodChaosResumePatchBody = new V1Patch(PodChaosResumePatch, V1Patch.PatchType.MergePatch);
         }
 
         public Watcher<V1Pod> Watch()
@@ -54,8 +55,10 @@ namespace chaos_watcher
 
         private void HandlePodEvent(WatchEventType type, V1Pod pod)
         {
-            ResumeChaos(type, pod).ContinueWith(t => {
-                if (t.Exception != null) {
+            ResumeChaos(type, pod).ContinueWith(t =>
+            {
+                if (t.Exception != null)
+                {
                     Log(t.Exception.ToString());
                 }
             });
@@ -70,8 +73,7 @@ namespace chaos_watcher
 
             Log($"Marking pod chaos started for {pod.Namespace()}/{pod.Name()};");
 
-            var podChaosHandledPatchBody = new V1Patch(PodChaosHandledPatch, V1Patch.PatchType.MergePatch);
-            Client.PatchNamespacedPod(podChaosHandledPatchBody, pod.Name(), pod.Namespace());
+            Client.PatchNamespacedPod(PodChaosHandledPatchBody, pod.Name(), pod.Namespace());
 
             await StartChaosResources(pod);
         }
@@ -81,17 +83,45 @@ namespace chaos_watcher
             Log($"Resuming chaos for {pod.Namespace()}/{pod.Name()};");
 
             var chaos = await ChaosClient.ListNamespacedAsync(pod.Namespace());
+            var tasks = new List<Task>();
             foreach (var cr in chaos.Items)
             {
-                Log($"{cr}");
+                if (!ShouldStartChaos(cr, pod))
+                {
+                    continue;
+                }
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    Log($"Starting {cr.Kind} {cr.Metadata.Name} for pod {pod.Namespace()}/{pod.Name()}");
+                    var resp = await Client.PatchNamespacedCustomObjectWithHttpMessagesAsync(
+                                        PodChaosResumePatchBody,
+                                        ChaosClient.Group,
+                                        ChaosClient.Version,
+                                        pod.Namespace(),
+                                        cr.Kind.ToLower(),
+                                        cr.Metadata.Name);
+                }));
             }
 
-            //var resp = await Client.PatchNamespacedCustomObjectWithHttpMessagesAsync(
-            //            PodChaosResumePatchBody, "chaos-mesh.org", "v1alpha1", pod.Namespace(), "networkchaos", "network-example-15");
+            await Task.WhenAll(tasks);
+        }
 
-            Log("result");
-            //Log(resp.Response.StatusCode.ToString());
-            Log("fin");
+        private bool ShouldStartChaos(GenericChaosResource chaos, V1Pod pod)
+        {
+            if (chaos.Spec.Selector.LabelSelectors.TestInstance != pod.Labels()["testInstance"])
+            {
+                return false;
+            }
+
+            var paused = "";
+            chaos.Metadata.Annotations.TryGetValue("experiment.chaos-mesh.org/pause", out paused);
+            if (paused != "true")
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private bool ShouldStartPodChaos(WatchEventType type, V1Pod pod)
@@ -107,7 +137,7 @@ namespace chaos_watcher
                 return false;
             }
 
-            if (!pod.Metadata.Labels.ContainsKey("testInstance"))
+            if (!pod.Labels().ContainsKey("testInstance"))
             {
                 Log($"Pod {pod.Namespace()}/{pod.Name()} has chaos label but no test-instance label.");
                 return false;
