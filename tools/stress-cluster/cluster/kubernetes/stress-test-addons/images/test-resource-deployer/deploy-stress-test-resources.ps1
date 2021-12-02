@@ -29,6 +29,7 @@ Copy-Item "/mnt/testresources/*" -Destination "/azure/"
     -DeleteAfterHours 168 `
     -ServiceDirectory '/azure/' `
     -CI `
+    -RedactLogs `
     -Force 
 
 #>
