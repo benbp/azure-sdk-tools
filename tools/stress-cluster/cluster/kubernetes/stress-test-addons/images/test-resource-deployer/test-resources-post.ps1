@@ -12,11 +12,13 @@ if ([string]::IsNullOrEmpty($outputFile)) {
 }
 
 $environmentText = ''
+
 try {
     foreach ($line in (Get-Content $outputFile)) {
         $environmentText += ($line + "`n")
     }
 } catch {}
+
 foreach ($entry in $DeploymentOutputs.GetEnumerator()) {
     $environmentText += "$($entry.name)=$($entry.value)`n"
 }

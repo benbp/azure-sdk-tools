@@ -2,7 +2,7 @@
 - name: init-azure-deployer
   # Please use 'testing' for the image repo name when testing
   # e.g. azsdkengsys.azurecr.io/testing/deploy-test-resources
-  image: azsdkengsys.azurecr.io/stress/deploy-test-resources
+  image: azsdkengsys.azurecr.io/bebroder/deploy-test-resources
   command:
     - 'pwsh'
     - '-NonInteractive'
