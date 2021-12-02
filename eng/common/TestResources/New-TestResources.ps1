@@ -875,6 +875,11 @@ The environment file will be named for the test resources template that it was
 generated for. For ARM templates, it will be test-resources.json.env. For
 Bicep templates, test-resources.bicep.env.
 
+.PARAMETER RedactLogs
+By default, the -CI parameter will print out secrets to logs with Azure Pipelines log
+commands that cause them to be redacted. For CI environments that don't support this (like 
+stress test clusters), this flag avoids printing out these secrets to the logs.
+
 .EXAMPLE
 Connect-AzAccount -Subscription 'REPLACE_WITH_SUBSCRIPTION_ID'
 New-TestResources.ps1 keyvault
