@@ -57,7 +57,7 @@ function DeployStressTests(
     [string]$searchDirectory = '.',
     [hashtable]$filters = @{},
     [string]$environment = 'test',
-    [string]$repository = 'images',
+    [string]$repository = '',
     [boolean]$pushImages = $false,
     [string]$clusterGroup = '',
     [string]$deployId = 'local',
@@ -77,6 +77,12 @@ function DeployStressTests(
         }
         $clusterGroup = 'rg-stress-cluster-prod'
         $subscription = 'Azure SDK Test Resources'
+    }
+
+    if (!$repository) {
+        $repository = if ($env:USER) { $env:USER } else { "${env:USERNAME}" }
+        # Remove spaces, etc. that may be in $namespace
+        $repository -replace '\W'
     }
 
     if ($login) {
@@ -135,7 +141,7 @@ function DeployStressPackage(
             # or from suffix, is file is named like `Dockerfile.myimage` (for multiple dockerfiles).
             $prefix, $imageName = $dockerFile.Name.Split(".")
             if (!$imageName) {
-                $imageName = $dockerFile.Directory.Name
+                $imageName = "$($pkg.ReleaseName)/$($pkg.Namespace)"
             }
             $imageTag = "${registryName}.azurecr.io/$($repository.ToLower())/$($imageName):$deployId"
             Write-Host "Building and pushing stress test docker image '$imageTag'"
