@@ -8,8 +8,6 @@
 #Requires -Modules @{ModuleName='Az.Accounts'; ModuleVersion='1.6.4'}
 #Requires -Modules @{ModuleName='Az.Resources'; ModuleVersion='1.8.0'}
 
-#foo
-
 [CmdletBinding(DefaultParameterSetName = 'Default', SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param (
     # Limit $BaseName to enough characters to be under limit plus prefixes, and https://docs.microsoft.com/azure/architecture/best-practices/resource-naming
