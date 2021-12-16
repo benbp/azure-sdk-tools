@@ -523,7 +523,7 @@ try {
     if (!$CI -and !$TestApplicationId) {
         # Cache the created service principal in this session for frequent reuse.
         $servicePrincipal = if ($AzureTestPrincipal -and (Get-AzADServicePrincipal -ApplicationId $AzureTestPrincipal.AppId) -and $AzureTestSubscription -eq $SubscriptionId) {
-            Log "TestApplicationId was not specified; loading cached service principal '$($AzureTestPrincipal.ApplicationId)'"
+            Log "TestApplicationId was not specified; loading cached service principal '$($AzureTestPrincipal.AppId)'"
             $AzureTestPrincipal
         } else {
             Log "TestApplicationId was not specified; creating a new service principal in subscription '$SubscriptionId'"
@@ -537,9 +537,17 @@ try {
                 $displayName = "$($baseName)$suffix.test-resources.azure.sdk"
             }
 
+
             $servicePrincipal = Retry {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
             }
+
+            if ($servicePrincipal.Secret) {
+            }
+            $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
+            $password.DisplayName = "Password for $displayName"
+            $credential = New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal
+
             # Support backwards compatibility with AAD graph service principal objects from Az < 7.0.0
             if (!servicePrincipal.AppId) {
                 $servicePrincipal | Add-Member -MemberType AliasProperty -Name AppId -Value ApplicationId
@@ -548,12 +556,12 @@ try {
             $global:AzureTestPrincipal = $servicePrincipal
             $global:AzureTestSubscription = $SubscriptionId
 
-            Log "Created service principal '$($AzureTestPrincipal.ApplicationId)'"
+            Log "Created service principal '$($AzureTestPrincipal.AppId)'"
             $AzureTestPrincipal
             $resourceGroupRoleAssigned = $true
         }
 
-        $TestApplicationId = $servicePrincipal.ApplicationId
+        $TestApplicationId = $servicePrincipal.AppId
         $TestApplicationOid = $servicePrincipal.Id
         $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipal.Secret -AsPlainText)
     }
