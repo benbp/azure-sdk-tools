@@ -127,6 +127,33 @@ function Retry([scriptblock] $Action, [int] $Attempts = 5)
     }
 }
 
+function NewServicePrincipalWrapper($servicePrincipal)
+{
+    $spPassword = ""
+    if ($servicePrincipal.GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+        # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret # on creation so it must be added separately
+        $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
+        $password.DisplayName = "Password for $displayName"
+        $credential = Retry { New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal }
+        $spPassword = ConvertTo-SecureString $credential.SecretText -AsPlainText -Force
+    } else {
+        # Secret property exists on PSADServicePrincipal type from AAD graph in Az # module versions < 7.0.0
+        $spPassword = $servicePrincipal.Secret
+    }
+
+    # MicrosoftGraphServicePrincipal objects have AppId, AAD graph objects have ApplicationId
+    $appId = $servicePrincipal.AppId ? $servicePrincipal.AppId : $servicePrincipal.ApplicationId
+
+    return @{
+        AppId = $appId
+        ApplicationId = $appId
+        ObjectId = $servicePrincipal.Id
+        DisplayName = $servicePrincipal.DisplayName
+        Secret = $spPassword
+        Inner = $sp
+    }
+}
+
 function LoadCloudConfig([string] $env)
 {
     $configPath = "$PSScriptRoot/clouds/$env.json"
@@ -541,35 +568,19 @@ try {
             $servicePrincipal = Retry {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
             }
+            $servicePrincipalWrapper = NewServicePrincipalWrapper $servicePrincipal
 
-            $TestApplicationSecret = ""
-            if ($servicePrincipal.GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
-                # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret # on creation so it must be added separately
-                $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
-                $password.DisplayName = "Password for $displayName"
-                $credential = New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal
-                $TestApplicationSecret = $credential.SecretText
-            } else {
-                # Secret property exists on PSADServicePrincipal type from AAD graph in Az # module versions < 7.0.0
-                $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipal.Secret -AsPlainText)
-            }
-
-            # Support backwards compatibility with AAD graph service principal objects from Az < 7.0.0
-            if (!servicePrincipal.AppId) {
-                $servicePrincipal | Add-Member -MemberType AliasProperty -Name AppId -Value ApplicationId
-            }
-
-            $global:AzureTestPrincipal = $servicePrincipal
+            $global:AzureTestPrincipal = $servicePrincipalWrapper
             $global:AzureTestSubscription = $SubscriptionId
 
             Log "Created service principal '$($AzureTestPrincipal.AppId)'"
-            $AzureTestPrincipal
+            $servicePrincipal
             $resourceGroupRoleAssigned = $true
         }
 
         $TestApplicationId = $servicePrincipal.AppId
         $TestApplicationOid = $servicePrincipal.Id
-        $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipal.Secret -AsPlainText)
+        $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipalWrapper.Secret -AsPlainText)
     }
 
     # Get test application OID from ID if not already provided. This may fail if the
@@ -601,7 +612,7 @@ try {
     # If the role hasn't been explicitly assigned to the resource group and a cached service principal is in use,
     # query to see if the grant is needed.
     if (!$resourceGroupRoleAssigned -and $AzureTestPrincipal) {
-        $roleAssignment = Get-AzRoleAssignment -ObjectId $AzureTestPrincipal.Id -RoleDefinitionName 'Owner' -ResourceGroupName "$ResourceGroupName" -ErrorAction SilentlyContinue
+        $roleAssignment = Get-AzRoleAssignment -ObjectId $AzureTestPrincipal.ObjectId -RoleDefinitionName 'Owner' -ResourceGroupName "$ResourceGroupName" -ErrorAction SilentlyContinue
         $resourceGroupRoleAssigned = ($roleAssignment.RoleDefinitionName -eq 'Owner')
     }
 
