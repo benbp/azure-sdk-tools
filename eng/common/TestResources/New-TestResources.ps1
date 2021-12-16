@@ -542,6 +542,8 @@ try {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
             }
 
+            # Secret property exists on PSADServicePrincipal type from AAD graph in Az
+            # module versions < 7.0.0
             $spPassword = $servicePrincipal.Secret
 
             # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret
