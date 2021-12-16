@@ -127,16 +127,21 @@ function Retry([scriptblock] $Action, [int] $Attempts = 5)
     }
 }
 
+# NewServicePrincipalWrapper creates an object from an AAD graph or Microsoft Graph service principal object type.
+# This is necessary to work around breaking changes introduced in Az version 7.0.0:
+# https://azure.microsoft.com/en-us/updates/update-your-apps-to-use-microsoft-graph-before-30-june-2022/
 function NewServicePrincipalWrapper($servicePrincipal)
 {
     $spPassword = ""
     if ($servicePrincipal.GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+        Write-Host "NEW MS GRAPH"
         # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret # on creation so it must be added separately
         $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
         $password.DisplayName = "Password for $displayName"
         $credential = Retry { New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal }
         $spPassword = ConvertTo-SecureString $credential.SecretText -AsPlainText -Force
     } else {
+        Write-Host "OLD AAD GRAPH"
         # Secret property exists on PSADServicePrincipal type from AAD graph in Az # module versions < 7.0.0
         $spPassword = $servicePrincipal.Secret
     }
@@ -147,10 +152,10 @@ function NewServicePrincipalWrapper($servicePrincipal)
     return @{
         AppId = $appId
         ApplicationId = $appId
-        ObjectId = $servicePrincipal.Id
+        # This is the ObjectId/OID but most return objects use .Id so keep it consistent to prevent confusion
+        Id = $servicePrincipal.Id
         DisplayName = $servicePrincipal.DisplayName
         Secret = $spPassword
-        Inner = $sp
     }
 }
 
@@ -573,14 +578,14 @@ try {
             $global:AzureTestPrincipal = $servicePrincipalWrapper
             $global:AzureTestSubscription = $SubscriptionId
 
-            Log "Created service principal '$($AzureTestPrincipal.AppId)'"
-            $servicePrincipal
+            Log "Created service principal. AppId: '$($AzureTestPrincipal.AppId)' ObjectId: '$($AzureTestPrincipal.Id)'"
+            $servicePrincipalWrapper
             $resourceGroupRoleAssigned = $true
         }
 
         $TestApplicationId = $servicePrincipal.AppId
         $TestApplicationOid = $servicePrincipal.Id
-        $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipalWrapper.Secret -AsPlainText)
+        $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipal.Secret -AsPlainText)
     }
 
     # Get test application OID from ID if not already provided. This may fail if the
@@ -612,7 +617,7 @@ try {
     # If the role hasn't been explicitly assigned to the resource group and a cached service principal is in use,
     # query to see if the grant is needed.
     if (!$resourceGroupRoleAssigned -and $AzureTestPrincipal) {
-        $roleAssignment = Get-AzRoleAssignment -ObjectId $AzureTestPrincipal.ObjectId -RoleDefinitionName 'Owner' -ResourceGroupName "$ResourceGroupName" -ErrorAction SilentlyContinue
+        $roleAssignment = Get-AzRoleAssignment -ObjectId $AzureTestPrincipal.Id -RoleDefinitionName 'Owner' -ResourceGroupName "$ResourceGroupName" -ErrorAction SilentlyContinue
         $resourceGroupRoleAssigned = ($roleAssignment.RoleDefinitionName -eq 'Owner')
     }
 
