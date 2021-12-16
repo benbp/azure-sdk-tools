@@ -542,11 +542,16 @@ try {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
             }
 
-            if ($servicePrincipal.Secret) {
+            $spPassword = $servicePrincipal.Secret
+
+            # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret
+            # on creation so it must be added separately
+            if ($servicePrincipal.GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+                $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
+                $password.DisplayName = "Password for $displayName"
+                $credential = New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal
+                $spPassword = $credential.SecretText
             }
-            $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
-            $password.DisplayName = "Password for $displayName"
-            $credential = New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal
 
             # Support backwards compatibility with AAD graph service principal objects from Az < 7.0.0
             if (!servicePrincipal.AppId) {
