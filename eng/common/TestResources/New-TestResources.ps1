@@ -522,7 +522,7 @@ try {
     # If no test application ID was specified during an interactive session, create a new service principal.
     if (!$CI -and !$TestApplicationId) {
         # Cache the created service principal in this session for frequent reuse.
-        $servicePrincipal = if ($AzureTestPrincipal -and (Get-AzADServicePrincipal -ApplicationId $AzureTestPrincipal.ApplicationId) -and $AzureTestSubscription -eq $SubscriptionId) {
+        $servicePrincipal = if ($AzureTestPrincipal -and (Get-AzADServicePrincipal -ApplicationId $AzureTestPrincipal.AppId) -and $AzureTestSubscription -eq $SubscriptionId) {
             Log "TestApplicationId was not specified; loading cached service principal '$($AzureTestPrincipal.ApplicationId)'"
             $AzureTestPrincipal
         } else {
@@ -539,6 +539,10 @@ try {
 
             $servicePrincipal = Retry {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
+            }
+            # Support backwards compatibility with AAD graph service principal objects from Az < 7.0.0
+            if (!servicePrincipal.AppId) {
+                $servicePrincipal | Add-Member -MemberType AliasProperty -Name AppId -Value ApplicationId
             }
 
             $global:AzureTestPrincipal = $servicePrincipal
