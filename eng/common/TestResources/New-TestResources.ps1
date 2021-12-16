@@ -542,17 +542,16 @@ try {
                 New-AzADServicePrincipal -Role "Owner" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" -DisplayName $displayName
             }
 
-            # Secret property exists on PSADServicePrincipal type from AAD graph in Az
-            # module versions < 7.0.0
-            $spPassword = $servicePrincipal.Secret
-
-            # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret
-            # on creation so it must be added separately
+            $TestApplicationSecret = ""
             if ($servicePrincipal.GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+                # Microsoft graph objects (Az version >= 7.0.0) do not provision a secret # on creation so it must be added separately
                 $password = New-Object -TypeName "Microsoft.Azure.PowerShell.Cmdlets.Resources.MSGraph.Models.ApiV10.MicrosoftGraphPasswordCredential"
                 $password.DisplayName = "Password for $displayName"
                 $credential = New-AzADSpCredential -PasswordCredentials $password -ServicePrincipalObject $servicePrincipal
-                $spPassword = $credential.SecretText
+                $TestApplicationSecret = $credential.SecretText
+            } else {
+                # Secret property exists on PSADServicePrincipal type from AAD graph in Az # module versions < 7.0.0
+                $TestApplicationSecret = (ConvertFrom-SecureString $servicePrincipal.Secret -AsPlainText)
             }
 
             # Support backwards compatibility with AAD graph service principal objects from Az < 7.0.0
@@ -905,7 +904,7 @@ Bicep templates, test-resources.bicep.env.
 
 .PARAMETER SuppressVsoCommands
 By default, the -CI parameter will print out secrets to logs with Azure Pipelines log
-commands that cause them to be redacted. For CI environments that don't support this (like 
+commands that cause them to be redacted. For CI environments that don't support this (like
 stress test clusters), this flag can be set to $false to avoid printing out these secrets to the logs.
 
 .EXAMPLE
