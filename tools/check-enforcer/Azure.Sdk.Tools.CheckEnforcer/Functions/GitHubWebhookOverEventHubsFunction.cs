@@ -19,14 +19,14 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
 {
     public class GitHubWebhookOverEventHubsFunction
     {
-        public GitHubWebhookOverEventHubsFunction(GitHubWebhookProcessor processor, SecretClient secretClient)
+        public GitHubWebhookOverEventHubsFunction(GitHubWebhookProcessor processor)// , SecretClient secretClient)
         {
             this.processor = processor;
-            this.secretClient = secretClient;
+            // this.secretClient = secretClient;
         }
 
         private GitHubWebhookProcessor processor;
-        private SecretClient secretClient;
+        // private SecretClient secretClient;
 
         [FunctionName("webhook-eventhubs")]
         public async Task Run(
@@ -62,8 +62,8 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
                 {
                     if (gitHubAppWebhookSecret == null)
                     {
-                        KeyVaultSecret secret = secretClient.GetSecret(GitHubWebhookSecretName);
-                        gitHubAppWebhookSecret = secret.Value;
+                        // KeyVaultSecret secret = secretClient.GetSecret(GitHubWebhookSecretName);
+                        // gitHubAppWebhookSecret = secret.Value;
                     }
                 }
             }
@@ -73,13 +73,13 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
 
         private string ReadAndVerifyContent(byte[] contentBytes, string signature)
         {
-            var secret = GetGitHubAppWebhookSecret();
-            var isValid = GitHubWebhookSignatureValidator.IsValid(contentBytes, signature, secret);
+            // var secret = GetGitHubAppWebhookSecret();
+            // var isValid = GitHubWebhookSignatureValidator.IsValid(contentBytes, signature, secret);
 
-            if (!isValid)
-            {
-                throw new CheckEnforcerSecurityException("Webhook signature validation failed.");
-            }
+            // if (!isValid)
+            // {
+            //     throw new CheckEnforcerSecurityException("Webhook signature validation failed.");
+            // }
 
             var content = Encoding.UTF8.GetString(contentBytes);
             return content;
@@ -87,13 +87,19 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
 
         private string GetEventName(JsonDocument message)
         {
-            return message
-                .RootElement
-                .GetProperty("headers")
-                .GetProperty("X-GitHub-Event")
-                .EnumerateArray()
-                .Single()
-                .ToString();
+            //var hval = message.RootElement.GetProperty("headers").GetProperty("X-Github-Event");
+            //var headers = message.RootElement.GetProperty("headers");
+            //var enu = message.RootElement.GetProperty("headers").GetProperty("X-Github-Event").EnumerateArray();
+            //var sing = message.RootElement.GetProperty("headers").GetProperty("X-Github-Event").EnumerateArray().Single();
+            var st = message.RootElement.GetProperty("headers").GetProperty("X-Github-Event").EnumerateArray().Single().ToString();
+            return st;
+            //return message
+            //    .RootElement
+            //    .GetProperty("headers")
+            //    .GetProperty("X-GitHub-Event")
+            //    .EnumerateArray()
+            //    .Single()
+            //    .ToString();
         }
 
         private string GetEventSignature(JsonDocument message)
@@ -110,9 +116,10 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
         private JsonDocument GetMessage(EventData eventData)
         {
             // string messageBody = Encoding.UTF8.GetString(eventData.Body.Array, eventData.Body.Offset, eventData.Body.Count);
-            // var message = JsonDocument.Parse(messageBody);
-            // return message;
-            var message = JsonDocument.Parse("{\"foo\": \"bar\"}");
+            byte[] body = eventData.EventBody.ToArray();
+            string messageBody = Encoding.UTF8.GetString(body);
+            var message = JsonDocument.Parse(messageBody);
+            // var message = JsonDocument.Parse("{\"foo\": \"bar\"}");
             return message;
         }
     }
