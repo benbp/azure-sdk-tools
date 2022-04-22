@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Sdk.Tools.CheckEnforcer.Integrations.GitHub;
 using Azure.Security.KeyVault.Secrets;
-using Microsoft.Azure.EventHubs;
+using Azure.Messaging.EventHubs;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
@@ -29,9 +29,13 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
         private SecretClient secretClient;
 
         [FunctionName("webhook-eventhubs")]
-        public async Task Run([EventHubTrigger("github-webhooks", Connection = "CheckEnforcerEventHubConnectionString")] EventData eventData, ILogger log, CancellationToken cancellationToken)
-        {
-            var processingDelay = DateTimeOffset.UtcNow - eventData.SystemProperties.EnqueuedTimeUtc;
+        public async Task Run(
+            [EventHubTrigger("github-webhooks", Connection = "CheckEnforcerEventHubConnectionString")] EventData eventData,
+            DateTime enqueuedTimeUtc,
+            ILogger log,
+            CancellationToken cancellationToken
+        ) {
+            var processingDelay = DateTimeOffset.UtcNow - enqueuedTimeUtc;
             log.LogInformation("Webhook event processing delay is: {seconds} (seconds)", processingDelay.TotalSeconds);
 
             var message = GetMessage(eventData);
@@ -71,7 +75,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
         {
             var secret = GetGitHubAppWebhookSecret();
             var isValid = GitHubWebhookSignatureValidator.IsValid(contentBytes, signature, secret);
-                 
+
             if (!isValid)
             {
                 throw new CheckEnforcerSecurityException("Webhook signature validation failed.");
@@ -105,8 +109,10 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
 
         private JsonDocument GetMessage(EventData eventData)
         {
-            string messageBody = Encoding.UTF8.GetString(eventData.Body.Array, eventData.Body.Offset, eventData.Body.Count);
-            var message = JsonDocument.Parse(messageBody);
+            // string messageBody = Encoding.UTF8.GetString(eventData.Body.Array, eventData.Body.Offset, eventData.Body.Count);
+            // var message = JsonDocument.Parse(messageBody);
+            // return message;
+            var message = JsonDocument.Parse("{\"foo\": \"bar\"}");
             return message;
         }
     }

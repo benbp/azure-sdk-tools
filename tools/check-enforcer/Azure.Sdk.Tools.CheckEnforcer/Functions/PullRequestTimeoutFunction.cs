@@ -30,7 +30,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
         private IRepositoryConfigurationProvider repositoryConfigurationProvider;
         private IGlobalConfigurationProvider globalConfigurationProvider;
 
-        [FunctionName("PullRequestTimeoutFunction")]
+        // [FunctionName("PullRequestTimeoutFunction")]
         public async Task Run([TimerTrigger("*/30 * * * * *")]TimerInfo myTimer, ILogger log, CancellationToken cancellationToken)
         {
             log.LogInformation("Fetching tracked pull request tickets.");
@@ -91,7 +91,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
                         pullRequestTrackingTicket.InstallationId
                         );
                     await pullRequestTracker.StopTrackingPullRequestAsync(pullRequestTrackingTicket);
-                    continue;    
+                    continue;
                 }
                 else if (DateTimeOffset.UtcNow < pullRequest.UpdatedAt.AddMinutes(configuration.TimeoutInMinutes))
                 {
@@ -107,7 +107,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Functions
                 {
                     await limiter.WaitForGitHubCapacityAsync();
                     var checkRunRepsonse = await gitHubClient.Check.Run.GetAllForReference(pullRequestTrackingTicket.RepositoryId, sha);
-                    
+
                     if (checkRunRepsonse.TotalCount > 0 && checkRunRepsonse.CheckRuns.All((checkRun) => checkRun.Name == globalConfigurationProvider.GetApplicationName()))
                     {
                         log.LogInformation(
