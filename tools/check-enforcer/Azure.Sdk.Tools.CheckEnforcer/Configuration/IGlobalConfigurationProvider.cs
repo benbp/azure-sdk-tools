@@ -6,6 +6,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer.Configuration
 {
     public interface IGlobalConfigurationProvider
     {
+        string GetApplicationMode();
         string GetApplicationID();
         string GetApplicationName();
         int GetMaxRequestsPerPeriod();

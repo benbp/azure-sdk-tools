@@ -99,10 +99,11 @@ namespace Azure.Sdk.Tools.CheckEnforcer
         {
             var token = await GetTokenAsync(cancellationToken);
 
-            var appClient = new GitHubClient(new ProductHeaderValue(globalConfigurationProvider.GetApplicationName()))
-            {
-                Credentials = new Credentials(token, AuthenticationType.Bearer)
-            };
+            var appClient = OctokitGitHubClientFactory.GetGitHubClient(
+                globalConfigurationProvider,
+                new ProductHeaderValue(globalConfigurationProvider.GetApplicationName()),
+                new Credentials(token, AuthenticationType.Bearer)
+            );
 
             return appClient;
         }
@@ -127,10 +128,12 @@ namespace Azure.Sdk.Tools.CheckEnforcer
         public async Task<GitHubClient> GetInstallationClientAsync(long installationId, CancellationToken cancellationToken)
         {
             var installationToken = await GetInstallationTokenAsync(installationId, cancellationToken);
-            var installationClient = new GitHubClient(new ProductHeaderValue($"{globalConfigurationProvider.GetApplicationName()}-{installationId}"))
-            {
-                Credentials = new Credentials(installationToken)
-            };
+            var installationClient = OctokitGitHubClientFactory.GetGitHubClient(
+                globalConfigurationProvider,
+                new ProductHeaderValue($"{globalConfigurationProvider.GetApplicationName()}-{installationId}"),
+                new Credentials(installationToken)
+            );
+
 
             return installationClient;
         }

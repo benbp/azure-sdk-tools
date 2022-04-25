@@ -19,6 +19,19 @@ namespace Azure.Sdk.Tools.CheckEnforcer
         private object applicationIDLock = new object();
         private string applicationID;
 
+        public string GetApplicationMode()
+        {
+            var mode = Environment.GetEnvironmentVariable("CHECK_ENFORCER_MODE")?.ToLower();
+            if (string.IsNullOrEmpty(mode)) {
+                return "external";
+            }
+            if (mode != "external" || mode != "local")
+            {
+                throw new CheckEnforcerConfigurationException($"Unsupported CHECK_ENFORCER_MODE '{mode}'");
+            }
+            return mode;
+        }
+
         public string GetApplicationID()
         {
             if (applicationID == null)
