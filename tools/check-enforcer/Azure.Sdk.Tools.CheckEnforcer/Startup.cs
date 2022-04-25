@@ -9,6 +9,7 @@ using Azure.Security.KeyVault.Keys;
 using Azure.Security.KeyVault.Keys.Cryptography;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
 using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -50,7 +51,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer
             });
 
             // builder.Services.AddSingleton<IPullRequestTracker, PullRequestTracker>();
-            // builder.Services.AddSingleton<GitHubRateLimiter>();
+            builder.Services.AddSingleton<GitHubRateLimiter>();
             builder.Services.AddSingleton<IGlobalConfigurationProvider, GlobalConfigurationProvider>();
             builder.Services.AddSingleton<IGitHubClientProvider, GitHubClientProvider>();
             builder.Services.AddSingleton<IRepositoryConfigurationProvider, RepositoryConfigurationProvider>();

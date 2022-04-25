@@ -97,7 +97,8 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 
         public async Task<GitHubClient> GetApplicationClientAsync(CancellationToken cancellationToken)
         {
-            var token = await GetTokenAsync(cancellationToken);
+            var mode = globalConfigurationProvider.GetApplicationMode();
+            var token = mode == "local" ? "local" : await GetTokenAsync(cancellationToken);
 
             var appClient = OctokitGitHubClientFactory.GetGitHubClient(
                 globalConfigurationProvider,

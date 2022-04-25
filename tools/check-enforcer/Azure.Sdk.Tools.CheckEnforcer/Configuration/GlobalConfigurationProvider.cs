@@ -1,6 +1,7 @@
 ﻿using Azure.Data.AppConfiguration;
 using Azure.Sdk.Tools.CheckEnforcer.Configuration;
 using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,11 +10,11 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 {
     public class GlobalConfigurationProvider : IGlobalConfigurationProvider
     {
-        private ConfigurationClient configurationClient;
+        private ConfigurationClient appConfig;
 
-        public GlobalConfigurationProvider(ConfigurationClient configurationClient)
+        public GlobalConfigurationProvider(ConfigurationClient appConfig)
         {
-            this.configurationClient = configurationClient;
+            this.appConfig = appConfig;
         }
 
         private object applicationIDLock = new object();
@@ -25,7 +26,7 @@ namespace Azure.Sdk.Tools.CheckEnforcer
             if (string.IsNullOrEmpty(mode)) {
                 return "external";
             }
-            if (mode != "external" || mode != "local")
+            if (mode != "external" && mode != "local")
             {
                 throw new CheckEnforcerConfigurationException($"Unsupported CHECK_ENFORCER_MODE '{mode}'");
             }
@@ -34,13 +35,18 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 
         public string GetApplicationID()
         {
+            if (appConfig == null)
+            {
+                return "local";
+            }
+
             if (applicationID == null)
             {
                 lock(applicationIDLock)
                 {
                     if (applicationID == null)
                     {
-                        ConfigurationSetting applicationIDSetting = configurationClient.GetConfigurationSetting(
+                        ConfigurationSetting applicationIDSetting = appConfig.GetConfigurationSetting(
                             "checkenforcer/github-app-id"
                             );
                         applicationID = applicationIDSetting.Value;
@@ -56,13 +62,18 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 
         public string GetApplicationName()
         {
+            if (appConfig == null)
+            {
+                return "local";
+            }
+
             if (applicationName == null)
             {
                 lock (applicationNameLock)
                 {
                     if (applicationName == null)
                     {
-                        ConfigurationSetting applicationNameSetting = configurationClient.GetConfigurationSetting(
+                        ConfigurationSetting applicationNameSetting = appConfig.GetConfigurationSetting(
                             "checkenforcer/check-name"
                             );
                         applicationName = applicationNameSetting.Value;
@@ -78,13 +89,18 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 
         public int GetMaxRequestsPerPeriod()
         {
+            if (appConfig == null)
+            {
+                return 1;
+            }
+
             if (maxRequestsPerPeriod == -1)
             {
                 lock (maxRequestsPerPeriodLock)
                 {
                     if (maxRequestsPerPeriod == -1)
                     {
-                        ConfigurationSetting applicationNameSetting = configurationClient.GetConfigurationSetting(
+                        ConfigurationSetting applicationNameSetting = appConfig.GetConfigurationSetting(
                             "checkenforcer/max-requests-per-period"
                             );
                         maxRequestsPerPeriod = int.Parse(applicationNameSetting.Value);
@@ -100,13 +116,18 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 
         public int GetPeriodDurationInSeconds()
         {
+            if (appConfig == null)
+            {
+                return 1;
+            }
+
             if (periodDurationInSeconds == -1)
             {
                 lock (periodDurationInSecondsLock)
                 {
                     if (periodDurationInSeconds == -1)
                     {
-                        ConfigurationSetting applicationNameSetting = configurationClient.GetConfigurationSetting(
+                        ConfigurationSetting applicationNameSetting = appConfig.GetConfigurationSetting(
                             "checkenforcer/period-duration-in-seconds"
                             );
                         periodDurationInSeconds = int.Parse(applicationNameSetting.Value);
