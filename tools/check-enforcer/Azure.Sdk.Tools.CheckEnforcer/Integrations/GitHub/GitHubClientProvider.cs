@@ -5,6 +5,7 @@ using Azure.Sdk.Tools.CheckEnforcer.Integrations.GitHub;
 using Azure.Security.KeyVault.Keys;
 using Azure.Security.KeyVault.Keys.Cryptography;
 using Azure.Security.KeyVault.Secrets;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
@@ -20,16 +21,18 @@ namespace Azure.Sdk.Tools.CheckEnforcer
 {
     public class GitHubClientProvider : IGitHubClientProvider
     {
-        public GitHubClientProvider(IGlobalConfigurationProvider globalConfigurationProvider, IMemoryCache cache, CryptographyClient cryptographyClient, GitHubRateLimiter limiter)
+        public GitHubClientProvider(IGlobalConfigurationProvider globalConfigurationProvider, IMemoryCache cache, CryptographyClient cryptographyClient, GitHubRateLimiter limiter, ILogger log)
         {
             this.globalConfigurationProvider = globalConfigurationProvider;
             this.cache = cache;
             this.cryptographyClient = cryptographyClient;
             this.limiter = limiter;
+            this.log = log;
         }
 
         private IGlobalConfigurationProvider globalConfigurationProvider;
         private IMemoryCache cache;
+        private ILogger log;
 
         private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
         {
@@ -103,7 +106,8 @@ namespace Azure.Sdk.Tools.CheckEnforcer
             var appClient = OctokitGitHubClientFactory.GetGitHubClient(
                 globalConfigurationProvider,
                 new ProductHeaderValue(globalConfigurationProvider.GetApplicationName()),
-                new Credentials(token, AuthenticationType.Bearer)
+                new Credentials(token, AuthenticationType.Bearer),
+                log
             );
 
             return appClient;
@@ -132,7 +136,8 @@ namespace Azure.Sdk.Tools.CheckEnforcer
             var installationClient = OctokitGitHubClientFactory.GetGitHubClient(
                 globalConfigurationProvider,
                 new ProductHeaderValue($"{globalConfigurationProvider.GetApplicationName()}-{installationId}"),
-                new Credentials(installationToken)
+                new Credentials(installationToken),
+                log
             );
 
 
