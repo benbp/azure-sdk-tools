@@ -19,6 +19,9 @@ jobs:
       - name: Pull Request Number
         run: echo ${{ github.event.check_run.check_suite.pull_requests[0].number }}
 
+      - name: Pull Request Event
+        run: echo ${{ github.event }}
+
       - name: Run a multi-line script
         run: |
           echo Add other actions to build,
