@@ -1,0 +1,27 @@
+name: Issue Comment Action
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  issue-comment:
+    name: Evaluate Issue Comment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run
+        env:
+          GITHUB_PAYLOAD: ${{ toJson(github.event) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Sparse checkout azure-sdk-tools..."
+          git clone --no-checkout --filter=tree:0 https://github.com/benbp/azure-sdk-tools .
+          git sparse-checkout init
+          git sparse-checkout set '/.github/*' '/tools/check-enforcer-action'
+          git checkout
+
+          echo "Handle webhook event..."
+          cd ./tools/check-enforcer-action
+          echo "$GITHUB_PAYLOAD" > ./github_payload.json
+          go run . ./github_payload.json
