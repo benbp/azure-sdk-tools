@@ -1,0 +1,16 @@
+name: 'Check Enforcer Create'
+description: 'Sets check enforcer status to pending on PR open/update'
+  #inputs:
+  #  who-to-greet:  # id of input
+  #    description: 'Who to greet'
+  #    required: true
+  #    default: 'World'
+  #outputs:
+  #  random-number:
+  #    description: "Random number"
+  #    value: ${{ steps.random-number-generator.outputs.random-id }}
+runs:
+  using: "composite"
+  steps:
+    - run: tools/check-enforcer-action/create.sh
+      shell: bash
