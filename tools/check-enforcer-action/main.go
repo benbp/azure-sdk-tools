@@ -10,6 +10,24 @@ import (
 const GithubTokenKey = "GITHUB_TOKEN"
 const CommitStatusContext = "azsdk/check-enforcer-action"
 
+var pendingBody = StatusBody{
+	State:       CommitStatePending,
+	Description: "Waiting for all checks to complete",
+	Context:     CommitStatusContext,
+}
+
+var succeededBody = StatusBody{
+	State:       CommitStateSuccess,
+	Description: "All checks passed",
+	Context:     CommitStatusContext,
+}
+
+var failedBody = StatusBody{
+	State:       CommitStateFailure,
+	Description: "Some checks failed",
+	Context:     CommitStatusContext,
+}
+
 func main() {
 	if len(os.Args) <= 1 {
 		help()
@@ -28,19 +46,29 @@ func main() {
 	gh, err := NewGithubClient("https://api.github.com", github_token)
 	handleError(err)
 
+	err = handleEvent(gh, payload)
+	handleError(err)
+}
+
+func handleEvent(gh *GithubClient, payload []byte) error {
+	// fmt.Println("Handling Event. Payload:")
+	// fmt.Println(string(payload))
+
 	if pr := NewPullRequestWebhook(payload); pr != nil {
+		fmt.Println("Handling pull request event.")
 		err := create(gh, pr)
 		handleError(err)
-		return
+		return nil
 	}
 
 	if cs := NewCheckSuiteWebhook(payload); cs != nil {
+		fmt.Println("Handling check suite event.")
 		err := complete(gh, cs)
 		handleError(err)
-		return
+		return nil
 	}
 
-	handleError(errors.New("Error: Invalid or unsupported payload body."))
+	return errors.New("Error: Invalid or unsupported payload body.")
 }
 
 func handleError(err error) {
@@ -51,16 +79,22 @@ func handleError(err error) {
 }
 
 func create(gh *GithubClient, pr *PullRequestWebhook) error {
-	body := StatusBody{
-		State:       CommitStatePending,
-		Description: "Waiting for all checks to complete",
-		Context:     CommitStatusContext,
-	}
-	return gh.SetStatus(pr.PullRequest.StatusesUrl, pr.PullRequest.Head.Sha, body)
+	return gh.SetStatus(pr.GetStatusesUrl(), pr.PullRequest.Head.Sha, pendingBody)
 }
 
 func complete(gh *GithubClient, cs *CheckSuiteWebhook) error {
-	return nil
+	fmt.Println("stat")
+	fmt.Println(cs.GetStatusesUrl())
+	fmt.Println("stat")
+	if cs.IsSucceeded() {
+		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, succeededBody)
+	}
+	if cs.IsFailed() {
+		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, failedBody)
+	}
+	// This is redundant as the status is already set on pull request open, but it can't hurt in case we have
+	// failed to handle previous events due to dropped webhooks or API/runner failures.
+	return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, pendingBody)
 }
 
 func help() {

@@ -10,21 +10,6 @@ import (
 	"net/url"
 )
 
-const (
-	CommitStatePending CommitState = "pending"
-	CommitStateSuccess CommitState = "success"
-	CommitStateFailure             = "failure"
-	CommitStateError               = "error"
-)
-
-type CommitState string
-
-type StatusBody struct {
-	State       CommitState `json:"state"`
-	Description string      `json:"description"`
-	Context     string      `json:"context"`
-}
-
 type GithubClient struct {
 	client  *http.Client
 	token   string
@@ -86,13 +71,14 @@ func (gh *GithubClient) SetStatus(statusUrl string, commit string, status Status
 	}
 
 	defer resp.Body.Close()
-	fmt.Println("Received", resp.Status)
-	fmt.Println("Response:")
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(fmt.Sprintf("%s", data))
+	// fmt.Println("Received", resp.Status)
+	// fmt.Println("Response:")
+	// data, err := io.ReadAll(resp.Body)
+	io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println(fmt.Sprintf("%s", data))
 
 	if resp.StatusCode >= 400 {
 		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
