@@ -15,7 +15,13 @@ jobs:
 
     steps:
       - name: Sparse Checkout Tools
+        env:
+          GH_PAYLOAD: ${{ toJson(github.event) }}
         run: |
+          echo "bbp"
+          ls -R
+          echo "bbp2"
+
           git clone --no-checkout --filter=tree:0 https://github.com/benbp/azure-sdk-tools .
           git sparse-checkout init
           git sparse-checkout set '/.github/*' '/tools/check-enforcer-action'
@@ -24,5 +30,5 @@ jobs:
           ls -R
 
           cd ./tools/check-enforcer-action
-          echo ${{ toJson(github.event) }} > ./gh_payload.json
+          echo "$GH_PAYLOAD" > ./gh_payload.json
           go run . ./gh_payload.json
