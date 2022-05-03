@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -14,9 +13,8 @@ func TestCreate(t *testing.T) {
 	assert.NoError(t, err)
 	response, err := ioutil.ReadFile("./testpayloads/status_response_gh.json")
 	assert.NoError(t, err)
-	var pr PullRequestWebhook
-	err = json.Unmarshal([]byte(payload), &pr)
-	assert.NoError(t, err)
+	pr := NewPullRequestWebhook(payload)
+	assert.NotNil(t, pr)
 	assert.NotEmpty(t, pr.PullRequest.Head.Sha)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,6 +26,6 @@ func TestCreate(t *testing.T) {
 	gh, err := NewGithubClient(server.URL, "")
 	assert.NoError(t, err)
 
-	err = create(gh, string(payload))
+	err = create(gh, pr)
 	assert.NoError(t, err)
 }

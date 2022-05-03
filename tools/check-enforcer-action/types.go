@@ -1,5 +1,9 @@
 package main
 
+import (
+	"encoding/json"
+)
+
 type PullRequestWebhook struct {
 	Action      string      `json:"action"`
 	Number      int         `json:"number"`
@@ -34,4 +38,20 @@ type CheckSuiteWebhook struct {
 }
 
 type IssueCommentWebhook struct {
+}
+
+func NewPullRequestWebhook(payload []byte) *PullRequestWebhook {
+	var pr PullRequestWebhook
+	if err := json.Unmarshal(payload, &pr); err != nil {
+		return nil
+	}
+	return &pr
+}
+
+func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {
+	var cs CheckSuiteWebhook
+	if err := json.Unmarshal(payload, &cs); err != nil {
+		return nil
+	}
+	return &cs
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,14 +11,12 @@ const GithubTokenKey = "GITHUB_TOKEN"
 const CommitStatusContext = "azsdk/check-enforcer-action"
 
 func main() {
-	if len(os.Args) <= 2 {
+	if len(os.Args) <= 1 {
 		help()
 		os.Exit(1)
 	}
 
-	cmd := os.Args[1]
-	payloadPath := os.Args[2]
-
+	payloadPath := os.Args[1]
 	payload, err := ioutil.ReadFile(payloadPath)
 	handleError(err)
 
@@ -30,20 +28,19 @@ func main() {
 	gh, err := NewGithubClient("https://api.github.com", github_token)
 	handleError(err)
 
-	if cmd == "create" {
-		create(gh, string(payload))
+	if pr := NewPullRequestWebhook(payload); pr != nil {
+		create(gh, pr)
 		handleError(err)
 		return
 	}
 
-	if cmd == "complete" {
-		err := complete(gh, string(payload))
+	if cs := NewCheckSuiteWebhook(payload); cs != nil {
+		complete(gh, cs)
 		handleError(err)
 		return
 	}
 
-	help()
-	os.Exit(1)
+	handleError(errors.New("Error: Invalid or unsupported payload body."))
 }
 
 func handleError(err error) {
@@ -53,13 +50,7 @@ func handleError(err error) {
 	}
 }
 
-func create(gh *GithubClient, payload string) error {
-	var pr PullRequestWebhook
-	err := json.Unmarshal([]byte(payload), &pr)
-	if err != nil {
-		fmt.Println("Error deserializing pull request payload:")
-		return err
-	}
+func create(gh *GithubClient, pr *PullRequestWebhook) error {
 	body := StatusBody{
 		State:       CommitStatePending,
 		Description: "Waiting for all checks to complete",
@@ -68,7 +59,7 @@ func create(gh *GithubClient, payload string) error {
 	return gh.SetStatus(pr.PullRequest.StatusesUrl, pr.PullRequest.Head.Sha, body)
 }
 
-func complete(gh *GithubClient, payload string) error {
+func complete(gh *GithubClient, cs *CheckSuiteWebhook) error {
 	return nil
 }
 
@@ -76,15 +67,15 @@ func help() {
 	help := `Update pull request status checks based on github webhook events.
 
 USAGE
-  go run main.go [create|complete] <payload json file>
+  go run main.go <payload json file>
 
-COMMANDS
+BEHAVIORS
   create:
     Creates or sets a new status for a commit to state 'pending'
-    Expects payload: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request
+    Handles payload type: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request
   complete:
     Sets the check enforcer status for a commit to the value of the check_suite status
-    Expects payload: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#check_suite`
+    Handles payload type: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#check_suite`
 
 	fmt.Println(help)
 }

@@ -1,4 +1,4 @@
-name: Complete Check Enforcer
+name: Check Enforcer
 
 on:
   check_suite:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   check-enforcer:
-    name: Check Enforcer
+    name: Handle Pull Request
     runs-on: ubuntu-latest
 
     steps:
@@ -21,8 +21,8 @@ jobs:
           git sparse-checkout set '/.github/*' '/tools/check-enforcer-action'
           git checkout main
 
-      - uses: ./.github/actions/check-enforcer-create
-        if: ${{ github.event.pull_request }}
+          ls -R
 
-      - uses: ./.github/actions/check-enforcer-complete
-        if: ${{ github.event.check_suite }}
+          cd ./tools/check-enforcer-action
+          echo ${{ toJson(github.event) }} > ./gh_payload.json
+          go run . ./gh_payload.json
