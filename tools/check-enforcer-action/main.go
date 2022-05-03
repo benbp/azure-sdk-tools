@@ -29,13 +29,13 @@ func main() {
 	handleError(err)
 
 	if pr := NewPullRequestWebhook(payload); pr != nil {
-		create(gh, pr)
+		err := create(gh, pr)
 		handleError(err)
 		return
 	}
 
 	if cs := NewCheckSuiteWebhook(payload); cs != nil {
-		complete(gh, cs)
+		err := complete(gh, cs)
 		handleError(err)
 		return
 	}
