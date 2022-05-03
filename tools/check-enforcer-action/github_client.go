@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -92,6 +93,10 @@ func (gh *GithubClient) SetStatus(statusUrl string, commit string, status Status
 		return err
 	}
 	fmt.Println(fmt.Sprintf("%s", data))
+
+	if resp.StatusCode >= 400 {
+		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
+	}
 
 	return nil
 }
