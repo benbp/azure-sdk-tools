@@ -10,20 +10,19 @@ on:
 
 jobs:
   check-enforcer:
-    name: Check Enforcer Complete
+    name: Check Enforcer
     runs-on: ubuntu-latest
 
     steps:
       - name: Sparse Checkout Tools
         run: |
-          mkdir azure-sdk-tools && cd azure-sdk-tools
-          git clone --no-checkout --filter=tree:0 https://github.com/Azure/azure-sdk-tools .
+          git clone --no-checkout --filter=tree:0 https://github.com/benbp/azure-sdk-tools .
           git sparse-checkout init
           git sparse-checkout set '/.github/*' '/tools/check-enforcer-action'
           git checkout main
 
-      - uses: ./azure-sdk-tools/.github/actions/check-enforcer-create
+      - uses: ./.github/actions/check-enforcer-create
         if: ${{ github.event.pull_request }}
 
-      - uses: ./azure-sdk-tools/.github/actions/check-enforcer-complete
+      - uses: ./.github/actions/check-enforcer-complete
         if: ${{ github.event.check_suite }}
