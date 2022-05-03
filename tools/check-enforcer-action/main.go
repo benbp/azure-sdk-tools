@@ -1,9 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
+
+const GithubTokenKey = "GITHUB_TOKEN"
+const CommitStatusContext = "azsdk/check-enforcer-action"
 
 func main() {
 	if len(os.Args) <= 2 {
@@ -12,21 +17,28 @@ func main() {
 	}
 
 	cmd := os.Args[1]
-	payload := os.Args[2]
+	payloadPath := os.Args[2]
+
+	payload, err := ioutil.ReadFile(payloadPath)
+	handleError(err)
+
+	github_token := os.Getenv(GithubTokenKey)
+	if github_token == "" {
+		fmt.Println(fmt.Sprintf("WARNING: environment variable '%s' is not set", GithubTokenKey))
+	}
+
+	gh, err := NewGithubClient("https://api.github.com", github_token)
+	handleError(err)
 
 	if cmd == "create" {
-		if err := create(payload); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		create(gh, string(payload))
+		handleError(err)
 		return
 	}
 
 	if cmd == "complete" {
-		if err := complete(payload); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err := complete(gh, string(payload))
+		handleError(err)
 		return
 	}
 
@@ -34,11 +46,29 @@ func main() {
 	os.Exit(1)
 }
 
-func create(payload string) error {
-	return nil
+func handleError(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
-func complete(payload string) error {
+func create(gh *GithubClient, payload string) error {
+	var pr PullRequestWebhook
+	err := json.Unmarshal([]byte(payload), &pr)
+	if err != nil {
+		fmt.Println("Error deserializing pull request payload:")
+		return err
+	}
+	body := StatusBody{
+		State:       CommitStatePending,
+		Description: "Waiting for all checks to complete",
+		Context:     CommitStatusContext,
+	}
+	return gh.SetStatus(pr.PullRequest.StatusesUrl, pr.PullRequest.Head.Sha, body)
+}
+
+func complete(gh *GithubClient, payload string) error {
 	return nil
 }
 
@@ -46,7 +76,7 @@ func help() {
 	help := `Update pull request status checks based on github webhook events.
 
 USAGE
-  go run main.go [create|complete] <payload>
+  go run main.go [create|complete] <payload json file>
 
 COMMANDS
   create:

@@ -7,13 +7,14 @@ type PullRequestWebhook struct {
 }
 
 type PullRequest struct {
-	Url     string `json:"url"`
-	HtmlUrl string `json:"html_url"`
-	Id      string `json:"id"`
-	Number  int    `json:"number"`
-	State   string `json:"state"`
-	Title   string `json:"title"`
-	Head    struct {
+	Url         string `json:"url"`
+	HtmlUrl     string `json:"html_url"`
+	Id          int    `json:"id"`
+	Number      int    `json:"number"`
+	State       string `json:"state"`
+	Title       string `json:"title"`
+	StatusesUrl string `json:"statuses_url"`
+	Head        struct {
 		Sha string `json:"sha"`
 	} `json:"head"`
 	Repo Repo `json:"repo"`
@@ -23,7 +24,7 @@ type PullRequest struct {
 }
 
 type Repo struct {
-	Id      string `json:"id"`
+	Id      int    `json:"id"`
 	Name    string `json:"name"`
 	Url     string `json:"url"`
 	HtmlUrl string `json:"html_url"`
