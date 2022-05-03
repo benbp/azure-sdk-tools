@@ -23,7 +23,7 @@ jobs:
           git clone --no-checkout --filter=tree:0 https://github.com/benbp/azure-sdk-tools .
           git sparse-checkout init
           git sparse-checkout set '/.github/*' '/tools/check-enforcer-action'
-          git checkout main
+          git checkout
 
           echo "Handle webhook event..."
           cd ./tools/check-enforcer-action
