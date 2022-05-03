@@ -10,11 +10,11 @@ on:
 
 jobs:
   check-enforcer:
-    name: Handle Pull Request
+    name: Handle Event
     runs-on: ubuntu-latest
 
     steps:
-      - name: Sparse Checkout Tools
+      - name: Run
         env:
           GITHUB_PAYLOAD: ${{ toJson(github.event) }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
