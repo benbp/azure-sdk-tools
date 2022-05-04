@@ -51,8 +51,8 @@ func main() {
 }
 
 func handleEvent(gh *GithubClient, payload []byte) error {
-	// fmt.Println("Handling Event. Payload:")
-	// fmt.Println(string(payload))
+	fmt.Println("Handling Event. Payload:")
+	fmt.Println(string(payload))
 
 	if pr := NewPullRequestWebhook(payload); pr != nil {
 		fmt.Println("Handling pull request event.")
@@ -83,9 +83,6 @@ func create(gh *GithubClient, pr *PullRequestWebhook) error {
 }
 
 func complete(gh *GithubClient, cs *CheckSuiteWebhook) error {
-	fmt.Println("stat")
-	fmt.Println(cs.GetStatusesUrl())
-	fmt.Println("stat")
 	if cs.IsSucceeded() {
 		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, succeededBody)
 	}

@@ -71,14 +71,13 @@ func (gh *GithubClient) SetStatus(statusUrl string, commit string, status Status
 	}
 
 	defer resp.Body.Close()
-	// fmt.Println("Received", resp.Status)
-	// fmt.Println("Response:")
-	// data, err := io.ReadAll(resp.Body)
-	io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Println(fmt.Sprintf("%s", data))
+	fmt.Println("Received", resp.Status)
+	fmt.Println("Response:")
+	if data, err := io.ReadAll(resp.Body); err != nil {
+		return err
+	} else {
+		fmt.Println(fmt.Sprintf("%s", data))
+	}
 
 	if resp.StatusCode >= 400 {
 		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
