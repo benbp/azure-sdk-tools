@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -16,6 +17,14 @@ func startTestServer(assertionFunc func(r *http.Request), response []byte) *http
 	}))
 }
 
+func getBody(t *testing.T, r *http.Request) StatusBody {
+	body, err := ioutil.ReadAll(r.Body)
+	assert.NoError(t, err)
+	status := StatusBody{}
+	assert.NoError(t, json.Unmarshal(body, &status))
+	return status
+}
+
 func TestCreate(t *testing.T) {
 	payload, err := ioutil.ReadFile("./testpayloads/pull_request_event.json")
 	assert.NoError(t, err)
@@ -29,6 +38,8 @@ func TestCreate(t *testing.T) {
 	server := startTestServer(func(r *http.Request) {
 		assert.Contains(t, pr.GetStatusesUrl(), r.URL.Path)
 		assert.Contains(t, r.URL.Path, pr.PullRequest.Head.Sha)
+		status := getBody(t, r)
+		assert.Equal(t, status.State, CommitStatePending)
 	}, response)
 	defer server.Close()
 
@@ -53,6 +64,9 @@ func TestComplete(t *testing.T) {
 		assert.Contains(t, cs.GetStatusesUrl(), r.URL.String())
 		fmt.Println(r.URL.String())
 		assert.Contains(t, r.URL.Path, cs.CheckSuite.HeadSha)
+
+		status := getBody(t, r)
+		assert.Equal(t, status.State, CommitStateSuccess)
 	}, response)
 	defer server.Close()
 
