@@ -8,7 +8,7 @@ import (
 )
 
 const GithubTokenKey = "GITHUB_TOKEN"
-const CommitStatusContext = "azsdk/check-enforcer-action"
+const CommitStatusContext = "https://aka.ms/azsdk/checkenforcer"
 
 var pendingBody = StatusBody{
 	State:       CommitStatePending,
