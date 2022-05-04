@@ -25,31 +25,6 @@ func getBody(t *testing.T, r *http.Request) StatusBody {
 	return status
 }
 
-func TestCreate(t *testing.T) {
-	payload, err := ioutil.ReadFile("./testpayloads/pull_request_event.json")
-	assert.NoError(t, err)
-	response, err := ioutil.ReadFile("./testpayloads/status_response.json")
-	assert.NoError(t, err)
-
-	pr := NewPullRequestWebhook(payload)
-	assert.NotNil(t, pr)
-	assert.NotEmpty(t, pr.PullRequest.Head.Sha)
-
-	server := startTestServer(func(r *http.Request) {
-		assert.Contains(t, pr.GetStatusesUrl(), r.URL.Path)
-		assert.Contains(t, r.URL.Path, pr.PullRequest.Head.Sha)
-		status := getBody(t, r)
-		assert.Equal(t, status.State, CommitStatePending)
-	}, response)
-	defer server.Close()
-
-	gh, err := NewGithubClient(server.URL, "")
-	assert.NoError(t, err)
-
-	err = handleEvent(gh, payload)
-	assert.NoError(t, err)
-}
-
 func TestComplete(t *testing.T) {
 	payload, err := ioutil.ReadFile("./testpayloads/check_suite_event.json")
 	assert.NoError(t, err)

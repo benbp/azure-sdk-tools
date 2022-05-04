@@ -85,3 +85,39 @@ func (gh *GithubClient) SetStatus(statusUrl string, commit string, status Status
 
 	return nil
 }
+
+func (gh *GithubClient) GetLabels(issueUrl string) ([]Label, error) {
+	target, err := gh.getUrl(issueUrl)
+	if err != nil {
+		return nil, err
+	}
+	target.Path = target.Path + "/labels"
+
+	req, err := http.NewRequest("GET", target.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	gh.setHeaders(req)
+
+	fmt.Println("GET to", issueUrl)
+	resp, err := gh.client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	fmt.Println("Received", resp.Status)
+	fmt.Println("Response:")
+	if data, err := io.ReadAll(resp.Body); err != nil {
+		return err
+	} else {
+		fmt.Println(fmt.Sprintf("%s", data))
+	}
+
+	if resp.StatusCode >= 400 {
+		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
+	}
+
+	return nil
+}

@@ -39,21 +39,8 @@ type StatusBody struct {
 	Context     string      `json:"context"`
 }
 
-type PullRequest struct {
-	Url         string `json:"url"`
-	HtmlUrl     string `json:"html_url"`
-	Id          int    `json:"id"`
-	Number      int    `json:"number"`
-	State       string `json:"state"`
-	Title       string `json:"title"`
-	StatusesUrl string `json:"statuses_url"`
-	Head        struct {
-		Sha string `json:"sha"`
-	} `json:"head"`
-	Repo Repo `json:"repository"`
-	Base struct {
-		Repo Repo `json:"repo"`
-	} `json:"base"`
+type Label struct {
+	Name string
 }
 
 type Repo struct {
@@ -74,12 +61,6 @@ type CheckSuite struct {
 	CheckRunsUrl string               `json:"check_runs_url"`
 }
 
-type PullRequestWebhook struct {
-	Action      string      `json:"action"`
-	Number      int         `json:"number"`
-	PullRequest PullRequest `json:"pull_request"`
-}
-
 type CheckSuiteWebhook struct {
 	Action     CheckSuiteAction `json:"action"`
 	CheckSuite CheckSuite       `json:"check_suite"`
@@ -87,10 +68,6 @@ type CheckSuiteWebhook struct {
 }
 
 type IssueCommentWebhook struct {
-}
-
-func (pr *PullRequestWebhook) GetStatusesUrl() string {
-	return pr.PullRequest.StatusesUrl
 }
 
 func (cs *CheckSuiteWebhook) IsSucceeded() bool {
@@ -104,17 +81,6 @@ func (cs *CheckSuiteWebhook) IsFailed() bool {
 
 func (cs *CheckSuiteWebhook) GetStatusesUrl() string {
 	return strings.ReplaceAll(cs.Repo.StatusesUrl, "{sha}", cs.CheckSuite.HeadSha)
-}
-
-func NewPullRequestWebhook(payload []byte) *PullRequestWebhook {
-	var pr PullRequestWebhook
-	if err := json.Unmarshal(payload, &pr); err != nil {
-		return nil
-	}
-	if pr.PullRequest.Id == 0 {
-		return nil
-	}
-	return &pr
 }
 
 func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {

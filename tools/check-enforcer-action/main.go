@@ -54,13 +54,6 @@ func handleEvent(gh *GithubClient, payload []byte) error {
 	fmt.Println("Handling Event. Payload:")
 	fmt.Println(string(payload))
 
-	if pr := NewPullRequestWebhook(payload); pr != nil {
-		fmt.Println("Handling pull request event.")
-		err := create(gh, pr)
-		handleError(err)
-		return nil
-	}
-
 	if cs := NewCheckSuiteWebhook(payload); cs != nil {
 		fmt.Println("Handling check suite event.")
 		err := complete(gh, cs)
@@ -76,10 +69,6 @@ func handleError(err error) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func create(gh *GithubClient, pr *PullRequestWebhook) error {
-	return gh.SetStatus(pr.GetStatusesUrl(), pr.PullRequest.Head.Sha, pendingBody)
 }
 
 func complete(gh *GithubClient, cs *CheckSuiteWebhook) error {
@@ -101,9 +90,6 @@ USAGE
   go run main.go <payload json file>
 
 BEHAVIORS
-  create:
-    Creates or sets a new status for a commit to state 'pending'
-    Handles payload type: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request
   complete:
     Sets the check enforcer status for a commit to the value of the check_suite status
     Handles payload type: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#check_suite`
