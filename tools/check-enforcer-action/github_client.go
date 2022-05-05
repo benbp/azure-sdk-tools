@@ -103,21 +103,21 @@ func (gh *GithubClient) GetLabels(issueUrl string) ([]Label, error) {
 	fmt.Println("GET to", issueUrl)
 	resp, err := gh.client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 	fmt.Println("Received", resp.Status)
 	fmt.Println("Response:")
 	if data, err := io.ReadAll(resp.Body); err != nil {
-		return err
+		return nil, err
 	} else {
 		fmt.Println(fmt.Sprintf("%s", data))
 	}
 
 	if resp.StatusCode >= 400 {
-		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
 	}
 
-	return nil
+	return nil, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -11,9 +12,9 @@ const (
 	CommitStateFailure             = "failure"
 	CommitStateError               = "error"
 
-	CheckSuiteActionCompleted   CheckSuiteAction = "completed"
-	CheckSuiteActionRequested   CheckSuiteAction = "requested"
-	CheckSuiteActionReRequested CheckSuiteAction = "rerequested"
+	CheckSuiteActionCompleted ActionType = "completed"
+
+	IssueCommentActionCreated ActionType = "created"
 
 	CheckSuiteStatusRequested  CheckSuiteStatus = "requested"
 	CheckSuiteStatusInProgress CheckSuiteStatus = "in_progress"
@@ -28,8 +29,8 @@ const (
 	CheckSuiteConclusionStale          CheckSuiteConclusion = "stale"
 )
 
+type ActionType string
 type CommitState string
-type CheckSuiteAction string
 type CheckSuiteStatus string
 type CheckSuiteConclusion string
 
@@ -49,6 +50,8 @@ type Repo struct {
 	Url         string `json:"url"`
 	HtmlUrl     string `json:"html_url"`
 	StatusesUrl string `json:"statuses_url"`
+	IssuesUrl   string `json:"issues_url"`
+	PullsUrl    string `json:"pulls_url"`
 }
 
 type CheckSuite struct {
@@ -61,13 +64,24 @@ type CheckSuite struct {
 	CheckRunsUrl string               `json:"check_runs_url"`
 }
 
-type CheckSuiteWebhook struct {
-	Action     CheckSuiteAction `json:"action"`
-	CheckSuite CheckSuite       `json:"check_suite"`
-	Repo       Repo             `json:"repository"`
+type Issue struct {
+	Url    string `json:"url"`
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	State  string `json:"state"`
 }
 
-type IssueCommentWebhook struct {
+type IssueComment struct {
+	Url     string `json:"url"`
+	HtmlUrl string `json:"html_url"`
+	Id      int    `json:"id"`
+	Body    string `json:"body"`
+}
+
+type CheckSuiteWebhook struct {
+	Action     ActionType `json:"action"`
+	CheckSuite CheckSuite `json:"check_suite"`
+	Repo       Repo       `json:"repository"`
 }
 
 func (cs *CheckSuiteWebhook) IsSucceeded() bool {
@@ -83,6 +97,17 @@ func (cs *CheckSuiteWebhook) GetStatusesUrl() string {
 	return strings.ReplaceAll(cs.Repo.StatusesUrl, "{sha}", cs.CheckSuite.HeadSha)
 }
 
+type IssueCommentWebhook struct {
+	Action  ActionType   `json:"action"`
+	Issue   Issue        `json:"issue"`
+	Comment IssueComment `json:"comment"`
+	Repo    Repo         `json:"repository"`
+}
+
+func (is *IssueCommentWebhook) GetPullsUrl() string {
+	return strings.ReplaceAll(is.Repo.PullsUrl, "{/number}", fmt.Sprint(is.Issue.Number))
+}
+
 func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {
 	var cs CheckSuiteWebhook
 	if err := json.Unmarshal(payload, &cs); err != nil {
@@ -92,4 +117,15 @@ func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {
 		return nil
 	}
 	return &cs
+}
+
+func NewIssueCommentWebhook(payload []byte) *IssueCommentWebhook {
+	var is IssueCommentWebhook
+	if err := json.Unmarshal(payload, &is); err != nil {
+		return nil
+	}
+	if is.Issue.Number == 0 {
+		return nil
+	}
+	return &is
 }

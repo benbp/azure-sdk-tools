@@ -56,7 +56,7 @@ func handleEvent(gh *GithubClient, payload []byte) error {
 
 	if cs := NewCheckSuiteWebhook(payload); cs != nil {
 		fmt.Println("Handling check suite event.")
-		err := complete(gh, cs)
+		err := handleCheckSuite(gh, cs)
 		handleError(err)
 		return nil
 	}
@@ -71,7 +71,10 @@ func handleError(err error) {
 	}
 }
 
-func complete(gh *GithubClient, cs *CheckSuiteWebhook) error {
+func handleComment() {
+}
+
+func handleCheckSuite(gh *GithubClient, cs *CheckSuiteWebhook) error {
 	if cs.IsSucceeded() {
 		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, succeededBody)
 	}
