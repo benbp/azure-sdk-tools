@@ -44,7 +44,7 @@ func (gh *GithubClient) getUrl(target string) (*url.URL, error) {
 	return targetUrl, nil
 }
 
-func (gh *GithubClient) SetStatus(statusUrl string, commit string, status StatusBody) error {
+func (gh *GithubClient) SetStatus(statusUrl string, status StatusBody) error {
 	body, err := json.Marshal(status)
 	if err != nil {
 		return err
@@ -64,60 +64,60 @@ func (gh *GithubClient) SetStatus(statusUrl string, commit string, status Status
 
 	gh.setHeaders(req)
 
-	fmt.Println("POST to", statusUrl, "with state", status.State)
-	resp, err := gh.client.Do(req)
+	fmt.Println("POST to", target.String(), "with state", status.State)
+	_, err = gh.request(req)
 	if err != nil {
 		return err
-	}
-
-	defer resp.Body.Close()
-	fmt.Println("Received", resp.Status)
-	fmt.Println("Response:")
-	if data, err := io.ReadAll(resp.Body); err != nil {
-		return err
-	} else {
-		fmt.Println(fmt.Sprintf("%s", data))
-	}
-
-	if resp.StatusCode >= 400 {
-		return errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
 	}
 
 	return nil
 }
 
-func (gh *GithubClient) GetLabels(issueUrl string) ([]Label, error) {
-	target, err := gh.getUrl(issueUrl)
+func (gh *GithubClient) GetPullRequest(pullsUrl string) (PullRequest, error) {
+	target, err := gh.getUrl(pullsUrl)
 	if err != nil {
-		return nil, err
+		return PullRequest{}, err
 	}
-	target.Path = target.Path + "/labels"
 
 	req, err := http.NewRequest("GET", target.String(), nil)
 	if err != nil {
-		return nil, err
+		return PullRequest{}, err
 	}
 
 	gh.setHeaders(req)
 
-	fmt.Println("GET to", issueUrl)
+	fmt.Println("GET to", target.String())
+	data, err := gh.request(req)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	pr := PullRequest{}
+	if err = json.Unmarshal(data, &pr); err != nil {
+		return PullRequest{}, err
+	}
+
+	return pr, nil
+}
+
+func (gh *GithubClient) request(req *http.Request) ([]byte, error) {
 	resp, err := gh.client.Do(req)
 	if err != nil {
-		return nil, err
+		return []byte{}, err
 	}
 
 	defer resp.Body.Close()
 	fmt.Println("Received", resp.Status)
 	fmt.Println("Response:")
-	if data, err := io.ReadAll(resp.Body); err != nil {
-		return nil, err
-	} else {
-		fmt.Println(fmt.Sprintf("%s", data))
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []byte{}, err
 	}
+	fmt.Println(fmt.Sprintf("%s", data))
 
 	if resp.StatusCode >= 400 {
-		return nil, errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
+		return []byte{}, errors.New(fmt.Sprintf("Received http error %d", resp.StatusCode))
 	}
 
-	return nil, nil
+	return data, nil
 }

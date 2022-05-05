@@ -40,8 +40,25 @@ type StatusBody struct {
 	Context     string      `json:"context"`
 }
 
-type Label struct {
-	Name string
+type PullRequest struct {
+	Url         string `json:"url"`
+	HtmlUrl     string `json:"html_url"`
+	Id          int    `json:"id"`
+	Number      int    `json:"number"`
+	State       string `json:"state"`
+	Title       string `json:"title"`
+	StatusesUrl string `json:"statuses_url"`
+	Head        struct {
+		Sha string `json:"sha"`
+	} `json:"head"`
+	Repo Repo `json:"repository"`
+	Base struct {
+		Repo Repo `json:"repo"`
+	} `json:"base"`
+}
+
+func (pr *PullRequest) GetStatusesUrl() string {
+	return pr.StatusesUrl
 }
 
 type Repo struct {
@@ -104,8 +121,19 @@ type IssueCommentWebhook struct {
 	Repo    Repo         `json:"repository"`
 }
 
-func (is *IssueCommentWebhook) GetPullsUrl() string {
-	return strings.ReplaceAll(is.Repo.PullsUrl, "{/number}", fmt.Sprint(is.Issue.Number))
+func (ic *IssueCommentWebhook) GetPullsUrl() string {
+	return strings.ReplaceAll(ic.Repo.PullsUrl, "{/number}", fmt.Sprintf("/%d", ic.Issue.Number))
+}
+
+func NewPullRequest(payload []byte) *PullRequest {
+	var pr PullRequest
+	if err := json.Unmarshal(payload, &pr); err != nil {
+		return nil
+	}
+	if pr.Url == "" && pr.Number == 0 {
+		return nil
+	}
+	return &pr
 }
 
 func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {
@@ -120,12 +148,12 @@ func NewCheckSuiteWebhook(payload []byte) *CheckSuiteWebhook {
 }
 
 func NewIssueCommentWebhook(payload []byte) *IssueCommentWebhook {
-	var is IssueCommentWebhook
-	if err := json.Unmarshal(payload, &is); err != nil {
+	var ic IssueCommentWebhook
+	if err := json.Unmarshal(payload, &ic); err != nil {
 		return nil
 	}
-	if is.Issue.Number == 0 {
+	if ic.Issue.Number == 0 {
 		return nil
 	}
-	return &is
+	return &ic
 }

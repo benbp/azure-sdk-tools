@@ -54,6 +54,13 @@ func handleEvent(gh *GithubClient, payload []byte) error {
 	fmt.Println("Handling Event. Payload:")
 	fmt.Println(string(payload))
 
+	if ic := NewIssueCommentWebhook(payload); ic != nil {
+		fmt.Println("Handling issue comment event.")
+		err := handleComment(gh, ic)
+		handleError(err)
+		return nil
+	}
+
 	if cs := NewCheckSuiteWebhook(payload); cs != nil {
 		fmt.Println("Handling check suite event.")
 		err := handleCheckSuite(gh, cs)
@@ -71,19 +78,30 @@ func handleError(err error) {
 	}
 }
 
-func handleComment() {
+func handleComment(gh *GithubClient, ic *IssueCommentWebhook) error {
+	if ic.Comment.Body != "/check-enforcer override" {
+		fmt.Println("Skipping comment")
+		return nil
+	}
+
+	fmt.Println("Handling /check-enforcer override comment")
+
+	pr, err := gh.GetPullRequest(ic.GetPullsUrl())
+	handleError(err)
+
+	return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
 }
 
 func handleCheckSuite(gh *GithubClient, cs *CheckSuiteWebhook) error {
 	if cs.IsSucceeded() {
-		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, succeededBody)
+		return gh.SetStatus(cs.GetStatusesUrl(), succeededBody)
 	}
 	if cs.IsFailed() {
-		return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, failedBody)
+		return gh.SetStatus(cs.GetStatusesUrl(), failedBody)
 	}
 	// This is redundant as the status is already set on pull request open, but it can't hurt in case we have
 	// failed to handle previous events due to dropped webhooks or API/runner failures.
-	return gh.SetStatus(cs.GetStatusesUrl(), cs.CheckSuite.HeadSha, pendingBody)
+	return gh.SetStatus(cs.GetStatusesUrl(), pendingBody)
 }
 
 func help() {
