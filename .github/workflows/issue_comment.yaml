@@ -1,8 +1,8 @@
 name: Issue Comment Action
 
 on:
-  check_suite:
-    types: [completed]
+  issue_comment:
+    types: [created]
 
 jobs:
   issue-comment:
