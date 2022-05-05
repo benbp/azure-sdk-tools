@@ -14,9 +14,9 @@ pr:
 pool:
   vmImage: ubuntu-latest
 
-variables:
-  skipComponentGovernanceDetection: true
-  NugetSecurityAnalysisWarningLevel: 'none'
+    # variables:
+    #   skipComponentGovernanceDetection: true
+    #   NugetSecurityAnalysisWarningLevel: 'none'
 
 steps:
 - script: echo Hello, world!
