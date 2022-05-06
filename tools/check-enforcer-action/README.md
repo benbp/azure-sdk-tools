@@ -34,13 +34,13 @@ app.
 
 ## PR Comment Commands
 
-Check Enforcer supports a limited number of commands which can by issued via PR comments. For example if Check Enforcer appears to be stuck you can add a comment as follows to reset the state of Check Enforcer on the PR:
+Check Enforcer supports a limited number of commands which can by issued via PR comments. For example if Check Enforcer appears to be stuck you can add a comment as follows to reset the state of Check Enforcer on the PR to "pending":
 
 ```
 /check-enforcer reset
 ```
 
-Check Enforcer will revert to an "in-progress" state. You can then trigger Check Enforcer to re-evaluate the pull request using the following PR comment:
+Alternatively, you can trigger Check Enforcer to re-evaluate the pull request checks using the following PR comment:
 
 ```
 /check-enforcer evaluate
