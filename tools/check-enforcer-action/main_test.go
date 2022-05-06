@@ -45,14 +45,6 @@ func getPayloads() (Payloads, error) {
 	return payloads, nil
 }
 
-func getBody(t *testing.T, r *http.Request) StatusBody {
-	body, err := ioutil.ReadAll(r.Body)
-	assert.NoError(t, err)
-	status := StatusBody{}
-	assert.NoError(t, json.Unmarshal(body, &status))
-	return status
-}
-
 func TestCheckSuite(t *testing.T) {
 	payloads, err := getPayloads()
 	assert.NoError(t, err)
@@ -81,6 +73,13 @@ func TestCheckSuite(t *testing.T) {
 	err = handleEvent(gh, payloads.CheckSuiteEvent)
 	assert.NoError(t, err)
 	assert.True(t, postedStatus, "Should POST status")
+
+	// Test skip check suite events for main branch
+	replaced := strings.ReplaceAll(string(payloads.CheckSuiteEvent), `"head_branch": "changes"`, `"head_branch": "main"`)
+	postedStatus = false
+	err = handleEvent(gh, []byte(replaced))
+	assert.NoError(t, err)
+	assert.False(t, postedStatus, "Should POST status")
 }
 
 type testCommentCaseConfig struct {
@@ -154,5 +153,13 @@ func testCommentCase(t *testing.T, tc testCommentCaseConfig, payloads Payloads, 
 
 	err = handleEvent(gh, []byte(replaced))
 	assert.NoError(t, err)
-	assert.Equal(t, tc.PostStatus, postedStatus, "Should post status")
+	assert.Equal(t, tc.PostStatus, postedStatus, "Should POST status")
+}
+
+func getBody(t *testing.T, r *http.Request) StatusBody {
+	body, err := ioutil.ReadAll(r.Body)
+	assert.NoError(t, err)
+	status := StatusBody{}
+	assert.NoError(t, json.Unmarshal(body, &status))
+	return status
 }
