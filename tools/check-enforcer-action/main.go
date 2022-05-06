@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strings"
+	"unicode"
 )
 
 const GithubTokenKey = "GITHUB_TOKEN"
@@ -78,30 +81,98 @@ func handleError(err error) {
 	}
 }
 
-func handleComment(gh *GithubClient, ic *IssueCommentWebhook) error {
-	if ic.Comment.Body != "/check-enforcer override" {
-		fmt.Println("Skipping comment")
-		return nil
+func sanitizeComment(comment string) string {
+	result := []rune{}
+	for _, r := range comment {
+		if unicode.IsLetter(r) || unicode.IsSpace(r) || r == '/' || r == '-' {
+			result = append(result, unicode.ToLower(r))
+		}
+	}
+	return string(result)
+}
+
+func getCheckEnforcerCommand(comment string) string {
+	comment = sanitizeComment(comment)
+	baseCommand := "/check-enforcer"
+
+	if !strings.HasPrefix(comment, baseCommand) {
+		fmt.Println(fmt.Sprintf("Skipping comment that does not start with '%s'", baseCommand))
+		return ""
 	}
 
-	fmt.Println("Handling /check-enforcer override comment")
+	re := regexp.MustCompile(`\s*` + baseCommand + `\s*([A-z]*)`)
+	matches := re.FindStringSubmatch(comment)
+	if len(matches) >= 1 {
+		command := matches[1]
+		if command == "override" || command == "evaluate" || command == "reset" {
+			fmt.Println("Parsed check enforcer command", command)
+			return command
+		}
+		fmt.Println("Supported commands are 'override', 'evaluate', or 'reset' but found: ", command)
+		return command
+	} else {
+		fmt.Println("Command does not match format '/check-enforcer [override|reset|evaluate]'")
+		return ""
+	}
+}
 
-	pr, err := gh.GetPullRequest(ic.GetPullsUrl())
-	handleError(err)
+func handleComment(gh *GithubClient, ic *IssueCommentWebhook) error {
+	command := getCheckEnforcerCommand(ic.Comment.Body)
 
-	return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
+	if command == "" {
+		return nil
+	} else if command == "override" {
+		pr, err := gh.GetPullRequest(ic.GetPullsUrl())
+		handleError(err)
+		return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
+	} else if command == "evaluate" {
+		// We cannot use the commits url from the issue object because it
+		// is targeted to the main repo. To get all check suites for a commit,
+		// a request must be made to the repos API for the repository the pull
+		// request branch is from, which may be a fork.
+		pr, err := gh.GetPullRequest(ic.GetPullsUrl())
+		handleError(err)
+		status, conclusion, err := gh.GetCheckSuiteStatus(pr)
+		handleError(err)
+
+		if status == CheckSuiteStatusCompleted {
+			if IsCheckSuiteSucceeded(conclusion) {
+				return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
+			} else if IsCheckSuiteFailed(conclusion) {
+				return gh.SetStatus(pr.GetStatusesUrl(), failedBody)
+			} else {
+				return gh.SetStatus(pr.GetStatusesUrl(), pendingBody)
+			}
+		} else {
+			return gh.SetStatus(pr.GetStatusesUrl(), pendingBody)
+		}
+	} else if command == "reset" {
+		pr, err := gh.GetPullRequest(ic.GetPullsUrl())
+		handleError(err)
+		return gh.SetStatus(pr.GetStatusesUrl(), pendingBody)
+	} else {
+		return nil
+	}
 }
 
 func handleCheckSuite(gh *GithubClient, cs *CheckSuiteWebhook) error {
-	if cs.IsSucceeded() {
-		return gh.SetStatus(cs.GetStatusesUrl(), succeededBody)
+	if cs.CheckSuite.App.Name != gh.AppTarget {
+		fmt.Println(fmt.Sprintf(
+			"Check Enforcer only handles check suites from the '%s' app. Found: '%s'",
+			gh.AppTarget,
+			cs.CheckSuite.App.Name))
+		return nil
+	} else if cs.IsSucceeded() {
+		body := succeededBody
+		body.TargetUrl = cs.CheckSuite.Url
+		return gh.SetStatus(cs.GetStatusesUrl(), body)
+	} else if cs.IsFailed() {
+		body := failedBody
+		body.TargetUrl = cs.CheckSuite.Url
+		return gh.SetStatus(cs.GetStatusesUrl(), body)
+	} else {
+		return nil
 	}
-	if cs.IsFailed() {
-		return gh.SetStatus(cs.GetStatusesUrl(), failedBody)
-	}
-	// This is redundant as the status is already set on pull request open, but it can't hurt in case we have
-	// failed to handle previous events due to dropped webhooks or API/runner failures.
-	return gh.SetStatus(cs.GetStatusesUrl(), pendingBody)
 }
 
 func help() {

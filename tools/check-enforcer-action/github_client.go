@@ -11,20 +11,22 @@ import (
 )
 
 type GithubClient struct {
-	client  *http.Client
-	token   string
-	BaseUrl url.URL
+	client    *http.Client
+	token     string
+	BaseUrl   url.URL
+	AppTarget string
 }
 
-func NewGithubClient(baseUrl string, token string) (*GithubClient, error) {
+func NewGithubClient(baseUrl string, token string, appTarget string) (*GithubClient, error) {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, err
 	}
 	return &GithubClient{
-		client:  &http.Client{},
-		BaseUrl: *u,
-		token:   token,
+		client:    &http.Client{},
+		BaseUrl:   *u,
+		token:     token,
+		AppTarget: appTarget,
 	}, nil
 }
 
@@ -98,6 +100,41 @@ func (gh *GithubClient) GetPullRequest(pullsUrl string) (PullRequest, error) {
 	}
 
 	return pr, nil
+}
+
+func (gh *GithubClient) GetCheckSuiteStatus(pr PullRequest) (CheckSuiteStatus, CheckSuiteConclusion, error) {
+	csUrl := pr.GetCheckSuiteUrl()
+
+	target, err := gh.getUrl(csUrl)
+	if err != nil {
+		return "", "", err
+	}
+
+	req, err := http.NewRequest("GET", target.String(), nil)
+	if err != nil {
+		return "", "", err
+	}
+
+	gh.setHeaders(req)
+
+	fmt.Println("GET to", target.String())
+	data, err := gh.request(req)
+	if err != nil {
+		return "", "", err
+	}
+	suites := []CheckSuite{}
+	if err = json.Unmarshal(data, &suites); err != nil {
+		return "", "", err
+	}
+
+	for _, cs := range suites {
+		if cs.App.Name != gh.AppTarget {
+			continue
+		}
+		return cs.Status, cs.Conclusion, nil
+	}
+
+	return "", "", nil
 }
 
 func (gh *GithubClient) request(req *http.Request) ([]byte, error) {

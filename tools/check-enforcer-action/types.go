@@ -9,8 +9,8 @@ import (
 const (
 	CommitStatePending CommitState = "pending"
 	CommitStateSuccess CommitState = "success"
-	CommitStateFailure             = "failure"
-	CommitStateError               = "error"
+	CommitStateFailure CommitState = "failure"
+	CommitStateError   CommitState = "error"
 
 	CheckSuiteActionCompleted ActionType = "completed"
 
@@ -38,6 +38,7 @@ type StatusBody struct {
 	State       CommitState `json:"state"`
 	Description string      `json:"description"`
 	Context     string      `json:"context"`
+	TargetUrl   string      `json:"target_url"`
 }
 
 type PullRequest struct {
@@ -49,9 +50,9 @@ type PullRequest struct {
 	Title       string `json:"title"`
 	StatusesUrl string `json:"statuses_url"`
 	Head        struct {
-		Sha string `json:"sha"`
+		Sha  string `json:"sha"`
+		Repo Repo   `json:"repo"`
 	} `json:"head"`
-	Repo Repo `json:"repository"`
 	Base struct {
 		Repo Repo `json:"repo"`
 	} `json:"base"`
@@ -65,10 +66,11 @@ type Repo struct {
 	Id          int    `json:"id"`
 	Name        string `json:"name"`
 	Url         string `json:"url"`
+	CommitsUrl  string `json:"commits_url"`
 	HtmlUrl     string `json:"html_url"`
-	StatusesUrl string `json:"statuses_url"`
 	IssuesUrl   string `json:"issues_url"`
 	PullsUrl    string `json:"pulls_url"`
+	StatusesUrl string `json:"statuses_url"`
 }
 
 type CheckSuite struct {
@@ -79,6 +81,11 @@ type CheckSuite struct {
 	Conclusion   CheckSuiteConclusion `json:"conclusion"`
 	Url          string               `json:"url"`
 	CheckRunsUrl string               `json:"check_runs_url"`
+	App          App                  `json:"app"`
+}
+
+type App struct {
+	Name string `json:"name"`
 }
 
 type Issue struct {
@@ -101,17 +108,32 @@ type CheckSuiteWebhook struct {
 	Repo       Repo       `json:"repository"`
 }
 
-func (cs *CheckSuiteWebhook) IsSucceeded() bool {
-	return cs.CheckSuite.Conclusion == CheckSuiteConclusionSuccess
+func IsCheckSuiteSucceeded(conclusion CheckSuiteConclusion) bool {
+	return conclusion == CheckSuiteConclusionSuccess
 }
 
-func (cs *CheckSuiteWebhook) IsFailed() bool {
-	return cs.CheckSuite.Conclusion == CheckSuiteConclusionFailure ||
-		cs.CheckSuite.Conclusion == CheckSuiteConclusionTimedOut
+func IsCheckSuiteFailed(conclusion CheckSuiteConclusion) bool {
+	return conclusion == CheckSuiteConclusionFailure || conclusion == CheckSuiteConclusionTimedOut
 }
 
-func (cs *CheckSuiteWebhook) GetStatusesUrl() string {
-	return strings.ReplaceAll(cs.Repo.StatusesUrl, "{sha}", cs.CheckSuite.HeadSha)
+func (cs *CheckSuite) IsSucceeded() bool {
+	return IsCheckSuiteSucceeded(cs.Conclusion)
+}
+
+func (cs *CheckSuite) IsFailed() bool {
+	return IsCheckSuiteFailed(cs.Conclusion)
+}
+
+func (csw *CheckSuiteWebhook) IsSucceeded() bool {
+	return csw.CheckSuite.IsSucceeded()
+}
+
+func (csw *CheckSuiteWebhook) IsFailed() bool {
+	return csw.CheckSuite.IsFailed()
+}
+
+func (csw *CheckSuiteWebhook) GetStatusesUrl() string {
+	return strings.ReplaceAll(csw.Repo.StatusesUrl, "{sha}", csw.CheckSuite.HeadSha)
 }
 
 type IssueCommentWebhook struct {
@@ -119,6 +141,10 @@ type IssueCommentWebhook struct {
 	Issue   Issue        `json:"issue"`
 	Comment IssueComment `json:"comment"`
 	Repo    Repo         `json:"repository"`
+}
+
+func (pr *PullRequest) GetCheckSuiteUrl() string {
+	return strings.ReplaceAll(pr.Head.Repo.CommitsUrl, "{/sha}", fmt.Sprintf("/%s", pr.Head.Sha)) + "/check-suites"
 }
 
 func (ic *IssueCommentWebhook) GetPullsUrl() string {
@@ -155,5 +181,6 @@ func NewIssueCommentWebhook(payload []byte) *IssueCommentWebhook {
 	if ic.Issue.Number == 0 {
 		return nil
 	}
+
 	return &ic
 }
