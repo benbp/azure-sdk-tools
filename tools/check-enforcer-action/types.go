@@ -73,6 +73,11 @@ type Repo struct {
 	StatusesUrl string `json:"statuses_url"`
 }
 
+type CheckSuites struct {
+	Count       int          `json:"total_count"`
+	CheckSuites []CheckSuite `json:"check_suites"`
+}
+
 type CheckSuite struct {
 	Id           int                  `json:"id"`
 	HeadBranch   string               `json:"head_branch"`

@@ -122,12 +122,12 @@ func (gh *GithubClient) GetCheckSuiteStatus(pr PullRequest) (CheckSuiteStatus, C
 	if err != nil {
 		return "", "", err
 	}
-	suites := []CheckSuite{}
+	suites := CheckSuites{}
 	if err = json.Unmarshal(data, &suites); err != nil {
 		return "", "", err
 	}
 
-	for _, cs := range suites {
+	for _, cs := range suites.CheckSuites {
 		if cs.App.Name != gh.AppTarget {
 			continue
 		}
