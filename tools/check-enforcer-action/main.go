@@ -84,6 +84,7 @@ func handleError(err error) {
 
 func sanitizeComment(comment string) string {
 	result := []rune{}
+	comment = strings.TrimSpace(comment)
 	for _, r := range comment {
 		if unicode.IsLetter(r) || unicode.IsSpace(r) || r == '/' || r == '-' {
 			result = append(result, unicode.ToLower(r))
@@ -109,7 +110,7 @@ func getCheckEnforcerCommand(comment string) string {
 			fmt.Println("Parsed check enforcer command", command)
 			return command
 		}
-		fmt.Println("Supported commands are 'override', 'evaluate', or 'reset' but found: ", command)
+		fmt.Println("Supported commands are 'override', 'evaluate', or 'reset' but found:", command)
 		return command
 	} else {
 		fmt.Println("Command does not match format '/check-enforcer [override|reset|evaluate]'")
@@ -172,6 +173,7 @@ func handleCheckSuite(gh *GithubClient, cs *CheckSuiteWebhook) error {
 		body.TargetUrl = cs.CheckSuite.Url
 		return gh.SetStatus(cs.GetStatusesUrl(), body)
 	} else {
+		fmt.Println("Skipping check suite with conclusion: ", cs.CheckSuite.Conclusion)
 		return nil
 	}
 }

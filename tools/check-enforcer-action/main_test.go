@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -82,7 +83,14 @@ func TestCheckSuite(t *testing.T) {
 	assert.True(t, postedStatus, "Should POST status")
 }
 
-func TestCommentOverride(t *testing.T) {
+type testCommentCaseConfig struct {
+	Comment       string
+	Conclusion    CheckSuiteConclusion
+	ExpectedState CommitState
+	PostStatus    bool
+}
+
+func TestComments(t *testing.T) {
 	payloads, err := getPayloads()
 	assert.NoError(t, err)
 	ic := NewIssueCommentWebhook(payloads.IssueCommentEvent)
@@ -90,48 +98,61 @@ func TestCommentOverride(t *testing.T) {
 	pr := NewPullRequest(payloads.PullRequestResponse)
 	assert.NotEmpty(t, pr)
 
-	cases := []struct {
-		Comment       string
-		ExpectedState CommitState
-		PostStatus    bool
-	}{
-		{"/check-enforcer override", CommitStateSuccess, true},
-		{"/check-enforcer reset", CommitStatePending, true},
-		{"/check-enforcer evaluate", CommitStateSuccess, true},
-		{"/check-enforcer foobar", "", false},
-		{"/azp run", "", false},
+	cases := []testCommentCaseConfig{
+		{"/check-enforcer override", CheckSuiteConclusionSuccess, CommitStateSuccess, true},
+		{"/check-enforcer override", CheckSuiteConclusionFailure, CommitStateSuccess, true},
+		{"   /check-enforcer   override   ", CheckSuiteConclusionFailure, CommitStateSuccess, true},
+		{"/check-enforcer reset", CheckSuiteConclusionSuccess, CommitStatePending, true},
+		{"/check-enforcer reset", CheckSuiteConclusionFailure, CommitStatePending, true},
+		{"/check-enforcer evaluate", CheckSuiteConclusionSuccess, CommitStateSuccess, true},
+		{"/check-enforcer evaluate", CheckSuiteConclusionFailure, CommitStateFailure, true},
+		{"/check-enforcer evaluate", CheckSuiteConclusionTimedOut, CommitStateFailure, true},
+		{"/check-enforcer evaluate", CheckSuiteConclusionNeutral, CommitStatePending, true},
+		{"/check-enforcer evaluate", CheckSuiteConclusionStale, CommitStatePending, true},
+		{"/check-enforcer evaluate", "", CommitStatePending, true},
+		{"/check-enforcer foobar", "", "", false},
+		{"/azp run", "", "", false},
+		{";;;;;;;;;;;;;;;;;;;;;;;;;;;", "", "", false},
 	}
-
 	for _, tc := range cases {
-		postedStatus := false
-
-		fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			response := []byte{}
-			if strings.Contains(ic.GetPullsUrl(), r.URL.String()) {
-				response = payloads.PullRequestResponse
-			} else if strings.Contains(pr.GetCheckSuiteUrl(), r.URL.String()) {
-				response = payloads.CheckSuiteResponse
-			} else if strings.Contains(pr.GetStatusesUrl(), r.URL.String()) {
-				response = payloads.StatusResponse
-				assert.Equal(t, "POST", r.Method)
-				status := getBody(t, r)
-				assert.Equal(t, status.State, tc.ExpectedState)
-				postedStatus = true
-			} else {
-				assert.Fail(t, "Unexpected request to "+r.URL.String())
-			}
-			w.Write(response)
-		})
-		server := httptest.NewServer(fn)
-		defer server.Close()
-
-		gh, err := NewGithubClient(server.URL, "", "Octocat App")
-		assert.NoError(t, err)
-
-		replaced := strings.ReplaceAll(string(payloads.IssueCommentEvent), "You are totally right! I'll get this fixed right away.", tc.Comment)
-		err = handleEvent(gh, []byte(replaced))
-		assert.NoError(t, err)
-		assert.True(t, postedStatus, "Should post status")
-		assert.Equal(t, tc.PostStatus, postedStatus, "Should post status: %b", tc.PostStatus)
+		testCommentCase(t, tc, payloads, ic, pr)
 	}
+}
+
+func testCommentCase(t *testing.T, tc testCommentCaseConfig, payloads Payloads, ic *IssueCommentWebhook, pr *PullRequest) {
+	postedStatus := false
+
+	csResponse := strings.ReplaceAll(
+		string(payloads.CheckSuiteResponse),
+		`"conclusion": "neutral"`,
+		fmt.Sprintf("\"conclusion\": \"%s\"", tc.Conclusion))
+
+	fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := []byte{}
+		if strings.Contains(ic.GetPullsUrl(), r.URL.String()) {
+			response = payloads.PullRequestResponse
+		} else if strings.Contains(pr.GetCheckSuiteUrl(), r.URL.String()) {
+			response = []byte(csResponse)
+		} else if strings.Contains(pr.GetStatusesUrl(), r.URL.String()) {
+			response = payloads.StatusResponse
+			assert.Equal(t, "POST", r.Method)
+			status := getBody(t, r)
+			assert.Equal(t, tc.ExpectedState, status.State, "TestCase %s", tc.Comment)
+			postedStatus = true
+		} else {
+			assert.Fail(t, "Unexpected request to "+r.URL.String())
+		}
+		w.Write(response)
+	})
+	server := httptest.NewServer(fn)
+	defer server.Close()
+
+	gh, err := NewGithubClient(server.URL, "", "Octocat App")
+	assert.NoError(t, err)
+
+	replaced := strings.ReplaceAll(string(payloads.IssueCommentEvent), "You are totally right! I'll get this fixed right away.", tc.Comment)
+
+	err = handleEvent(gh, []byte(replaced))
+	assert.NoError(t, err)
+	assert.Equal(t, tc.PostStatus, postedStatus, "Should post status")
 }
