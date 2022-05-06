@@ -4,7 +4,7 @@
 
 The Azure SDK team maintains reusable libraries that developers use to access Azure services. These libraries are grouped by together into a repository for each language/runtime. For example there is a repository for [Java](https://github.com/azure/azure-sdk-for-java), [.NET](https://github.com/azure/azure-sdk-for-net), [Python](https://github.com/azure/azure-sdk-for-python) and [JavaScript](https://github.com/azure/azure-sdk-for-javascript) - just to name a few.
 
-Each repository contains a large number of seperate libraries. Even though together these libraries constitute a single SDK, they ship seperately on their own individual cadence as the underlying service evolves. As a result we have seperate build and release pipelines for say the KeyVault and the Event Hubs libraries in each repository.
+Each repository contains a large number of separate libraries. Even though together these libraries constitute a single SDK, they ship separately on their own individual cadence as the underlying service evolves. As a result we have separate build and release pipelines for say the KeyVault and the Event Hubs libraries in each repository.
 
 Whilst Checks in GitHub are awesome, one of the limitations when setting up required checks is that you cannot make them required for just one specific path. We don't want to build all libraries for every checkin (that would take a long time and needlessly block teams if other libraries were having build reliability issues) - so we needed a way to work around it.
 
