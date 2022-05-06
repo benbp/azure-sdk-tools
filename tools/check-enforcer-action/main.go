@@ -165,7 +165,7 @@ func handleCheckSuite(gh *GithubClient, cs *CheckSuiteWebhook) error {
 			cs.CheckSuite.App.Name))
 		return nil
 	} else if cs.CheckSuite.HeadBranch == "main" {
-		fmt.Println("Skipping check suite for main branch")
+		fmt.Println("Skipping check suite for main branch.")
 		return nil
 	} else if cs.IsSucceeded() {
 		body := succeededBody
