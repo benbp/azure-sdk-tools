@@ -78,7 +78,7 @@ func TestCheckSuite(t *testing.T) {
 	gh, err := NewGithubClient(server.URL, "", "octocoders-linter")
 	assert.NoError(t, err)
 
-	err = handleEvent(gh, payloads.IssueCommentEvent)
+	err = handleEvent(gh, payloads.CheckSuiteEvent)
 	assert.NoError(t, err)
 	assert.True(t, postedStatus, "Should POST status")
 }
