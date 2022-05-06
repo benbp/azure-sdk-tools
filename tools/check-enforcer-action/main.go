@@ -12,6 +12,7 @@ import (
 
 const GithubTokenKey = "GITHUB_TOKEN"
 const CommitStatusContext = "https://aka.ms/azsdk/checkenforcer"
+const AzurePipelinesAppName = "Azure Pipelines"
 
 var pendingBody = StatusBody{
 	State:       CommitStatePending,
@@ -46,7 +47,7 @@ func main() {
 		fmt.Println(fmt.Sprintf("WARNING: environment variable '%s' is not set", GithubTokenKey))
 	}
 
-	gh, err := NewGithubClient("https://api.github.com", github_token)
+	gh, err := NewGithubClient("https://api.github.com", github_token, AzurePipelinesAppName)
 	handleError(err)
 
 	err = handleEvent(gh, payload)
