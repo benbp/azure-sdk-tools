@@ -134,17 +134,13 @@ func handleComment(gh *GithubClient, ic *IssueCommentWebhook) error {
 		// request branch is from, which may be a fork.
 		pr, err := gh.GetPullRequest(ic.GetPullsUrl())
 		handleError(err)
-		status, conclusion, err := gh.GetCheckSuiteStatus(pr)
+		_, conclusion, err := gh.GetCheckSuiteStatus(pr)
 		handleError(err)
 
-		if status == CheckSuiteStatusCompleted {
-			if IsCheckSuiteSucceeded(conclusion) {
-				return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
-			} else if IsCheckSuiteFailed(conclusion) {
-				return gh.SetStatus(pr.GetStatusesUrl(), failedBody)
-			} else {
-				return gh.SetStatus(pr.GetStatusesUrl(), pendingBody)
-			}
+		if IsCheckSuiteSucceeded(conclusion) {
+			return gh.SetStatus(pr.GetStatusesUrl(), succeededBody)
+		} else if IsCheckSuiteFailed(conclusion) {
+			return gh.SetStatus(pr.GetStatusesUrl(), failedBody)
 		} else {
 			return gh.SetStatus(pr.GetStatusesUrl(), pendingBody)
 		}
