@@ -11,3 +11,6 @@ jobs:
 
     steps:
       - uses: benbp/azure-sdk-actions@main
+        with:
+          payload: ${{ toJson(github.event) }}
+          token: ${{ secrets.GITHUB_TOKEN }}
