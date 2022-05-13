@@ -5,12 +5,5 @@ on:
     types: [created]
 
 jobs:
-  issue-comment:
-    name: Evaluate Issue Comment
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: benbp/azure-sdk-actions/test/action.yml@main
-        with:
-          payload: ${{ toJson(github.event) }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+  call-workflow-passing-data:
+    uses: benbp/azure-sdk-actions/.github/workflows/reusable-workflow.yml@main
