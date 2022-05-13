@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: benbp/azure-sdk-actions@main
+      - uses: benbp/azure-sdk-actions/test/action.yml@main
         with:
           payload: ${{ toJson(github.event) }}
           token: ${{ secrets.GITHUB_TOKEN }}
