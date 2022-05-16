@@ -1,9 +1,0 @@
-name: Issue Comment Action
-
-on:
-  issue_comment:
-    types: [created]
-
-jobs:
-  call-workflow-passing-data:
-    uses: benbp/azure-sdk-actions/.github/workflows/reusable-workflow.yml@main
