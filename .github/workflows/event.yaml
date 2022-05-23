@@ -9,7 +9,7 @@ on:
   # are available in the action context.
   # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target
   pull_request_target:
-    types: [opened, reopened]
+    types: [ready_for_review]
 
 jobs:
   event-handler:
