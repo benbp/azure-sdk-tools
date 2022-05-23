@@ -5,12 +5,17 @@ on:
     types: [completed]
   issue_comment:
     types: [created]
+  # IMPORTANT: use this and not `pull_request` so we run the main branch version of the action, as credentials
+  # are available in the action context.
+  # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target
+  pull_request_target:
+    types: [opened, reopened]
 
 jobs:
   event-handler:
     name: Handle ${{ github.event_name }} ${{ github.event.action }} event
     runs-on: ubuntu-latest
     steps:
-      - uses: azure/azure-sdk-actions@main
+      - uses: benbp/azure-sdk-actions@benbp/check-enforcer-details
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
