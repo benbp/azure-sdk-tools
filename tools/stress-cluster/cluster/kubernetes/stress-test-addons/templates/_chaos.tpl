@@ -1,7 +1,11 @@
 {{- define "stress-test-addons.chaos-wrapper.tpl" -}}
 {{- $global := index . 0 -}}
 {{- $chaosTemplate := index . 1 -}}
-{{- range (default (list "stress") $global.Values.scenarios) }}
+{{- $scenariosOverride := $global.Values.scenarios -}}
+{{- if eq (len .) 3 -}}
+{{- $scenariosOverride = index . 2 -}}
+{{- end -}}
+{{- range (default (list "stress") $scenariosOverride) }}
 ---
 {{ $chaosCtx := fromYaml (include "stress-test-addons.util.mergeStressContext" (list $global . )) }}
 metadata:

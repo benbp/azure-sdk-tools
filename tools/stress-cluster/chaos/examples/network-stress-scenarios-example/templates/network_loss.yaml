@@ -1,4 +1,6 @@
-{{- include "stress-test-addons.chaos-wrapper.tpl" (list . "stress.network-chaos") -}}
+{{- /* Only apply network chaos policy to the images+videos scenarios */}}
+{{- $chaosScenarios := list "images" "videos" -}}
+{{- include "stress-test-addons.chaos-wrapper.tpl" (list . "stress.network-chaos" $chaosScenarios) -}}
 {{- define "stress.network-chaos" -}}
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
