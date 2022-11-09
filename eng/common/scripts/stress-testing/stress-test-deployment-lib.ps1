@@ -5,6 +5,15 @@ $FailedCommands = New-Object Collections.Generic.List[hashtable]
 
 . (Join-Path $PSScriptRoot "../Helpers" PSModule-Helpers.ps1)
 
+$namespaceSpec = @"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{0}"
+  annotations:
+    DeleteAfter: `"$([DateTime]::UtcNow.AddHours(24).ToString('o'))`"
+"@
+
 $limitRangeSpec = @"
 apiVersion: v1
 kind: LimitRange
@@ -202,7 +211,7 @@ function DeployStressPackage(
     $imageTagBase += "/$($pkg.Namespace)/$($pkg.ReleaseName)"
 
     Write-Host "Creating namespace $($pkg.Namespace) if it does not exist..."
-    kubectl create namespace $pkg.Namespace --dry-run=client -o yaml | kubectl apply -f -
+    $namespaceSpec -f $pkg.Namespace | kubectl apply -f -
     if ($LASTEXITCODE) {exit $LASTEXITCODE}
     Write-Host "Adding default resource requests to namespace/$($pkg.Namespace)"
     $limitRangeSpec | kubectl apply -n $pkg.Namespace -f -
