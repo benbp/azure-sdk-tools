@@ -118,6 +118,8 @@ function NewStressTestPackageInfo(
         GetUsername
     }
 
+    Write-Host "BBP NAMESPACE " + $namespace
+
     return [StressTestPackageInfo]@{
         Namespace = $namespace.ToLower()
         Directory = $chartFile.DirectoryName
