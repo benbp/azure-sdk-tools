@@ -9,6 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.Azure.Pipelines.Authorization.WebApi;
+using Microsoft.Azure.Pipelines.Checks.WebApi;
 
 namespace PipelineGenerator
 {
@@ -17,7 +20,7 @@ namespace PipelineGenerator
 
         public static int Main(string[] args)
         {
-            
+
             var cancellationTokenSource = new CancellationTokenSource();
             Console.CancelKeyPress += (sender, e) =>
             {
@@ -182,6 +185,42 @@ namespace PipelineGenerator
                     setManagedVariables,
                     overwriteTriggers
                     );
+
+                var serviceEndpointClient = await context.GetServiceEndpointClientAsync(cancellationToken);
+                var guid = new Guid("8e06ad54-9556-4ef0-ae6b-bcb2b57cd086");
+                var serviceEndpoint = await serviceEndpointClient.GetServiceEndpointDetailsAsync("internal", guid);
+                var serviceEndpointParams = serviceEndpoint.Authorization.Parameters;
+
+
+                var permissionClient = await context.GetPipelinePermissionClientAsync(cancellationToken);
+                var permissions = new ResourcePipelinePermissions{
+                    Pipelines = new List<PipelinePermission>{
+                        new PipelinePermission{
+                            Id = 5784,
+                            Authorized = true,
+                        }
+                    },
+                    AllPipelines = new Permission{
+                        Authorized = false
+                    },
+                    Resource = new Resource{
+                        Type = "endpoint",
+                        Name = serviceEndpoint.Name,
+                        Id = serviceEndpoint.Id.ToString(),
+                    }
+                };
+
+                var result = await permissionClient.UpdatePipelinePermisionsForResourceAsync(project, "endpoint", serviceEndpoint.Id.ToString(), permissions);
+
+
+                // var buildClient = await context.GetBuildHttpClientAsync(cancellationToken);
+                // var result = await buildClient.AuthorizeDefinitionResourcesAsync(new List<DefinitionResourceReference>{serviceEndpointResource}, project, 5784);
+
+                // var result = await serviceEndpointClient.UpdateServiceEndpointAsync(guid, serviceEndpoint);
+
+
+                return ExitCondition.Success;
+
 
                 var pipelineConvention = GetPipelineConvention(convention, context);
                 var components = ScanForComponents(path, pipelineConvention.SearchPattern);

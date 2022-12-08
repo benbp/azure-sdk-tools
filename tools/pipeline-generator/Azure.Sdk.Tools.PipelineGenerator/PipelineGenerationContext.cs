@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.Azure.Pipelines.Authorization.WebApi;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -133,9 +134,22 @@ namespace PipelineGenerator
             return cachedProjectReference;
         }
 
+        private PipelinePermissionsHttpClient cachedPipelinePermissionClient;
+
+        public async Task<PipelinePermissionsHttpClient> GetPipelinePermissionClientAsync(CancellationToken cancellationToken)
+        {
+            if (cachedPipelinePermissionClient == null)
+            {
+                var connection = await GetConnectionAsync();
+                cachedPipelinePermissionClient = await connection.GetClientAsync<PipelinePermissionsHttpClient>(cancellationToken);
+            }
+
+            return cachedPipelinePermissionClient;
+        }
+
         private ServiceEndpointHttpClient cachedServiceEndpointClient;
 
-        private async Task<ServiceEndpointHttpClient> GetServiceEndpointClientAsync(CancellationToken cancellationToken)
+        public async Task<ServiceEndpointHttpClient> GetServiceEndpointClientAsync(CancellationToken cancellationToken)
         {
             if (cachedServiceEndpointClient == null)
             {
