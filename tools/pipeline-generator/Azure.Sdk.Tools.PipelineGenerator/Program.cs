@@ -1,4 +1,4 @@
-﻿using McMaster.Extensions.CommandLineUtils;
+﻿using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PipelineGenerator.Conventions;
@@ -9,16 +9,58 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.Azure.Pipelines.Authorization.WebApi;
-using Microsoft.Azure.Pipelines.Checks.WebApi;
 
 namespace PipelineGenerator
 {
+    public class DefaultOptions
+    {
+        [Option('o', "organization", Required = false, Default = "azure-sdk", HelpText = "Azure DevOps organization name. Default: azure-sdk")]
+        public string Organization { get; set; }
+        [Option('p', "project", Required = false, Default = "internal", HelpText = "Azure DevOps project name. Default: internal")]
+        public string Project { get; set; }
+        [Option('t', "patvar", Required = false, Default = "PATVAR", HelpText = "Environment variable name containing a Personal Access Token. Default: PATVAR")]
+        public string Patvar { get; set; }
+        [Option("whatif", Required = false, HelpText = "Dry Run changes")]
+        public bool WhatIf { get; set; }
+    }
+
+    public class GeneratorOptions : DefaultOptions
+    {
+        [Option('x', "prefix", Required = true, HelpText = "The prefix to append to the pipeline name")]
+        public string Prefix { get; set; }
+        [Option("path", Required = true, HelpText = "The directory from which to scan for components")]
+        public string Path { get; set; }
+        [Option('d', "devopspath", Required = false, HelpText = "The DevOps directory for created pipelines")]
+        public string DevOpsPath { get; set; }
+        [Option('e', "endpoint", Required = true, HelpText = "Name of the service endpoint to configure repositories with")]
+        public string Endpoint { get; set; }
+        [Option('r', "repository", Required = true, HelpText = "Name of the GitHub repo in the form [org]/[repo]")]
+        public string Repository { get; set; }
+        [Option('b', "branch", Required = false, Default = "refs/heads/main", HelpText = "Default: refs/heads/main")]
+        public string Branch { get; set; }
+        [Option('a', "agentpool", Required = false, Default = "Hosted", HelpText = "Name of the agent pool to use when pool isn't specified. Default: hosted")]
+        public string Agentpool { get; set; }
+        [Option('c', "convention", Required = true, HelpText = "The convention to build pipelines for: [ci|up|upweekly|tests|testsweekly]")]
+        public string Convention { get; set; }
+        [Option('v', "variablegroups", Required = true, HelpText = "Variable groups to link, separated by a space, e.g. --variablegroups '1 9 64'")]
+        public IEnumerable<string> VariableGroups { get; set; }
+        [Option("open", Required = false, HelpText = "Open a browser window to the definitions that are created")]
+        public bool Open { get; set; }
+        [Option("destroy", Required = false, HelpText = "Use this switch to delete the pipelines instead (DANGER!)")]
+        public bool Destroy { get; set; }
+        [Option("debug", Required = false, HelpText = "Turn on debug level logging")]
+        public bool Debug { get; set; }
+        [Option("no-schedule", Required = false, HelpText = "Skip creating any scheduled triggers")]
+        public bool NoSchedule { get; set; }
+        [Option("set-managed-variables", Required = false, HelpText = "Set managed meta.* variable values")]
+        public bool SetManagedVariables { get; set; }
+        [Option("overwrite-triggers",Required = false, HelpText = "Overwrite existing pipeline triggers (triggers may be manually modified, use with caution)")]
+        public bool OverwriteTriggers { get; set; }
+    }
     public class Program
     {
 
-        public static int Main(string[] args)
+        public static async Task Main(string[] args)
         {
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -27,8 +69,35 @@ namespace PipelineGenerator
                 cancellationTokenSource.Cancel();
             };
 
-            var app = PrepareApplication(cancellationTokenSource);
-            return app.Execute(args);
+            await Parser.Default.ParseArguments<GeneratorOptions>(args)
+                .WithParsedAsync<GeneratorOptions>(async o =>
+                {
+                    var serviceProvider = GetServiceProvider(o.Debug);
+                    var program = serviceProvider.GetService<Program>();
+                    var code = await program.RunAsync(
+                        o.Organization,
+                        o.Project,
+                        o.Prefix,
+                        o.Path,
+                        o.Patvar,
+                        o.Endpoint,
+                        o.Repository,
+                        o.Branch,
+                        o.Agentpool,
+                        o.Convention,
+                        o.VariableGroups.ToArray(),
+                        o.DevOpsPath,
+                        o.WhatIf,
+                        o.Open,
+                        o.Destroy,
+                        o.NoSchedule,
+                        o.SetManagedVariables,
+                        o.OverwriteTriggers,
+                        cancellationTokenSource.Token
+                    );
+
+                    Environment.Exit((int)code);
+                });
         }
 
         private static IServiceProvider GetServiceProvider(bool debug)
@@ -41,62 +110,6 @@ namespace PipelineGenerator
                 .AddTransient<IntegrationTestingPipelineConvention>();
 
             return serviceCollection.BuildServiceProvider();
-        }
-
-        private static CommandLineApplication PrepareApplication(CancellationTokenSource cancellationTokenSource)
-        {
-            var app = new CommandLineApplication();
-            app.HelpOption();
-            var organizationOption = app.Option("--organization <url>", "The URL of the Azure DevOps organization.", CommandOptionType.SingleValue).IsRequired();
-            var projectOption = app.Option("--project <project>", "The name of the Azure DevOps project.", CommandOptionType.SingleValue).IsRequired();
-            var prefixOption = app.Option("--prefix <prefix>", "The prefix to append to the pipeline name.", CommandOptionType.SingleValue).IsRequired();
-            var pathOption = app.Option("--path <path>", "The directory from which to scan for components", CommandOptionType.SingleValue).IsRequired();
-            var devOpsPathOption = app.Option("--devopspath <path>", "The DevOps directory for created pipelines", CommandOptionType.SingleValue);
-            var patvarOption = app.Option("--patvar <env>", "Name of an environment variable which contains a PAT.", CommandOptionType.SingleValue);
-            var endpointOption = app.Option("--endpoint <endpoint>", "Name of the service endpoint to configure repositories with.", CommandOptionType.SingleValue).IsRequired();
-            var repositoryOption = app.Option("--repository <repository>", "Name of the GitHub repo in the form [org]/[repo].", CommandOptionType.SingleValue).IsRequired();
-            var branchOption = app.Option("--branch <branch>", "Typically refs/heads/main.", CommandOptionType.SingleValue).IsRequired();
-            var agentpoolOption = app.Option("--agentpool <agentpool>", "Name of the agent pool to use when pool isn't specified.", CommandOptionType.SingleValue).IsRequired();
-            var conventionOption = app.Option("--convention <convention>", "What convention are you building pipelines for?", CommandOptionType.SingleValue).IsRequired();
-            var variablegroupsOption = app.Option("--variablegroup <variablegroup>", "Variable groups. May specify multiple (e.g. --variablegroup 1 --variablegroup 2)", CommandOptionType.MultipleValue);
-            var whatifOption = app.Option("--whatif", "Use this to understand what will happen, but don't change anything.", CommandOptionType.NoValue);
-            var openOption = app.Option("--open", "Open a browser window to the definitions that are created.", CommandOptionType.NoValue);
-            var destroyOption = app.Option("--destroy", "Use this switch to delete the pipelines instead (DANGER!)", CommandOptionType.NoValue);
-            var debugOption = app.Option("--debug", "Turn on debug level logging.", CommandOptionType.NoValue);
-            var noScheduleOption = app.Option("--no-schedule", "Don't create any scheduled triggers.", CommandOptionType.NoValue);
-            var setManagedVariables = app.Option("--set-managed-variables", "Set managed meta.* variable values", CommandOptionType.NoValue);
-            var overwriteTriggersOption = app.Option("--overwrite-triggers", "Overwrite existing pipeline triggers (triggers may be manually modified, use with caution).", CommandOptionType.NoValue);
-
-            app.OnExecute(() =>
-            {
-                var serviceProvider = GetServiceProvider(debugOption.HasValue());
-                var program = serviceProvider.GetService<Program>();
-                var exitCondition = program.RunAsync(
-                    organizationOption.Value(),
-                    projectOption.Value(),
-                    prefixOption.Value(),
-                    pathOption.Value(),
-                    patvarOption.Value(),
-                    endpointOption.Value(),
-                    repositoryOption.Value(),
-                    branchOption.Value(),
-                    agentpoolOption.Value(),
-                    conventionOption.Value(),
-                    variablegroupsOption.Values.ToArray(),
-                    devOpsPathOption.Value(),
-                    whatifOption.HasValue(),
-                    openOption.HasValue(),
-                    destroyOption.HasValue(),
-                    noScheduleOption.HasValue(),
-                    setManagedVariables.HasValue(),
-                    overwriteTriggersOption.HasValue(),
-                    cancellationTokenSource.Token
-                    ).Result;
-
-                return (int)exitCondition;
-            });
-
-            return app;
         }
 
         public Program(IServiceProvider serviceProvider, ILogger<Program> logger)
@@ -185,42 +198,6 @@ namespace PipelineGenerator
                     setManagedVariables,
                     overwriteTriggers
                     );
-
-                var serviceEndpointClient = await context.GetServiceEndpointClientAsync(cancellationToken);
-                var guid = new Guid("8e06ad54-9556-4ef0-ae6b-bcb2b57cd086");
-                var serviceEndpoint = await serviceEndpointClient.GetServiceEndpointDetailsAsync("internal", guid);
-                var serviceEndpointParams = serviceEndpoint.Authorization.Parameters;
-
-
-                var permissionClient = await context.GetPipelinePermissionClientAsync(cancellationToken);
-                var permissions = new ResourcePipelinePermissions{
-                    Pipelines = new List<PipelinePermission>{
-                        new PipelinePermission{
-                            Id = 5784,
-                            Authorized = true,
-                        }
-                    },
-                    AllPipelines = new Permission{
-                        Authorized = false
-                    },
-                    Resource = new Resource{
-                        Type = "endpoint",
-                        Name = serviceEndpoint.Name,
-                        Id = serviceEndpoint.Id.ToString(),
-                    }
-                };
-
-                var result = await permissionClient.UpdatePipelinePermisionsForResourceAsync(project, "endpoint", serviceEndpoint.Id.ToString(), permissions);
-
-
-                // var buildClient = await context.GetBuildHttpClientAsync(cancellationToken);
-                // var result = await buildClient.AuthorizeDefinitionResourcesAsync(new List<DefinitionResourceReference>{serviceEndpointResource}, project, 5784);
-
-                // var result = await serviceEndpointClient.UpdateServiceEndpointAsync(guid, serviceEndpoint);
-
-
-                return ExitCondition.Success;
-
 
                 var pipelineConvention = GetPipelineConvention(convention, context);
                 var components = ScanForComponents(path, pipelineConvention.SearchPattern);
