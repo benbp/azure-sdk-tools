@@ -1,103 +1,72 @@
-﻿using CommandLine;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using PipelineGenerator.Conventions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommandLine;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using PipelineGenerator.Conventions;
+using PipelineGenerator.CommandParserOptions;
 
 namespace PipelineGenerator
 {
-    public class DefaultOptions
-    {
-        [Option('o', "organization", Required = false, Default = "azure-sdk", HelpText = "Azure DevOps organization name. Default: azure-sdk")]
-        public string Organization { get; set; }
-        [Option('p', "project", Required = false, Default = "internal", HelpText = "Azure DevOps project name. Default: internal")]
-        public string Project { get; set; }
-        [Option('t', "patvar", Required = false, Default = "PATVAR", HelpText = "Environment variable name containing a Personal Access Token. Default: PATVAR")]
-        public string Patvar { get; set; }
-        [Option("whatif", Required = false, HelpText = "Dry Run changes")]
-        public bool WhatIf { get; set; }
-    }
-
-    public class GeneratorOptions : DefaultOptions
-    {
-        [Option('x', "prefix", Required = true, HelpText = "The prefix to append to the pipeline name")]
-        public string Prefix { get; set; }
-        [Option("path", Required = true, HelpText = "The directory from which to scan for components")]
-        public string Path { get; set; }
-        [Option('d', "devopspath", Required = false, HelpText = "The DevOps directory for created pipelines")]
-        public string DevOpsPath { get; set; }
-        [Option('e', "endpoint", Required = true, HelpText = "Name of the service endpoint to configure repositories with")]
-        public string Endpoint { get; set; }
-        [Option('r', "repository", Required = true, HelpText = "Name of the GitHub repo in the form [org]/[repo]")]
-        public string Repository { get; set; }
-        [Option('b', "branch", Required = false, Default = "refs/heads/main", HelpText = "Default: refs/heads/main")]
-        public string Branch { get; set; }
-        [Option('a', "agentpool", Required = false, Default = "Hosted", HelpText = "Name of the agent pool to use when pool isn't specified. Default: hosted")]
-        public string Agentpool { get; set; }
-        [Option('c', "convention", Required = true, HelpText = "The convention to build pipelines for: [ci|up|upweekly|tests|testsweekly]")]
-        public string Convention { get; set; }
-        [Option('v', "variablegroups", Required = true, HelpText = "Variable groups to link, separated by a space, e.g. --variablegroups '1 9 64'")]
-        public IEnumerable<string> VariableGroups { get; set; }
-        [Option("open", Required = false, HelpText = "Open a browser window to the definitions that are created")]
-        public bool Open { get; set; }
-        [Option("destroy", Required = false, HelpText = "Use this switch to delete the pipelines instead (DANGER!)")]
-        public bool Destroy { get; set; }
-        [Option("debug", Required = false, HelpText = "Turn on debug level logging")]
-        public bool Debug { get; set; }
-        [Option("no-schedule", Required = false, HelpText = "Skip creating any scheduled triggers")]
-        public bool NoSchedule { get; set; }
-        [Option("set-managed-variables", Required = false, HelpText = "Set managed meta.* variable values")]
-        public bool SetManagedVariables { get; set; }
-        [Option("overwrite-triggers",Required = false, HelpText = "Overwrite existing pipeline triggers (triggers may be manually modified, use with caution)")]
-        public bool OverwriteTriggers { get; set; }
-    }
     public class Program
     {
-
         public static async Task Main(string[] args)
         {
-
             var cancellationTokenSource = new CancellationTokenSource();
             Console.CancelKeyPress += (sender, e) =>
             {
                 cancellationTokenSource.Cancel();
             };
 
-            await Parser.Default.ParseArguments<GeneratorOptions>(args)
-                .WithParsedAsync<GeneratorOptions>(async o =>
-                {
-                    var serviceProvider = GetServiceProvider(o.Debug);
+            await Parser.Default
+                .ParseArguments<DefaultOptions, GeneratorOptions>(args)
+                .WithNotParsed(_ => { Environment.Exit((int)ExitCondition.InvalidArguments); })
+                .WithParsedAsync(async o => { await Run(o, cancellationTokenSource); });
+        }
+
+        public static async Task Run(object commandObj, CancellationTokenSource cancellationTokenSource)
+        {
+            ExitCondition code = ExitCondition.Exception;
+
+            switch (commandObj)
+            {
+                case GeneratorOptions g:
+                    var serviceProvider = GetServiceProvider(g.Debug);
                     var program = serviceProvider.GetService<Program>();
-                    var code = await program.RunAsync(
-                        o.Organization,
-                        o.Project,
-                        o.Prefix,
-                        o.Path,
-                        o.Patvar,
-                        o.Endpoint,
-                        o.Repository,
-                        o.Branch,
-                        o.Agentpool,
-                        o.Convention,
-                        o.VariableGroups.ToArray(),
-                        o.DevOpsPath,
-                        o.WhatIf,
-                        o.Open,
-                        o.Destroy,
-                        o.NoSchedule,
-                        o.SetManagedVariables,
-                        o.OverwriteTriggers,
+                    code = await program.RunAsync(
+                        g.Organization,
+                        g.Project,
+                        g.Prefix,
+                        g.Path,
+                        g.Patvar,
+                        g.Endpoint,
+                        g.Repository,
+                        g.Branch,
+                        g.Agentpool,
+                        g.Convention,
+                        g.VariableGroups.ToArray(),
+                        g.DevOpsPath,
+                        g.WhatIf,
+                        g.Open,
+                        g.Destroy,
+                        g.NoSchedule,
+                        g.SetManagedVariables,
+                        g.OverwriteTriggers,
                         cancellationTokenSource.Token
                     );
 
-                    Environment.Exit((int)code);
-                });
+                    break;
+                default:
+                    code = ExitCondition.InvalidArguments;
+                    break;
+            }
+
+            Environment.Exit((int)code);
         }
 
         private static IServiceProvider GetServiceProvider(bool debug)
@@ -164,7 +133,7 @@ namespace PipelineGenerator
             string branch,
             string agentPool,
             string convention,
-            string[] variableGroups,
+            int[] variableGroups,
             string devOpsPath,
             bool whatIf,
             bool open,
