@@ -23,50 +23,19 @@ namespace PipelineGenerator
                 cancellationTokenSource.Cancel();
             };
 
-            await Parser.Default
-                .ParseArguments<DefaultOptions, GenerateOptions>(args)
-                .WithNotParsed(_ => { Environment.Exit((int)ExitCondition.InvalidArguments); })
-                .WithParsedAsync(async o => { await Run(o, cancellationTokenSource); });
-        }
-
-        public static async Task Run(object commandObj, CancellationTokenSource cancellationTokenSource)
-        {
-            ExitCondition code = ExitCondition.Exception;
-
-            switch (commandObj)
+            var parsed = Parser.Default.ParseArguments<DefaultOptions, GenerateOptions>(args);
+            parsed = await parsed.WithParsedAsync<GenerateOptions>(async opts =>
             {
-                case GenerateOptions g:
-                    var serviceProvider = GetServiceProvider(g.Debug);
-                    var program = serviceProvider.GetService<Program>();
-                    code = await program.RunAsync(
-                        g.Organization,
-                        g.Project,
-                        g.Prefix,
-                        g.Path,
-                        g.Patvar,
-                        g.Endpoint,
-                        g.Repository,
-                        g.Branch,
-                        g.Agentpool,
-                        g.Convention,
-                        g.VariableGroups.ToArray(),
-                        g.DevOpsPath,
-                        g.WhatIf,
-                        g.Open,
-                        g.Destroy,
-                        g.NoSchedule,
-                        g.SetManagedVariables,
-                        g.OverwriteTriggers,
-                        cancellationTokenSource.Token
-                    );
-
-                    break;
-                default:
-                    code = ExitCondition.InvalidArguments;
-                    break;
-            }
-
-            Environment.Exit((int)code);
+                var serviceProvider = GetServiceProvider(opts.Debug);
+                var program = serviceProvider.GetService<Program>();
+                var code = await program.Generate(opts, cancellationTokenSource.Token);
+                Environment.Exit((int)code);
+            });
+            //parsed = await parsed.WithParsedAsync<BootstrapOptions>(async opts =>
+            //{
+            //    await program.Bootstrap(opts, cancellationTokenSource.Token);
+            //});
+            parsed.WithNotParsed(_ => { Environment.Exit((int)ExitCondition.InvalidArguments); });
         }
 
         private static IServiceProvider GetServiceProvider(bool debug)
@@ -122,54 +91,35 @@ namespace PipelineGenerator
             }
         }
 
-        public async Task<ExitCondition> RunAsync(
-            string organization,
-            string project,
-            string prefix,
-            string path,
-            string patvar,
-            string endpoint,
-            string repository,
-            string branch,
-            string agentPool,
-            string convention,
-            int[] variableGroups,
-            string devOpsPath,
-            bool whatIf,
-            bool open,
-            bool destroy,
-            bool noSchedule,
-            bool setManagedVariables,
-            bool overwriteTriggers,
-            CancellationToken cancellationToken)
+        public async Task<ExitCondition> Generate(GenerateOptions options, CancellationToken cancellationToken)
         {
             try
             {
                 logger.LogDebug("Creating context.");
 
                 // Fall back to a form of prefix if DevOps path is not specified
-                var devOpsPathValue = string.IsNullOrEmpty(devOpsPath) ? $"\\{prefix}" : devOpsPath;
+                var devOpsPathValue = string.IsNullOrEmpty(options.DevOpsPath) ? $"\\{options.Prefix}" : options.DevOpsPath;
 
                 var context = new PipelineGenerationContext(
                     this.logger,
-                    organization,
-                    project,
-                    patvar,
-                    endpoint,
-                    repository,
-                    branch,
-                    agentPool,
-                    variableGroups,
-                    devOpsPathValue,
-                    prefix,
-                    whatIf,
-                    noSchedule,
-                    setManagedVariables,
-                    overwriteTriggers
+                    options.Organization,
+                    options.Project,
+                    options.Patvar,
+                    options.Endpoint,
+                    options.Repository,
+                    options.Branch,
+                    options.Agentpool,
+                    options.VariableGroups.ToArray(),
+                    options.DevOpsPath,
+                    options.Prefix,
+                    options.WhatIf,
+                    options.NoSchedule,
+                    options.SetManagedVariables,
+                    options.OverwriteTriggers
                     );
 
-                var pipelineConvention = GetPipelineConvention(convention, context);
-                var components = ScanForComponents(path, pipelineConvention.SearchPattern);
+                var pipelineConvention = GetPipelineConvention(options.Convention, context);
+                var components = ScanForComponents(options.Path, pipelineConvention.SearchPattern);
 
                 if (components.Count() == 0)
                 {
@@ -187,7 +137,7 @@ namespace PipelineGenerator
                 foreach (var component in components)
                 {
                     logger.LogInformation("Processing component '{0}' in '{1}'.", component.Name, component.Path);
-                    if (destroy)
+                    if (options.Destroy)
                     {
                         var definition = await pipelineConvention.DeleteDefinitionAsync(component, cancellationToken);
                     }
@@ -195,7 +145,7 @@ namespace PipelineGenerator
                     {
                         var definition = await pipelineConvention.CreateOrUpdateDefinitionAsync(component, cancellationToken);
 
-                        if (open)
+                        if (options.Open)
                         {
                             OpenBrowser(definition.GetWebUrl());
                         }
