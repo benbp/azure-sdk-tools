@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace PipelineGenerator.CommandParserOptions
 {
     [Verb("generate", HelpText = "Generate Azure Pipelines from config files")]
-    public class GenerateOptions : DefaultOptions
+    public class GenerateOptions : DevOpsDefaultOptions
     {
         [Option('x', "prefix", Required = true, HelpText = "The prefix to append to the pipeline name")]
         public string Prefix { get; set; }
@@ -38,9 +38,6 @@ namespace PipelineGenerator.CommandParserOptions
 
         [Option("destroy", Required = false, HelpText = "Use this switch to delete the pipelines instead (DANGER!)")]
         public bool Destroy { get; set; }
-
-        [Option("debug", Required = false, HelpText = "Turn on debug level logging")]
-        public bool Debug { get; set; }
 
         [Option("no-schedule", Required = false, HelpText = "Skip creating any scheduled triggers")]
         public bool NoSchedule { get; set; }

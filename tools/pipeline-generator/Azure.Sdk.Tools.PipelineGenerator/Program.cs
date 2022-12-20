@@ -23,7 +23,7 @@ namespace PipelineGenerator
                 cancellationTokenSource.Cancel();
             };
 
-            var parsed = Parser.Default.ParseArguments<DefaultOptions, GenerateOptions>(args);
+            var parsed = Parser.Default.ParseArguments<DevOpsDefaultOptions, GenerateOptions, KeyvaultOptions>(args);
             parsed = await parsed.WithParsedAsync<GenerateOptions>(async opts =>
             {
                 var serviceProvider = GetServiceProvider(opts.Debug);
@@ -31,10 +31,13 @@ namespace PipelineGenerator
                 var code = await program.Generate(opts, cancellationTokenSource.Token);
                 Environment.Exit((int)code);
             });
-            //parsed = await parsed.WithParsedAsync<BootstrapOptions>(async opts =>
-            //{
-            //    await program.Bootstrap(opts, cancellationTokenSource.Token);
-            //});
+            parsed = await parsed.WithParsedAsync<KeyvaultOptions>(async opts =>
+            {
+                var serviceProvider = GetServiceProvider(opts.Debug);
+                var program = serviceProvider.GetService<Program>();
+                var code = await program.CreateOrUpdateKeyvault(opts, cancellationTokenSource.Token);
+                Environment.Exit((int)code);
+            });
             parsed.WithNotParsed(_ => { Environment.Exit((int)ExitCondition.InvalidArguments); });
         }
 
@@ -89,6 +92,10 @@ namespace PipelineGenerator
 
                 default: throw new ArgumentOutOfRangeException(nameof(convention), "Could not find matching convention.");
             }
+        }
+
+        public async Task<ExitCondition> CreateOrUpdateKeyvault(KeyvaultOptions options, CancellationToken cancellationToken)
+        {
         }
 
         public async Task<ExitCondition> Generate(GenerateOptions options, CancellationToken cancellationToken)
