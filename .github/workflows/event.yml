@@ -11,6 +11,7 @@ on:
   # Trigger off other github actions, because otherwise a check_suite completed event consisting
   # entirely of github actions won't trigger this action.
   workflow_run:
+    workflows: [cli-ci]
     types: [completed]
 
 permissions: {}
