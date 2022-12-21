@@ -11,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Test
-        run: echo TESTING BBP
+        run: echo TESTING BBP && exit 1
