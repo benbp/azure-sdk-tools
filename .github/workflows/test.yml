@@ -1,0 +1,21 @@
+# NOTE: currently azure-sdk-actions only hosts check enforcer code.
+# If further functionality is added, this name should be updated to reflect
+# the more generic behavior
+name: Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/**"
+
+
+permissions: {}
+
+jobs:
+  event-handler:
+    name: Test event
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo foobar
