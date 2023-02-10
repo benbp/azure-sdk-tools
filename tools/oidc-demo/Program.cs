@@ -1,5 +1,6 @@
 ﻿#nullable disable
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 
 const string RequestUrl = $"https://bebroderoidcapp.azurewebsites.net/api/AzureSdkIssueLabelerService";
 
