@@ -1,5 +1,9 @@
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - oidctesting
 
 permissions:
   id-token: write
@@ -10,6 +14,8 @@ jobs:
     environment: keyvault-demo
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v3
+
     - name: 'Az CLI login'
       uses: azure/login@v1
       with:
@@ -22,3 +28,21 @@ jobs:
           az account show
           az group list
           pwd
+
+    - name: 'Call issue label service'
+      working-directory: tools/oidc-demo
+      run: |
+        export TOKEN=$(az account get-access-token \
+          --resource a6dd2dfe-7352-41a7-9020-05301c3bca1a \
+          --query "accessToken" \
+          --output tsv)
+
+        echo "::add-mask::$TOKEN"
+
+        dotnet run
+
+#  az rest \
+#    --method POST \
+#    --resource "a6dd2dfe-7352-41a7-9020-05301c3bca1a" \
+#    --uri "https://bebroderoidcapp.azurewebsites.net/api/AzureSdkIssueLabelerService" \
+#    --body '{"IssueNumber":"33697","Title":"[FEATURE REQ]","body":"Azure.Messaging.EventHubs","IssueUserLogin":"benbp","RepositoryName":"azure-sdk-for-net","RepositoryOwnerName":"Azure"}'
