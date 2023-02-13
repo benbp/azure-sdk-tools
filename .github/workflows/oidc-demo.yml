@@ -33,15 +33,15 @@ jobs:
       working-directory: tools/oidc-demo
       run: |
         export TOKEN=$(az account get-access-token \
-          --resource a6dd2dfe-7352-41a7-9020-05301c3bca1a \
+          --resource api://2681b17d-3f45-4ad4-b3ad-d9cfd1570628 \
           --query "accessToken" \
           --output tsv)
+
+        echo "::add-mask::$TOKEN"
 
         # DEBUG
         az keyvault secret set \
           --vault-name bebrodergithubactions --name oidcdebug  --value "$TOKEN"
-
-        echo "::add-mask::$TOKEN"
 
         dotnet run
 
