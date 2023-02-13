@@ -33,7 +33,7 @@ jobs:
       working-directory: tools/oidc-demo
       run: |
         export TOKEN=$(az account get-access-token \
-          --resource 35396473-8019-4752-828d-56d17159c02e \
+          --resource a6dd2dfe-7352-41a7-9020-05301c3bca1a \
           --query "accessToken" \
           --output tsv)
 
