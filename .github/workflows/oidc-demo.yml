@@ -37,6 +37,10 @@ jobs:
           --query "accessToken" \
           --output tsv)
 
+        # DEBUG
+        az keyvault secret set \
+          --vault-name bebrodergithubactions --name oidcdebug  --value "$TOKEN"
+
         echo "::add-mask::$TOKEN"
 
         dotnet run
