@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Microsoft.Graph.Models;
 
 public class FederatedIdentityCredentialsConfig
 {
@@ -20,6 +21,18 @@ public class FederatedIdentityCredentialsConfig
 
     [JsonRequired, JsonPropertyName("subject")]
     public string? Subject { get; set; }
+
+    public FederatedIdentityCredential ToFederatedIdentityCredential()
+    {
+        return new FederatedIdentityCredential
+        {
+            Name = Name,
+            Description = Description,
+            Issuer = Issuer,
+            Subject = Subject,
+            Audiences = Audiences
+        };
+    }
 
     public string ToIndentedString(int indentLevel)
     {
