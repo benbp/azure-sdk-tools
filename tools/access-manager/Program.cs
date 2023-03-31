@@ -18,8 +18,9 @@ rootCommand.SetHandler(async (file) =>
         }
         catch (ODataError ex)
         {
-            Console.WriteLine(ex.Error?.Code);
-            Console.WriteLine(ex.Error?.Message);
+            Console.WriteLine("Received error from Graph API:");
+            Console.WriteLine("    Code:" + ex.Error?.Code);
+            Console.WriteLine("    Message:" + ex.Error?.Message);
         }
     },
     fileOption);
@@ -42,18 +43,22 @@ static async Task Run(FileInfo config)
 
 static async Task Sync(ApplicationAccessConfig appAccessConfig)
 {
-    Console.WriteLine($"Syncing {appAccessConfig.AppDisplayName}");
-
     var graphClient = new GraphServiceClient(new DefaultAzureCredential());
-    var app = await SyncApplication(graphClient, appAccessConfig);
+    var app = await FindOrCreateApplication(graphClient, appAccessConfig);
+    if (app == null)
+    {
+        throw new Exception("Failed to find or create app, no error returned");
+    }
     await SyncFederatedIdentityCredentials(graphClient, appAccessConfig, app);
 }
 
 static async Task SyncFederatedIdentityCredentials(
     GraphServiceClient graphClient,
     ApplicationAccessConfig appAccessConfig,
-    Application? app)
+    Application app)
 {
+    Console.WriteLine("Syncing federated identity credentials for " + app.DisplayName);
+
     Func<FederatedIdentityCredential, FederatedIdentityCredentialsConfig, bool> federatedIdentityCredentialMatch = (cred, cfg) =>
     {
         return cred.Name == cfg.Name &&
@@ -63,32 +68,59 @@ static async Task SyncFederatedIdentityCredentials(
                cred.Audiences == cfg.Audiences;
     };
 
-    // Remove any federated identity credentials that do not match the config
-    foreach (var cred in app?.FederatedIdentityCredentials!)
+    Console.WriteLine($"Found {app.FederatedIdentityCredentials?.Count()} federated identity credentials");
+    app.FederatedIdentityCredentials?.Select(cred =>
     {
-        var match = appAccessConfig.FederatedIdentityCredentials?.First((cfg) => federatedIdentityCredentialMatch(cred, cfg));
+        return new FederatedIdentityCredentialsConfig
+        {
+            Name = cred.Name,
+            Description = cred.Description,
+            Issuer = cred.Issuer,
+            Subject = cred.Subject,
+            Audiences = cred.Audiences
+        };
+    }).ToString();
+
+    int unchanged = 0, removed = 0, created = 0;
+
+    // Remove any federated identity credentials that do not match the config
+    foreach (var cred in app?.FederatedIdentityCredentials ?? Enumerable.Empty<FederatedIdentityCredential>())
+    {
+        var match = appAccessConfig.FederatedIdentityCredentials?.First((config) => federatedIdentityCredentialMatch(cred, config));
         if (match == null)
         {
-            await graphClient.Applications[app.AppId].FederatedIdentityCredentials[cred.Id].DeleteAsync();
+            Console.WriteLine($"Removing federated identity credential {cred.Name}...");
+            await graphClient.Applications[app?.Id].FederatedIdentityCredentials[cred.Id].DeleteAsync();
+            Console.WriteLine($"Removed federated identity credential {cred.Name}");
+            removed++;
+        }
+        else
+        {
+            unchanged++;
         }
     }
 
     // Create any federated identity credentials that are in the config without a match in the registered application
-    foreach (var cred in appAccessConfig.FederatedIdentityCredentials!)
+    foreach (var config in appAccessConfig.FederatedIdentityCredentials)
     {
-        var match = app.FederatedIdentityCredentials?.First((cfg) => federatedIdentityCredentialMatch(cfg, cred));
+        var match = app?.FederatedIdentityCredentials?.First((cred) => federatedIdentityCredentialMatch(cred, config));
         if (match == null)
         {
-            var requestBody = cred.ToFederatedIdentityCredential();
+            var requestBody = config.ToFederatedIdentityCredential();
 
-            var newCred = await graphClient.Applications[app.AppId].FederatedIdentityCredentials.PostAsync(requestBody);
-            cred.Id = newCred?.Id;
+            Console.WriteLine($"Creating federated identity credential {config.Name}...");
+            var newCred = await graphClient.Applications[app?.Id].FederatedIdentityCredentials.PostAsync(requestBody);
+            Console.WriteLine($"Created federated identity credential {config.Name}...");
+            created++;
         }
     }
+
+    Console.WriteLine($"Updated federated identity credentials for app {app?.DisplayName} - {unchanged} unchanged, {removed} removed, {created} created");
 }
 
-static async Task<Application?> SyncApplication(GraphServiceClient graphClient, ApplicationAccessConfig appAccessConfig)
+static async Task<Application?> FindOrCreateApplication(GraphServiceClient graphClient, ApplicationAccessConfig appAccessConfig)
 {
+    Console.WriteLine($"Looking for app with display name {appAccessConfig.AppDisplayName}...");
 
     var result = await graphClient.Applications.GetAsync((requestConfiguration) =>
     {
@@ -99,26 +131,23 @@ static async Task<Application?> SyncApplication(GraphServiceClient graphClient, 
         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
     });
 
-    Application? app = null;
-    string? appId;
-    string? objectId;
-    if (result?.Value == null || result.Value.Count() == 0)
+    if (result?.Value?.First() != null)
     {
-        var requestBody = new Application
-        {
-            DisplayName = appAccessConfig.AppDisplayName
-        };
-        app = await graphClient.Applications.PostAsync(requestBody);
-        appId = app?.AppId!;
-        objectId = app?.Id!;
-        Console.WriteLine($"Created {appAccessConfig.AppDisplayName} with AppId {appId} and ObjectId {objectId}");
-    }
-    else
-    {
-        appId = result?.Value?.First().AppId;
-        objectId = result?.Value?.First().Id;
-        Console.WriteLine($"Found {appAccessConfig.AppDisplayName} with AppId {appId} and ObjectId {objectId}");
+        var foundApp = result.Value.First();
+        Console.WriteLine($"Found {appAccessConfig.AppDisplayName} with AppId {foundApp.AppId} and ObjectId {foundApp.Id}");
+        return foundApp;
     }
 
+    Console.WriteLine($"App with display name {appAccessConfig.AppDisplayName} not found. Creating new app...");
+    var requestBody = new Application
+    {
+        DisplayName = appAccessConfig.AppDisplayName
+    };
+    var app = await graphClient.Applications.PostAsync(requestBody);
+    if (app == null)
+    {
+        return null;
+    }
+    Console.WriteLine($"Created {appAccessConfig.AppDisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
     return app;
 }

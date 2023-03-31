@@ -48,6 +48,7 @@ public class AccessConfig
     {
         var contents = File.ReadAllText(ConfigPath);
         ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents);
+        Console.WriteLine("");
     }
 
     public override string ToString()
@@ -67,7 +68,11 @@ public class AccessConfig
             }
             if (app.RoleBasedAccessControls != null)
             {
-                sb.AppendLine(app.RoleBasedAccessControls.ToString());
+                sb.AppendLine("RoleBasedAccessControls ->");
+                foreach (var rbac in app.RoleBasedAccessControls)
+                {
+                    sb.AppendLine(rbac.ToIndentedString(1));
+                }
             }
         }
 

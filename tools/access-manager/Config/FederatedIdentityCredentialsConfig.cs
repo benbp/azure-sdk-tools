@@ -34,7 +34,7 @@ public class FederatedIdentityCredentialsConfig
         };
     }
 
-    public string ToIndentedString(int indentLevel)
+    public string ToIndentedString(int indentLevel = 0)
     {
         var indent = "";
         foreach (var lvl in Enumerable.Range(0, indentLevel))
@@ -51,5 +51,10 @@ public class FederatedIdentityCredentialsConfig
         sb.AppendLine(indent + $"Subject: {Subject}");
 
         return sb.ToString();
+    }
+
+    public override string ToString()
+    {
+        return ToIndentedString();
     }
 }
