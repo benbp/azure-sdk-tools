@@ -13,7 +13,6 @@ using System.Text.Json;
                 "api://azureadtokenexchange"
               ],
               "description": "event processor oidc main tools",
-              "id": "6bfce5de-931a-405c-b2a9-23d74e1e81fc",
               "issuer": "https://token.actions.githubusercontent.com",
               "name": "githubactionscredential-tools-main",
               "subject": "repo:azure/azure-sdk-tools:ref:refs/heads/main"
@@ -23,7 +22,6 @@ using System.Text.Json;
                 "api://azureadtokenexchange"
               ],
               "description": "event processor oidc main net",
-              "id": "90ac4b15-5fb3-4645-8213-2712b4fcd95d",
               "issuer": "https://token.actions.githubusercontent.com",
               "name": "githubactionscredential-net-main",
               "subject": "repo:azure/azure-sdk-for-net:ref:refs/heads/main"

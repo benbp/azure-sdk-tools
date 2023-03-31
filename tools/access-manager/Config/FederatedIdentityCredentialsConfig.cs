@@ -1,17 +1,15 @@
+using System;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Graph.Models;
 
-public class FederatedIdentityCredentialsConfig
+public class FederatedIdentityCredentialsConfig : IEquatable<FederatedIdentityCredential>
 {
     [JsonRequired, JsonPropertyName("audiences")]
     public List<string>? Audiences { get; set; }
 
     [JsonRequired, JsonPropertyName("description")]
     public string? Description { get; set; }
-
-    [JsonRequired, JsonPropertyName("id")]
-    public string? Id { get; set; }
 
     [JsonRequired, JsonPropertyName("issuer")]
     public string? Issuer { get; set; }
@@ -22,17 +20,66 @@ public class FederatedIdentityCredentialsConfig
     [JsonRequired, JsonPropertyName("subject")]
     public string? Subject { get; set; }
 
-    public FederatedIdentityCredential ToFederatedIdentityCredential()
+    public static implicit operator FederatedIdentityCredential(FederatedIdentityCredentialsConfig config)
     {
         return new FederatedIdentityCredential
         {
-            Name = Name,
-            Description = Description,
-            Issuer = Issuer,
-            Subject = Subject,
-            Audiences = Audiences
+            Name = config.Name,
+            Description = config.Description,
+            Issuer = config.Issuer,
+            Subject = config.Subject,
+            Audiences = config.Audiences
         };
     }
+
+    public static explicit operator FederatedIdentityCredentialsConfig(FederatedIdentityCredential cred)
+    {
+        return new FederatedIdentityCredentialsConfig
+        {
+            Name = cred.Name,
+            Description = cred.Description,
+            Issuer = cred.Issuer,
+            Subject = cred.Subject,
+            Audiences = cred.Audiences
+        };
+    }
+
+    public bool Equals(FederatedIdentityCredential? cred)
+    {
+
+        if (cred?.Audiences?.SequenceEqual(Audiences ?? Enumerable.Empty<string>()) == false)
+        {
+            return false;
+        }
+        return cred?.Name == Name &&
+               cred?.Description == Description &&
+               cred?.Issuer == Issuer &&
+               cred?.Subject == Subject;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is null || !(obj is FederatedIdentityCredential))
+        {
+            return false;
+        }
+
+        return Equals((FederatedIdentityCredential)obj);
+    }
+
+    public static bool operator ==(FederatedIdentityCredentialsConfig? cfg, object? obj)
+    {
+        if (cfg is null && obj is null)
+        {
+            return true;
+        }
+
+        return cfg?.Equals(obj) ?? false;
+    }
+
+    public static bool operator !=(FederatedIdentityCredentialsConfig? cfg, object? obj) => !(cfg == obj);
+
+    public override int GetHashCode() => HashCode.Combine(Audiences, Description, Issuer, Name, Subject);
 
     public string ToIndentedString(int indentLevel = 0)
     {
@@ -45,7 +92,6 @@ public class FederatedIdentityCredentialsConfig
         var sb = new StringBuilder();
         sb.AppendLine(indent + $"Audiences: {string.Join(", ", Audiences!)}");
         sb.AppendLine(indent + $"Description: {Description}");
-        sb.AppendLine(indent + $"Id: {Id}");
         sb.AppendLine(indent + $"Issuer: {Issuer}");
         sb.AppendLine(indent + $"Name: {Name}");
         sb.AppendLine(indent + $"Subject: {Subject}");
