@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Graph.Models;

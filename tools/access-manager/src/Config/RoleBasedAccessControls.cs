@@ -9,7 +9,6 @@ public class RoleBasedAccessControls
     [JsonRequired, JsonPropertyName("scope")]
     public string? Scope { get; set; }
 
-
     public string ToIndentedString(int indentLevel = 0)
     {
         var indent = "";
