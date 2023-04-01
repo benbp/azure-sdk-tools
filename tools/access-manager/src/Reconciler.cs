@@ -22,7 +22,7 @@ public class Reconciler
                 {
                     throw new Exception("Failed to find or create app, no error returned");
                 }
-                await ReconcileFederatedIdentityCredentials(cfg, app);
+                await ReconcileFederatedIdentityCredentials(app, cfg);
                 // TODO: Add RBAC sync
             }
         }
@@ -40,7 +40,7 @@ public class Reconciler
         }
     }
 
-    public async Task ReconcileFederatedIdentityCredentials(ApplicationAccessConfig appAccessConfig, Application app)
+    public async Task<List<FederatedIdentityCredential>> ReconcileFederatedIdentityCredentials(Application app, ApplicationAccessConfig appAccessConfig)
     {
         Console.WriteLine("Syncing federated identity credentials for " + app.DisplayName);
 
@@ -74,7 +74,10 @@ public class Reconciler
             }
         }
 
-        Console.WriteLine($"Updated federated identity credentials for app {app?.DisplayName} - {unchanged} unchanged, {removed} removed, {created} created");
+        Console.WriteLine($"Updated federated identity credentials for app {app.DisplayName} - {unchanged} unchanged, {removed} removed, {created} created");
+        credentials = await GraphClient.ListFederatedIdentityCredentials(app);
+        credentials.ForEach(c => Console.WriteLine(((FederatedIdentityCredentialsConfig)c).ToIndentedString(1)));
+        return credentials;
     }
 
     public async Task<Application?> ReconcileApplication(ApplicationAccessConfig appAccessConfig)

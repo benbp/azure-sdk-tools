@@ -1,6 +1,6 @@
 [
     {
-        "appDisplayName": "bebroder-access-manager-test1",
+        "appDisplayName": "access-manager-test1",
         "federatedIdentityCredentials": [
             {
               "audiences": [
@@ -9,7 +9,7 @@
               "description": "event processor oidc main tools",
               "issuer": "https://token.actions.githubusercontent.com",
               "name": "githubactionscredential-tools-main-test1",
-              "subject": "repo:benbp/azure-sdk-tools:ref:refs/heads/main"
+              "subject": "repo:testfoobaraccessmanager/azure-sdk-tools:ref:refs/heads/main"
             }
         ]
     }

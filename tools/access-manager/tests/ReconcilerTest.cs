@@ -59,4 +59,23 @@ public class ReconcilerTest
         app.AppId.Should().Be(newApp.AppId);
         app.Id.Should().Be(newApp.Id);
     }
+
+    [Test]
+    public async Task TestReconcileWithEmptyFederatedIdentityCredentials()
+    {
+        var reconciler = new Reconciler(GraphClientMock.Object);
+        var app = new Application
+        {
+            DisplayName = "test-reconcile-with-empty-federated-identity-credentials",
+            AppId = "00000000-0000-0000-0000-000000000000",
+            Id = "00000000-0000-0000-0000-000000000000",
+        };
+
+        GraphClientMock.Setup(c => c.ListFederatedIdentityCredentials(It.IsAny<Application>()).Result).Returns(new List<FederatedIdentityCredential>());
+
+        var credentials = await reconciler.ReconcileFederatedIdentityCredentials(app, BaseAccessConfig.ApplicationAccessConfigs.First());
+
+        credentials.Count.Should().Be(1);
+        credentials.First().Should().Be(BaseAccessConfig.ApplicationAccessConfigs.First().FederatedIdentityCredentials.First());
+    }
 }

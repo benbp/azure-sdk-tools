@@ -46,8 +46,6 @@ public class GraphClient : IGraphClient
         var credentials = result?.Value;
 
         Console.WriteLine($"Found {credentials?.Count() ?? 0} federated identity credentials ->");
-        credentials?.ForEach(c => Console.WriteLine(((FederatedIdentityCredentialsConfig)c).ToIndentedString(1)));
-
         return credentials ?? new List<FederatedIdentityCredential>();
     }
 
