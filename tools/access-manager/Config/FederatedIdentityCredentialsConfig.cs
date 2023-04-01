@@ -46,7 +46,6 @@ public class FederatedIdentityCredentialsConfig : IEquatable<FederatedIdentityCr
 
     public bool Equals(FederatedIdentityCredential? cred)
     {
-
         if (cred?.Audiences?.SequenceEqual(Audiences ?? Enumerable.Empty<string>()) == false)
         {
             return false;

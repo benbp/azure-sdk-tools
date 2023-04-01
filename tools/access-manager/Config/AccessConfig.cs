@@ -46,7 +46,6 @@ public class AccessConfig
     {
         var contents = File.ReadAllText(ConfigPath);
         ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents);
-        Console.WriteLine("");
     }
 
     public override string ToString()
