@@ -4,9 +4,9 @@ using Microsoft.Graph.Models.ODataErrors;
 
 public class Reconciler
 {
-    public GraphClient GraphClient { get; set; }
+    public IGraphClient GraphClient { get; set; }
 
-    public Reconciler(GraphClient graphClient)
+    public Reconciler(IGraphClient graphClient)
     {
         GraphClient = graphClient;
     }

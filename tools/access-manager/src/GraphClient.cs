@@ -5,7 +5,7 @@ using Microsoft.Graph.Models;
 /*
  * Wrapper for Microsoft.Graph.GraphServiceClient
  */
-public class GraphClient
+public class GraphClient : IGraphClient
 {
     public GraphServiceClient GraphServiceClient { get; }
 
@@ -69,4 +69,13 @@ public class GraphClient
         await GraphServiceClient.Applications[app.Id].FederatedIdentityCredentials[credential.Id].DeleteAsync();
         Console.WriteLine($"Deleted federated identity credential {credential.Name} for app {app.AppId}...");
     }
+}
+
+public interface IGraphClient
+{
+    public Task<Application?> GetApplicationByDisplayName(string displayName);
+    public Task<Application> CreateApplication(Application application);
+    public Task<List<FederatedIdentityCredential>> ListFederatedIdentityCredentials(Application app);
+    public Task<FederatedIdentityCredential> CreateFederatedIdentityCredential(Application app, FederatedIdentityCredential credential);
+    public Task DeleteFederatedIdentityCredential(Application app, FederatedIdentityCredential credential);
 }

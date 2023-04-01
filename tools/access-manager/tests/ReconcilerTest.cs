@@ -7,7 +7,7 @@ public class ReconcilerTest
 {
     ApplicationCollectionResponse AppResult { get; set; }
     AccessConfig BaseAccessConfig { get; set; }
-    GraphServiceClient GraphClient { get; set; }
+    Mock<IGraphClient> GraphClientMock { get; set; }
 
     [OneTimeSetUp]
     public void Before()
@@ -18,40 +18,33 @@ public class ReconcilerTest
     [SetUp]
     public void BeforeEach()
     {
-        GraphClient = Substitute.For<GraphServiceClient>();
+        GraphClientMock = new Mock<IGraphClient>();
     }
 
     [Test]
     public async Task TestReconcileWithExistingApp()
     {
-        var reconciler = new Reconciler(GraphClient);
-        var appResult = new ApplicationCollectionResponse
+        var reconciler = new Reconciler(GraphClientMock.Object);
+        var application = new Application
         {
-            Value = new List<Application>
-            {
-                new Application
-                {
-                    DisplayName = "test-reconcile-with-existing-app",
-                    AppId = "00000000-0000-0000-0000-000000000000",
-                    Id = "00000000-0000-0000-0000-000000000000",
-                }
-            }
+            DisplayName = "test-reconcile-with-existing-app",
+            AppId = "00000000-0000-0000-0000-000000000000",
+            Id = "00000000-0000-0000-0000-000000000000",
         };
 
-        GraphClient.Applications.GetAsync().ReturnsForAnyArgs(appResult);
-        GraphClient.Applications.PostAsync(Arg.Any<Application>())
-            .ReturnsForAnyArgs<Task>(_ => throw new Exception("App should not be created"));
+        GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns(application);
+        GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>())).Throws(new Exception("App should not be created"));
 
         var app = await reconciler.ReconcileApplication(BaseAccessConfig.ApplicationAccessConfigs.First());
-        app.AppId.Should().Be(appResult.Value.First().AppId);
-        app.Id.Should().Be(appResult.Value.First().Id);
+        app.DisplayName.Should().Be(application.DisplayName);
+        app.AppId.Should().Be(application.AppId);
+        app.Id.Should().Be(application.Id);
     }
 
     [Test]
     public async Task TestReconcileWithNewApp()
     {
-        var reconciler = new Reconciler(GraphClient);
-        var appResult = new ApplicationCollectionResponse();
+        var reconciler = new Reconciler(GraphClientMock.Object);
         var newApp = new Application
         {
             DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName,
@@ -59,9 +52,8 @@ public class ReconcilerTest
             Id = "00000000-0000-0000-0000-000000000000",
         };
 
-        GraphClient.Applications.GetAsync().ReturnsForAnyArgs(appResult);
-        GraphClient.Applications.PostAsync(Arg.Any<Application>())
-            .ReturnsForAnyArgs<Task>(_ => Task.FromResult<Application>(newApp));
+        GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns<Application>(null);
+        GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>()).Result).Returns(newApp);
 
         var app = await reconciler.ReconcileApplication(BaseAccessConfig.ApplicationAccessConfigs.First());
         app.AppId.Should().Be(newApp.AppId);
