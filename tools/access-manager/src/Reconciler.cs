@@ -4,21 +4,18 @@ using Microsoft.Graph.Models.ODataErrors;
 
 public class Reconciler
 {
-    public GraphServiceClient GraphClient { get; set; }
+    public GraphClient GraphClient { get; set; }
 
-    public AccessConfig AccessConfig { get; set; }
-
-    public Reconciler(GraphServiceClient graphServiceClient, AccessConfig accessConfig)
+    public Reconciler(GraphClient graphClient)
     {
-        GraphClient = graphServiceClient;
-        AccessConfig = accessConfig;
+        GraphClient = graphClient;
     }
 
-    public async Task Reconcile()
+    public async Task Reconcile(AccessConfig accessConfig)
     {
         try
         {
-            foreach (var cfg in AccessConfig.ApplicationAccessConfigs ?? Enumerable.Empty<ApplicationAccessConfig>())
+            foreach (var cfg in accessConfig.ApplicationAccessConfigs ?? Enumerable.Empty<ApplicationAccessConfig>())
             {
                 var app = await ReconcileApplication(cfg);
                 if (app is null)
@@ -47,23 +44,17 @@ public class Reconciler
     {
         Console.WriteLine("Syncing federated identity credentials for " + app.DisplayName);
 
-        var result = await GraphClient.Applications[app?.Id].FederatedIdentityCredentials.GetAsync();
-        var fic = result?.Value;
-
-        Console.WriteLine($"Found {fic?.Count() ?? 0} federated identity credentials ->");
-        fic?.ForEach(cred => Console.WriteLine(((FederatedIdentityCredentialsConfig)cred).ToIndentedString(1)));
+        var credentials = await GraphClient.ListFederatedIdentityCredentials(app);
 
         int unchanged = 0, removed = 0, created = 0;
 
         // Remove any federated identity credentials that do not match the config
-        foreach (var cred in fic ?? Enumerable.Empty<FederatedIdentityCredential>())
+        foreach (var cred in credentials ?? Enumerable.Empty<FederatedIdentityCredential>())
         {
             var match = appAccessConfig.FederatedIdentityCredentials?.FirstOrDefault(config => config == cred);
             if (match is null)
             {
-                Console.WriteLine($"Removing federated identity credential {cred.Name}...");
-                await GraphClient.Applications[app?.Id].FederatedIdentityCredentials[cred.Id].DeleteAsync();
-                Console.WriteLine($"Removed federated identity credential {cred.Name}");
+                await GraphClient.DeleteFederatedIdentityCredential(app, cred);
                 removed++;
             }
             else
@@ -75,12 +66,10 @@ public class Reconciler
         // Create any federated identity credentials that are in the config without a match in the registered application
         foreach (var config in appAccessConfig.FederatedIdentityCredentials)
         {
-            var match = fic?.FirstOrDefault(cred => config == cred);
+            var match = credentials?.FirstOrDefault(cred => config == cred);
             if (match is null)
             {
-                Console.WriteLine($"Creating federated identity credential {config.Name}...");
-                var newCred = await GraphClient.Applications[app?.Id].FederatedIdentityCredentials.PostAsync(config);
-                Console.WriteLine($"Created federated identity credential {config.Name}...");
+                await GraphClient.CreateFederatedIdentityCredential(app, config);
                 created++;
             }
         }
@@ -92,20 +81,12 @@ public class Reconciler
     {
         Console.WriteLine($"Looking for app with display name {appAccessConfig.AppDisplayName}...");
 
-        var result = await GraphClient.Applications.GetAsync((requestConfiguration) =>
-        {
-            requestConfiguration.QueryParameters.Search = $"\"displayName:{appAccessConfig.AppDisplayName}\"";
-            requestConfiguration.QueryParameters.Count = true;
-            requestConfiguration.QueryParameters.Top = 1;
-            requestConfiguration.QueryParameters.Orderby = new string []{ "displayName" };
-            requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-        });
+        var app = await GraphClient.GetApplicationByDisplayName(appAccessConfig.AppDisplayName);
 
-        if (result?.Value?.First() != null)
+        if (app is not null)
         {
-            var foundApp = result.Value.First();
-            Console.WriteLine($"Found {appAccessConfig.AppDisplayName} with AppId {foundApp.AppId} and ObjectId {foundApp.Id}");
-            return foundApp;
+            Console.WriteLine($"Found {app.DisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
+            return app;
         }
 
         Console.WriteLine($"App with display name {appAccessConfig.AppDisplayName} not found. Creating new app...");
@@ -113,11 +94,7 @@ public class Reconciler
         {
             DisplayName = appAccessConfig.AppDisplayName
         };
-        var app = await GraphClient.Applications.PostAsync(requestBody);
-        if (app is null)
-        {
-            return null;
-        }
+        app = await GraphClient.CreateApplication(requestBody);
         Console.WriteLine($"Created {appAccessConfig.AppDisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
         return app;
     }

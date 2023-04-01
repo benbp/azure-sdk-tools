@@ -19,11 +19,9 @@ static async Task Run(FileInfo config)
 {
     Console.WriteLine("Using config -> " + config.FullName + Environment.NewLine);
 
-    var accessConfig = new AccessConfig(config.FullName);
-    accessConfig.Initialize();
-    var graphClient = new GraphServiceClient(new DefaultAzureCredential());
+    var accessConfig = AccessConfig.Create(config.FullName);
     Console.WriteLine(accessConfig.ToString());
 
-    var reconciler = new Reconciler(graphClient, accessConfig);
-    await reconciler.Reconcile();
+    var reconciler = new Reconciler(new GraphClient());
+    await reconciler.Reconcile(accessConfig);
 }

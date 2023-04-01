@@ -33,19 +33,19 @@ using System.Text.Json;
 
 public class AccessConfig
 {
-    public string ConfigPath { get; set; }
+    public string ConfigPath { get; set; } = default!;
 
     public List<ApplicationAccessConfig>? ApplicationAccessConfigs { get; set; }
 
-    public AccessConfig(string configPath)
+    public static AccessConfig Create(string configPath)
     {
-        ConfigPath = configPath;
-    }
-
-    public void Initialize()
-    {
-        var contents = File.ReadAllText(ConfigPath);
-        ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents);
+        var accessConfig = new AccessConfig
+        {
+            ConfigPath = configPath
+        };
+        var contents = File.ReadAllText(accessConfig.ConfigPath);
+        accessConfig.ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents);
+        return accessConfig;
     }
 
     public override string ToString()
