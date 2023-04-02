@@ -10,6 +10,15 @@
               "issuer": "https://token.actions.githubusercontent.com",
               "name": "githubactionscredential-tools-main-test1",
               "subject": "repo:testfoobaraccessmanager/azure-sdk-tools:ref:refs/heads/main"
+            },
+            {
+              "audiences": [
+                "api://azureadtokenexchange"
+              ],
+              "description": "event processor oidc main net",
+              "issuer": "https://token.actions.githubusercontent.com",
+              "name": "githubactionscredential-net-main-test1",
+              "subject": "repo:testfoobaraccessmanager/azure-sdk-for-net:ref:refs/heads/main"
             }
         ]
     }

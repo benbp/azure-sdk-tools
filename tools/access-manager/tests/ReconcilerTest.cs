@@ -64,18 +64,60 @@ public class ReconcilerTest
     public async Task TestReconcileWithEmptyFederatedIdentityCredentials()
     {
         var reconciler = new Reconciler(GraphClientMock.Object);
+        var configApp = BaseAccessConfig.ApplicationAccessConfigs.First();
         var app = new Application
         {
-            DisplayName = "test-reconcile-with-empty-federated-identity-credentials",
+            DisplayName = configApp.AppDisplayName,
             AppId = "00000000-0000-0000-0000-000000000000",
             Id = "00000000-0000-0000-0000-000000000000",
         };
 
         GraphClientMock.Setup(c => c.ListFederatedIdentityCredentials(It.IsAny<Application>()).Result).Returns(new List<FederatedIdentityCredential>());
 
-        var credentials = await reconciler.ReconcileFederatedIdentityCredentials(app, BaseAccessConfig.ApplicationAccessConfigs.First());
+        await reconciler.ReconcileFederatedIdentityCredentials(app, configApp);
 
-        credentials.Count.Should().Be(1);
-        credentials.First().Should().Be(BaseAccessConfig.ApplicationAccessConfigs.First().FederatedIdentityCredentials.First());
+        GraphClientMock.Verify(c => c.DeleteFederatedIdentityCredential(It.IsAny<Application>(), It.IsAny<FederatedIdentityCredential>()), Times.Never);
+        GraphClientMock.Verify(
+            c => c.CreateFederatedIdentityCredential(
+                It.Is<Application>(a => a.DisplayName == configApp.AppDisplayName),
+                It.IsAny<FederatedIdentityCredential>()), Times.Exactly(2));
+    }
+
+    [Test]
+    public async Task TestReconcileMergingFederatedIdentityCredentials()
+    {
+        var reconciler = new Reconciler(GraphClientMock.Object);
+        var configApp = BaseAccessConfig.ApplicationAccessConfigs.First();
+        var app = new Application
+        {
+            DisplayName = configApp.AppDisplayName,
+            AppId = "00000000-0000-0000-0000-000000000000",
+            Id = "00000000-0000-0000-0000-000000000000",
+        };
+
+        var existingCredentials = new List<FederatedIdentityCredential>
+        {
+            configApp.FederatedIdentityCredentials.First(),
+            new FederatedIdentityCredential(),
+            new FederatedIdentityCredential
+            {
+                Audiences = new List<string> { "api://azureadtokenexchange" },
+                Description = "Test PreExisting To Replace",
+                Issuer = "https://token.actions.githubusercontent.com",
+                Name = "test-pre-existing-replace-1",
+                Subject = "repo:accessmanagertest/azure-sdk-tools:ref:refs/heads/main"
+            },
+        };
+
+        GraphClientMock.Setup(c => c.ListFederatedIdentityCredentials(It.IsAny<Application>()).Result).Returns(existingCredentials);
+
+        await reconciler.ReconcileFederatedIdentityCredentials(app, configApp);
+
+        // Delete two, keep one, create one
+        GraphClientMock.Verify(c => c.DeleteFederatedIdentityCredential(
+            It.IsAny<Application>(), It.IsAny<FederatedIdentityCredential>()), Times.Exactly(2));
+        GraphClientMock.Verify(c => c.CreateFederatedIdentityCredential(
+            It.Is<Application>(a => a.DisplayName == configApp.AppDisplayName),
+            It.IsAny<FederatedIdentityCredential>()), Times.Once);
     }
 }
