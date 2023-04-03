@@ -42,9 +42,9 @@ public class GraphClient : IGraphClient
     {
         var sp = await GraphServiceClient.ServicePrincipals.GetAsync((requestConfiguration) =>
         {
-            requestConfiguration.QueryParameters.Search = $"\"appId:{app.AppId}\""; // and displayName eq {app.DisplayName}";
+            // requestConfiguration.QueryParameters.Search = $"\"appId:{app.AppId}\""; // and displayName eq {app.DisplayName}";
+            requestConfiguration.QueryParameters.Filter = $"appId eq '{app.AppId}' and displayName eq '{app.DisplayName}'";
             requestConfiguration.QueryParameters.Top = 1;
-            requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
         });
 
         return sp?.Value?.FirstOrDefault();
