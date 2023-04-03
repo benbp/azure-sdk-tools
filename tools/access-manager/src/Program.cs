@@ -1,6 +1,4 @@
 ﻿using System.CommandLine;
-using Azure.Identity;
-using Microsoft.Graph;
 
 await Entrypoint(args);
 
@@ -22,6 +20,6 @@ static async Task Run(FileInfo config)
     var accessConfig = AccessConfig.Create(config.FullName);
     Console.WriteLine(accessConfig.ToString());
 
-    var reconciler = new Reconciler(new GraphClient());
+    var reconciler = new Reconciler(new GraphClient(), new RbacClient());
     await reconciler.Reconcile(accessConfig);
 }

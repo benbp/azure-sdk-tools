@@ -120,4 +120,10 @@ public class ReconcilerTest
             It.Is<Application>(a => a.DisplayName == configApp.AppDisplayName),
             It.IsAny<FederatedIdentityCredential>()), Times.Once);
     }
+
+    [Test]
+    public async Task TestReconcileRoleBasedAccessControl()
+    {
+
+    }
 }

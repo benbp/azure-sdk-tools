@@ -1,14 +1,16 @@
-using Microsoft.Graph;
+using Azure.Identity;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
 public class Reconciler
 {
     public IGraphClient GraphClient { get; set; }
+    public IRbacClient RbacClient { get; set; }
 
-    public Reconciler(IGraphClient graphClient)
+    public Reconciler(IGraphClient graphClient, IRbacClient rbacClient)
     {
         GraphClient = graphClient;
+        RbacClient = rbacClient;
     }
 
     public async Task Reconcile(AccessConfig accessConfig)
@@ -17,13 +19,18 @@ public class Reconciler
         {
             foreach (var cfg in accessConfig.ApplicationAccessConfigs ?? Enumerable.Empty<ApplicationAccessConfig>())
             {
-                var app = await ReconcileApplication(cfg);
+                var (app, servicePrincipal) = await ReconcileApplication(cfg);
                 if (app is null)
                 {
                     throw new Exception("Failed to find or create app, no error returned");
                 }
-                await ReconcileFederatedIdentityCredentials(app, cfg);
-                // TODO: Add RBAC sync
+                if (servicePrincipal is null)
+                {
+                    throw new Exception("Failed to find or create service principal, no error returned");
+                }
+
+                // await ReconcileFederatedIdentityCredentials(app, cfg);
+                await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
             }
         }
         catch (ODataError ex)
@@ -37,6 +44,14 @@ public class Reconciler
         {
             Console.WriteLine(ex);
             Environment.Exit(2);
+        }
+    }
+
+    public async Task ReconcileRoleBasedAccessControls(ServicePrincipal servicePrincipal, ApplicationAccessConfig appAccessConfig)
+    {
+        foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControl>())
+        {
+            await RbacClient.CreateRoleAssignmentCreateRoleAssignmentRequest(servicePrincipal, rbac);
         }
     }
 
@@ -77,7 +92,7 @@ public class Reconciler
         Console.WriteLine($"Updated federated identity credentials for app {app.DisplayName} - {unchanged} unchanged, {removed} removed, {created} created");
     }
 
-    public async Task<Application?> ReconcileApplication(ApplicationAccessConfig appAccessConfig)
+    public async Task<(Application, ServicePrincipal)> ReconcileApplication(ApplicationAccessConfig appAccessConfig)
     {
         Console.WriteLine($"Looking for app with display name {appAccessConfig.AppDisplayName}...");
 
@@ -86,16 +101,31 @@ public class Reconciler
         if (app is not null)
         {
             Console.WriteLine($"Found {app.DisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
-            return app;
+        }
+        else
+        {
+            Console.WriteLine($"App with display name {appAccessConfig.AppDisplayName} not found. Creating new app...");
+            var requestBody = new Application
+            {
+                DisplayName = appAccessConfig.AppDisplayName
+            };
+
+            app = await GraphClient.CreateApplication(requestBody);
+            Console.WriteLine($"Created app {appAccessConfig.AppDisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
         }
 
-        Console.WriteLine($"App with display name {appAccessConfig.AppDisplayName} not found. Creating new app...");
-        var requestBody = new Application
+        var servicePrincipal = await GraphClient.GetApplicationServicePrincipal(app);
+        if (servicePrincipal is not null)
         {
-            DisplayName = appAccessConfig.AppDisplayName
-        };
-        app = await GraphClient.CreateApplication(requestBody);
-        Console.WriteLine($"Created {appAccessConfig.AppDisplayName} with AppId {app.AppId} and ObjectId {app.Id}");
-        return app;
+            Console.WriteLine($"Found existing service principal '{servicePrincipal.AppId}' for app '{app.AppId}'");
+        }
+        else
+        {
+            Console.WriteLine($"No service principal found for app '{app.AppId}'. Creating new service principal...");
+            servicePrincipal = await GraphClient.CreateApplicationServicePrincipal(app);
+            Console.WriteLine($"Created service principal with object id '{servicePrincipal.Id}' for app '{app.AppId}'");
+        }
+
+        return (app, servicePrincipal);
     }
 }

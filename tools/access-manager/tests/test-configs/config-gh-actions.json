@@ -1,6 +1,12 @@
 [
     {
         "appDisplayName": "access-manager-test1",
+        "roleBasedAccessControls": [
+            {
+              "role": "Key Vault Secrets User",
+              "scope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager/providers/Microsoft.KeyVault/vaults/testfoobaraccessmanager"
+            }
+        ],
         "federatedIdentityCredentials": [
             {
               "audiences": [

@@ -9,5 +9,5 @@ public class ApplicationAccessConfig
     public List<FederatedIdentityCredentialsConfig> FederatedIdentityCredentials { get; set; } = new List<FederatedIdentityCredentialsConfig>();
 
     [JsonPropertyName("roleBasedAccessControls"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<RoleBasedAccessControls> RoleBasedAccessControls { get; set; } = new List<RoleBasedAccessControls>();
+    public List<RoleBasedAccessControl> RoleBasedAccessControls { get; set; } = new List<RoleBasedAccessControl>();
 }

@@ -38,6 +38,35 @@ public class GraphClient : IGraphClient
         return app;
     }
 
+    public async Task<ServicePrincipal?> GetApplicationServicePrincipal(Application app)
+    {
+        var sp = await GraphServiceClient.ServicePrincipals.GetAsync((requestConfiguration) =>
+        {
+            requestConfiguration.QueryParameters.Search = $"\"appId:{app.AppId}\""; // and displayName eq {app.DisplayName}";
+            requestConfiguration.QueryParameters.Top = 1;
+            requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+        });
+
+        return sp?.Value?.FirstOrDefault();
+    }
+
+    public async Task<ServicePrincipal> CreateApplicationServicePrincipal(Application app)
+    {
+        var servicePrincipalRequest = new ServicePrincipal
+        {
+            AppId = app.AppId,
+            DisplayName = app.DisplayName,
+        };
+
+        var servicePrincipal = await GraphServiceClient.ServicePrincipals.PostAsync(servicePrincipalRequest);
+        if (servicePrincipal is null)
+        {
+            throw new Exception($"Failed to create service principal for app {app.AppId}, Graph API returned empty response.");
+        }
+
+        return servicePrincipal;
+    }
+
     public async Task<List<FederatedIdentityCredential>> ListFederatedIdentityCredentials(Application app)
     {
         Console.WriteLine($"Listing federated identity credentials for app {app.AppId}...");
@@ -75,6 +104,8 @@ public interface IGraphClient
 {
     public Task<Application?> GetApplicationByDisplayName(string displayName);
     public Task<Application> CreateApplication(Application application);
+    public Task<ServicePrincipal?> GetApplicationServicePrincipal(Application app);
+    public Task<ServicePrincipal> CreateApplicationServicePrincipal(Application app);
     public Task<List<FederatedIdentityCredential>> ListFederatedIdentityCredentials(Application app);
     public Task<FederatedIdentityCredential> CreateFederatedIdentityCredential(Application app, FederatedIdentityCredential credential);
     public Task DeleteFederatedIdentityCredential(Application app, FederatedIdentityCredential credential);

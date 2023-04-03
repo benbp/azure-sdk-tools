@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 
-public class RoleBasedAccessControls
+public class RoleBasedAccessControl
 {
     [JsonRequired, JsonPropertyName("role")]
     public string? Role { get; set; }
