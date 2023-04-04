@@ -4,11 +4,11 @@ await Entrypoint(args);
 
 static async Task Entrypoint(string[] args)
 {
-    var fileOption = new Option<FileInfo?>(name: "--file", description: "Path to access config file for identities");
     var rootCommand = new RootCommand("RBAC and Federated Identity manager for Azure SDK apps");
+    var fileArgument = new Argument<FileInfo>("file", "Path to access config file for identities");
 
-    rootCommand.AddOption(fileOption);
-    rootCommand.SetHandler(async (file) => await Run(file!), fileOption);
+    rootCommand.Add(fileArgument);
+    rootCommand.SetHandler(async (fileArgumentValue) => await Run(fileArgumentValue), fileArgument);
 
     await rootCommand.InvokeAsync(args);
 }
