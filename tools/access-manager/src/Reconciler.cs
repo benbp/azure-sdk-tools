@@ -29,8 +29,8 @@ public class Reconciler
                     throw new Exception("Failed to find or create service principal, no error returned");
                 }
 
-                await ReconcileFederatedIdentityCredentials(app, cfg);
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
+                await ReconcileFederatedIdentityCredentials(app, cfg);
             }
         }
         catch (ODataError ex)

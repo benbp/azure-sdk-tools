@@ -25,7 +25,7 @@ public class GraphClient : IGraphClient
             requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
         });
 
-        return result?.Value?.First();
+        return result?.Value?.FirstOrDefault();
     }
 
     public async Task<Application> CreateApplication(Application application)
@@ -88,7 +88,7 @@ public class GraphClient : IGraphClient
         {
             throw new Exception($"Failed to create federated identity credential {credential.Name} for app {app.AppId}, Graph API returned empty response.");
         }
-        Console.WriteLine($"Created federated identity credential {created.Name} for app {app.AppId}...");
+        Console.WriteLine($"Created federated identity credential {created.Name} for app {app.AppId}");
         return created;
     }
 
