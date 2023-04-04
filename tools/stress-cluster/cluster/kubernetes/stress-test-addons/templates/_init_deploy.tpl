@@ -5,11 +5,8 @@
   image: azsdkengsys.azurecr.io/stress/deploy-test-resources
   imagePullPolicy: Always
   command:
-    - 'pwsh'
-    - '-NonInteractive'
-    - '-NoProfile'
-    - '-c'
-    - '/scripts/stress-test/deploy-stress-test-resources.ps1'
+    - 'sleep'
+    - '3600'
 
   env:
     - name: ENV_FILE

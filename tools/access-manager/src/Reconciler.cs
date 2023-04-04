@@ -29,7 +29,7 @@ public class Reconciler
                     throw new Exception("Failed to find or create service principal, no error returned");
                 }
 
-                // await ReconcileFederatedIdentityCredentials(app, cfg);
+                await ReconcileFederatedIdentityCredentials(app, cfg);
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
             }
         }
@@ -51,7 +51,7 @@ public class Reconciler
     {
         foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControl>())
         {
-            await RbacClient.CreateRoleAssignmentCreateRoleAssignmentRequest(servicePrincipal, rbac);
+            await RbacClient.CreateRoleAssignment(servicePrincipal, rbac);
         }
     }
 
