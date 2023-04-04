@@ -118,7 +118,7 @@ public class Reconciler
         var servicePrincipal = await GraphClient.GetApplicationServicePrincipal(app);
         if (servicePrincipal is not null)
         {
-            Console.WriteLine($"Found existing service principal '{servicePrincipal.AppId}' for app '{app.AppId}'");
+            Console.WriteLine($"Found existing service principal with object id '{servicePrincipal.Id}' for app '{app.AppId}'");
         }
         else
         {

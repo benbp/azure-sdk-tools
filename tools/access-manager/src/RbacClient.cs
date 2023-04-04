@@ -43,7 +43,18 @@ public class RbacClient : IRbacClient
         var spAssignment = allAssignments.Where(a => a.Data.PrincipalId == principalId).FirstOrDefault();
         // var assignmentName = "/subscriptions/faa080af-c1d8-40ad-9cce-e1a450ca5b57/resourceGroups/rg-bebroder-acess-test/providers/Microsoft.KeyVault/vaults/bebroderaccesstest/providers/Microsoft.Authorization/roleAssignments/7e545899-dd1e-43e1-8ff3-a62b41497f74";
         // await resource.GetRoleAssignments().CreateOrUpdateAsync(WaitUntil.Completed, assignmentName, content);
-        await resource.GetRoleAssignments().CreateOrUpdateAsync(WaitUntil.Completed, role.Data.Name, content);
+        try
+        {
+            await resource.GetRoleAssignments().CreateOrUpdateAsync(WaitUntil.Completed, role.Data.Name, content);
+        }
+        catch (RequestFailedException ex)
+        {
+            if (ex.Status == 409)
+            {
+                Console.WriteLine($"The role assignment was already created by a different source. Skipping.");
+                return;
+            }
+        }
         Console.WriteLine($"Created role assignment for principal '{principalId}' with role '{role.Data.RoleName}' in scope '{rbac.Scope}'");
     }
 }
