@@ -1,7 +1,11 @@
 namespace Azure.Sdk.Tools.AccessManager.Tests;
 
-using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using Azure.Core;
+using Azure.Identity;
+using Azure.ResourceManager;
+using Azure.ResourceManager.Authorization;
+using Azure.ResourceManager.Authorization.Models;
 
 public class ReconcilerTest
 {
@@ -47,7 +51,7 @@ public class ReconcilerTest
     public async Task TestReconcileWithExistingApp()
     {
         var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
-        TestApplication.DisplayName = "test-reconcile-existing-app";
+        TestApplication.DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName;
         TestServicePrincipal.DisplayName = TestApplication.DisplayName;
 
         GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns(TestApplication);
@@ -55,7 +59,7 @@ public class ReconcilerTest
         GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>())).Throws(new Exception("Application should not be created"));
         GraphClientMock.Setup(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>())).Throws(new Exception("Service Principal should not be created"));
 
-        var (app, servicePrincipal) = await reconciler.ReconcileApplication(FederatedCredentialsOnlyConfig.ApplicationAccessConfigs.First());
+        var (app, servicePrincipal) = await reconciler.ReconcileApplication(BaseAccessConfig.ApplicationAccessConfigs.First());
         app.DisplayName.Should().Be(TestApplication.DisplayName);
         app.AppId.Should().Be(TestApplication.AppId);
         app.Id.Should().Be(TestApplication.Id);
@@ -73,9 +77,33 @@ public class ReconcilerTest
 
         GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns<Application>(null);
         GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>()).Result).Returns(TestApplication);
+        GraphClientMock.Setup(c => c.GetApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns<ServicePrincipal>(null);
         GraphClientMock.Setup(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns(TestServicePrincipal);
 
         var (app, servicePrincipal) = await reconciler.ReconcileApplication(BaseAccessConfig.ApplicationAccessConfigs.First());
+        app.DisplayName.Should().Be(TestApplication.DisplayName);
+        app.AppId.Should().Be(TestApplication.AppId);
+        app.Id.Should().Be(TestApplication.Id);
+        servicePrincipal.DisplayName.Should().Be(TestServicePrincipal.DisplayName);
+        servicePrincipal.AppId.Should().Be(TestServicePrincipal.AppId);
+        servicePrincipal.Id.Should().Be(TestServicePrincipal.Id);
+    }
+
+    [Test]
+    public async Task TestReconcileWithMissingServicePrincipal()
+    {
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        TestApplication.DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName;
+        TestServicePrincipal.DisplayName = TestApplication.DisplayName;
+
+        GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns<Application>(null);
+        GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>()).Result).Returns(TestApplication);
+        GraphClientMock.Setup(c => c.GetApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns<ServicePrincipal>(null);
+        GraphClientMock.Setup(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns(TestServicePrincipal);
+
+        var (app, servicePrincipal) = await reconciler.ReconcileApplication(BaseAccessConfig.ApplicationAccessConfigs.First());
+        GraphClientMock.Verify(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>()), Times.Once);
+
         app.DisplayName.Should().Be(TestApplication.DisplayName);
         app.AppId.Should().Be(TestApplication.AppId);
         app.Id.Should().Be(TestApplication.Id);
@@ -138,6 +166,49 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileRoleBasedAccessControl()
     {
-        await Task.Delay(1);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var configApp = RbacOnlyConfig.ApplicationAccessConfigs.First();
+        TestApplication.DisplayName = configApp.AppDisplayName;
+        TestServicePrincipal.DisplayName = configApp.AppDisplayName;
+
+        await reconciler.ReconcileRoleBasedAccessControls(TestServicePrincipal, configApp);
+
+        RbacClientMock.Verify(c => c.CreateRoleAssignment(
+            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControl>()), Times.Exactly(3));
+    }
+
+    [Test]
+    public async Task TestReconcileFromEmpty()
+    {
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var configApp = BaseAccessConfig.ApplicationAccessConfigs.First();
+        TestApplication.DisplayName = configApp.AppDisplayName;
+        TestServicePrincipal.DisplayName = configApp.AppDisplayName;
+
+        // Application mocks
+        GraphClientMock.Setup(c => c.GetApplicationByDisplayName(It.IsAny<string>()).Result).Returns<Application>(null);
+        GraphClientMock.Setup(c => c.CreateApplication(It.IsAny<Application>()).Result).Returns(TestApplication);
+        GraphClientMock.Setup(c => c.GetApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns<ServicePrincipal>(null);
+        GraphClientMock.Setup(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>()).Result).Returns(TestServicePrincipal);
+        // Federated Identity Credential mocks
+        GraphClientMock.Setup(c => c.ListFederatedIdentityCredentials(
+            It.IsAny<Application>()).Result).Returns(new List<FederatedIdentityCredential>());
+
+        await reconciler.Reconcile(BaseAccessConfig);
+
+        // Create application and service principal
+        GraphClientMock.Verify(c => c.CreateApplication(It.IsAny<Application>()), Times.Once);
+        GraphClientMock.Verify(c => c.CreateApplicationServicePrincipal(It.IsAny<Application>()), Times.Once);
+
+        // Delete zero, keep zero, create three
+        GraphClientMock.Verify(c => c.DeleteFederatedIdentityCredential(
+            It.IsAny<Application>(), It.IsAny<FederatedIdentityCredential>()), Times.Never);
+        GraphClientMock.Verify(c => c.CreateFederatedIdentityCredential(
+            It.Is<Application>(a => a.DisplayName == configApp.AppDisplayName),
+            It.IsAny<FederatedIdentityCredential>()), Times.Exactly(3));
+
+        // Create 2
+        RbacClientMock.Verify(c => c.CreateRoleAssignment(
+            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControl>()), Times.Exactly(2));
     }
 }

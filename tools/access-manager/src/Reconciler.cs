@@ -51,6 +51,7 @@ public class Reconciler
     {
         foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControl>())
         {
+            // This is idempotent, so don't bother checking if one already exists
             await RbacClient.CreateRoleAssignment(servicePrincipal, rbac);
         }
     }

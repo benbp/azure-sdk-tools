@@ -4,11 +4,11 @@
         "roleBasedAccessControls": [
             {
               "role": "Contributor",
-              "scope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager2"
+              "scope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager"
             },
             {
               "role": "Key Vault Secrets User",
-              "scope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager1/providers/Microsoft.KeyVault/vaults/testfoobaraccessmanager1"
+              "scope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager/providers/Microsoft.KeyVault/vaults/testfoobaraccessmanager"
             }
         ],
         "federatedIdentityCredentials": [
