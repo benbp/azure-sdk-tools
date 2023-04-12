@@ -1,4 +1,3 @@
-using Azure.Identity;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
@@ -75,17 +74,24 @@ public class Reconciler
         return (app, servicePrincipal);
     }
 
-    public async Task ReconcileRoleBasedAccessControls(ServicePrincipal servicePrincipal, ApplicationAccessConfig appAccessConfig)
-    {
+    public async Task ReconcileRoleBasedAccessControls(
+        ServicePrincipal servicePrincipal,
+        ApplicationAccessConfig appAccessConfig
+    ) {
         foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControl>())
         {
             // This is idempotent, so don't bother checking if one already exists
             await RbacClient.CreateRoleAssignment(servicePrincipal, rbac);
         }
+
+        Console.WriteLine($"Updated role assignments for service principal {servicePrincipal.DisplayName} " +
+                          $"- {appAccessConfig.RoleBasedAccessControls?.Count() ?? 0} created or unchanged");
     }
 
-    public async Task ReconcileFederatedIdentityCredentials(Application app, ApplicationAccessConfig appAccessConfig)
-    {
+    public async Task ReconcileFederatedIdentityCredentials(
+        Application app,
+        ApplicationAccessConfig appAccessConfig
+    ) {
         Console.WriteLine("Syncing federated identity credentials for " + app.DisplayName);
 
         var credentials = await GraphClient.ListFederatedIdentityCredentials(app);
@@ -118,6 +124,7 @@ public class Reconciler
             }
         }
 
-        Console.WriteLine($"Updated federated identity credentials for app {app.DisplayName} - {unchanged} unchanged, {removed} removed, {created} created");
+        Console.WriteLine($"Updated federated identity credentials for app {app.DisplayName} " +
+                          $"- {unchanged} unchanged, {removed} removed, {created} created");
     }
 }

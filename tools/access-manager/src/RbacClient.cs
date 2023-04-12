@@ -25,13 +25,16 @@ public class RbacClient : IRbacClient
         Console.WriteLine($"Found role '{role.Data.RoleName}' with id '{role.Data.Name}'");
 
         var principalId = Guid.Parse(servicePrincipal?.Id ?? string.Empty);
-        var content = new RoleAssignmentCreateOrUpdateContent(role.Data.Id, principalId);
-        content.PrincipalType = RoleManagementPrincipalType.ServicePrincipal;
+        var content = new RoleAssignmentCreateOrUpdateContent(role.Data.Id, principalId)
+        {
+            PrincipalType = RoleManagementPrincipalType.ServicePrincipal
+        };
+        var roleName = Guid.NewGuid().ToString();
 
         try
         {
-            Console.WriteLine($"Creating role assignment for principal '{principalId}' with role '{role.Data.RoleName}' in scope '{rbac.Scope}'...");
-            await resource.GetRoleAssignments().CreateOrUpdateAsync(WaitUntil.Completed, role.Data.Name, content);
+            Console.WriteLine($"Creating role assignment '{roleName}' for principal '{principalId}' with role '{role.Data.RoleName}' in scope '{rbac.Scope}'...");
+            await resource.GetRoleAssignments().CreateOrUpdateAsync(WaitUntil.Completed, roleName, content);
         }
         catch (RequestFailedException ex)
         {
@@ -42,7 +45,7 @@ public class RbacClient : IRbacClient
             }
             throw ex;
         }
-        Console.WriteLine($"Created role assignment for principal '{principalId}' with role '{role.Data.RoleName}' in scope '{rbac.Scope}'");
+        Console.WriteLine($"Created role assignment '{roleName}' for principal '{principalId}' with role '{role.Data.RoleName}' in scope '{rbac.Scope}'");
     }
 }
 
