@@ -23,6 +23,7 @@ public class Reconciler
                 var (app, servicePrincipal) = await ReconcileApplication(cfg);
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
                 await ReconcileFederatedIdentityCredentials(app, cfg);
+                await ReconcileGithubRepositorySecrets(app, cfg);
             }
         }
         catch (ODataError ex)
@@ -41,24 +42,21 @@ public class Reconciler
 
     public async Task ReconcileGithubRepositorySecrets(Application app, ApplicationAccessConfig appAccessConfig)
     {
-        if (appAccessConfig.GithubRepositorySecrets is not null)
+        foreach (var config in appAccessConfig.GithubRepositorySecrets)
         {
-            foreach (var config in appAccessConfig.GithubRepositorySecrets)
+            foreach (var repository in config.Repositories)
             {
-                foreach (var repository in config.Repositories)
+                foreach (var secret in config.Secrets)
                 {
-                    foreach (var secret in config.Secrets)
+                    Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'...");
+                    var split = repository.Split('/');
+                    if (split.Length != 2)
                     {
-                        Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'...");
-                        var split = repository.Split('/');
-                        if (split.Length != 2)
-                        {
-                            throw new Exception($"Expected repository entry '{repository}' to match format '<owner>/<repository name>'");
-                        }
-                        var (owner, repoName) = (split[0], split[1]);
-                        await GitHubClient.SetRepositorySecret(owner, repoName, secret.Key, secret.Value);
-                        Console.WriteLine($"GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}' created");
+                        throw new Exception($"Expected repository entry '{repository}' to match format '<owner>/<repository name>'");
                     }
+                    var (owner, repoName) = (split[0], split[1]);
+                    await GitHubClient.SetRepositorySecret(owner, repoName, secret.Key, secret.Value);
+                    Console.WriteLine($"GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}' created");
                 }
             }
         }
