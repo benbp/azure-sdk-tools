@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 /*
  * EXAMPLE entry
@@ -46,15 +47,23 @@ public class AccessConfig
 
     public List<ApplicationAccessConfig>? ApplicationAccessConfigs { get; set; }
 
-    public static AccessConfig Create(string configPath)
+    public AccessConfig(string configPath)
     {
-        var accessConfig = new AccessConfig
+        ConfigPath = configPath;
+        var contents = File.ReadAllText(ConfigPath);
+        ApplicationAccessConfigs = AccessConfig.Initialize(contents);
+    }
+
+    public static List<ApplicationAccessConfig>? Initialize(string configText)
+    {
+        // Replace any {{ <key> }} strings in the config with the value from .properties.<key>
+        var propertiesRaw = JsonDocument.Parse(configText);
+        foreach (JsonProperty element in propertiesRaw.RootElement.EnumerateObject())
         {
-            ConfigPath = configPath
-        };
-        var contents = File.ReadAllText(accessConfig.ConfigPath);
-        accessConfig.ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents);
-        return accessConfig;
+            configText = Regex.Replace(configText, "`{`{`s*" + element.Name + "`s*`}`}", element.Value.ToString());
+        }
+
+        return JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(configText);
     }
 
     public override string ToString()
@@ -78,6 +87,14 @@ public class AccessConfig
                 foreach (var rbac in app.RoleBasedAccessControls)
                 {
                     sb.AppendLine(rbac.ToIndentedString(1));
+                }
+            }
+            if (app.GithubRepositorySecrets != null)
+            {
+                sb.AppendLine("GithubRepositorySecrets ->");
+                foreach (var secret in app.GithubRepositorySecrets)
+                {
+                    sb.AppendLine(secret.ToIndentedString(1));
                 }
             }
         }

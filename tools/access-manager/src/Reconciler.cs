@@ -5,11 +5,13 @@ public class Reconciler
 {
     public IGraphClient GraphClient { get; set; }
     public IRbacClient RbacClient { get; set; }
+    public IGitHubClient GitHubClient { get; set; }
 
-    public Reconciler(IGraphClient graphClient, IRbacClient rbacClient)
+    public Reconciler(IGraphClient graphClient, IRbacClient rbacClient, IGitHubClient gitHubClient)
     {
         GraphClient = graphClient;
         RbacClient = rbacClient;
+        GitHubClient = gitHubClient;
     }
 
     public async Task Reconcile(AccessConfig accessConfig)
@@ -34,6 +36,30 @@ public class Reconciler
         {
             Console.WriteLine(ex);
             Environment.Exit(1);
+        }
+    }
+
+    public async Task ReconcileGithubRepositorySecrets(Application app, ApplicationAccessConfig appAccessConfig)
+    {
+        if (appAccessConfig.GithubRepositorySecrets is not null)
+        {
+            foreach (var config in appAccessConfig.GithubRepositorySecrets)
+            {
+                foreach (var repository in config.Repositories)
+                {
+                    foreach (var secret in config.Secrets)
+                    {
+                        Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'");
+                        var split = repository.Split('/');
+                        if (split.Length != 2)
+                        {
+                            throw new Exception($"Expected repository entry '{repository}' to match format '<owner>/<repository name>'");
+                        }
+                        var (owner, repoName) = (split[0], split[1]);
+                        await GitHubClient.SetRepositorySecret(owner, repoName, secret.Key, secret.Value);
+                    }
+                }
+            }
         }
     }
 

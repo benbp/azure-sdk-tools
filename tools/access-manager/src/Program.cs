@@ -18,10 +18,11 @@ static async Task Run(FileInfo config)
 {
     Console.WriteLine("Using config -> " + config.FullName + Environment.NewLine);
 
-    var accessConfig = AccessConfig.Create(config.FullName);
+    var accessConfig = new AccessConfig(config.FullName);
     Console.WriteLine(accessConfig.ToString());
 
     var credential = new DefaultAzureCredential();
-    var reconciler = new Reconciler(new GraphClient(credential), new RbacClient(credential));
+    var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+    var reconciler = new Reconciler(new GraphClient(credential), new RbacClient(credential), new GitHubClient(githubToken));
     await reconciler.Reconcile(accessConfig);
 }

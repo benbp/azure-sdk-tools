@@ -5,6 +5,9 @@ public class ApplicationAccessConfig
     [JsonRequired, JsonPropertyName("appDisplayName")]
     public string AppDisplayName { get; set; } = string.Empty;
 
+    [JsonPropertyName("githubRepositorySecrets"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<GithubRepositorySecret> GithubRepositorySecrets { get; set; } = new List<GithubRepositorySecret>();
+
     [JsonPropertyName("federatedIdentityCredentials"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<FederatedIdentityCredentialsConfig> FederatedIdentityCredentials { get; set; } = new List<FederatedIdentityCredentialsConfig>();
 
