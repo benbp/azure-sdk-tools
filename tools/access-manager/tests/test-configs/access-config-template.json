@@ -2,9 +2,9 @@
     {
         "appDisplayName": "access-manager-test",
         "properties": {
-          "subscriptionId": "00000000-0000-0000-0000-000000000000",
-          "resourceGroup": "rg-testfoobaraccessmanager",
-          "commonScope": "ref:refs/heads/main"
+            "subscriptionId": "00000000-0000-0000-0000-000000000000",
+            "resourceGroup": "rg-testfoobaraccessmanager",
+            "commonScope": "ref:refs/heads/main"
         },
         "roleBasedAccessControls": [
             {

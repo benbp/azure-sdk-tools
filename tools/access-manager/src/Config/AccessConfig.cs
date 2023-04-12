@@ -43,7 +43,7 @@ using System.Text.RegularExpressions;
 
 public class AccessConfig
 {
-    public string ConfigPath { get; set; } = default!;
+    public string ConfigPath { get; set; } = "not-set";
     public List<ApplicationAccessConfig> ApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
     // Keep an unrendered version of config values so we can retain templating when we need to serialize back to the config file
     public List<ApplicationAccessConfig> RawApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
@@ -52,33 +52,11 @@ public class AccessConfig
     {
         ConfigPath = configPath;
         var contents = File.ReadAllText(ConfigPath);
-        (ApplicationAccessConfigs, RawApplicationAccessConfigs) = AccessConfig.Initialize(contents);
-    }
-
-    public static (List<ApplicationAccessConfig>, List<ApplicationAccessConfig>) Initialize(string configText)
-    {
-        var rendered = new List<ApplicationAccessConfig>();
-        var raw = new List<ApplicationAccessConfig>();
-
-        var appAccessConfigs = JsonDocument.Parse(configText).RootElement.EnumerateArray();
-        foreach (var element in appAccessConfigs)
+        ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents) ?? new List<ApplicationAccessConfig>();
+        foreach (var appAccessConfig in ApplicationAccessConfigs)
         {
-            var elementRendered = element.ToString();
-
-            // Replace any {{ <key> }} strings in the config with the value from .properties.<key>
-            if (JsonDocument.Parse(elementRendered).RootElement.TryGetProperty("properties", out var properties))
-            {
-                foreach (var prop in properties.EnumerateObject())
-                {
-                    elementRendered = Regex.Replace(elementRendered, @"\{\{\s*" + prop.Name + @"\s*\}\}", prop.Value.ToString());
-                }
-            }
-
-            rendered.Add(JsonSerializer.Deserialize<ApplicationAccessConfig>(elementRendered) ?? new ApplicationAccessConfig());
-            raw.Add(JsonSerializer.Deserialize<ApplicationAccessConfig>(element.ToString()) ?? new ApplicationAccessConfig());
+            appAccessConfig.Render();
         }
-
-        return (rendered, raw);
     }
 
     public override string ToString()

@@ -13,4 +13,23 @@ public class ApplicationAccessConfig
 
     [JsonPropertyName("roleBasedAccessControls"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<RoleBasedAccessControlsConfig> RoleBasedAccessControls { get; set; } = new List<RoleBasedAccessControlsConfig>();
+
+    [JsonPropertyName("properties"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
+
+    public void Render()
+    {
+        foreach (var rbac in RoleBasedAccessControls)
+        {
+            rbac.Render(Properties);
+        }
+        foreach (var fic in FederatedIdentityCredentials)
+        {
+            fic.Render(Properties);
+        }
+        foreach (var gh in GithubRepositorySecrets)
+        {
+            gh.Render(Properties);
+        }
+    }
 }

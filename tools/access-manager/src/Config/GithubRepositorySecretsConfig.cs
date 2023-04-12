@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 
-public class GithubRepositorySecretsConfig
+public class GithubRepositorySecretsConfig : BaseConfig
 {
     [JsonRequired, JsonPropertyName("repositories")]
     public List<string> Repositories { get; set; } = new List<string>();
