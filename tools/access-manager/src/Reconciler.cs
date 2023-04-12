@@ -49,7 +49,7 @@ public class Reconciler
                 {
                     foreach (var secret in config.Secrets)
                     {
-                        Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'");
+                        Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'...");
                         var split = repository.Split('/');
                         if (split.Length != 2)
                         {
@@ -57,6 +57,7 @@ public class Reconciler
                         }
                         var (owner, repoName) = (split[0], split[1]);
                         await GitHubClient.SetRepositorySecret(owner, repoName, secret.Key, secret.Value);
+                        Console.WriteLine($"GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}' created");
                     }
                 }
             }
@@ -104,7 +105,7 @@ public class Reconciler
         ServicePrincipal servicePrincipal,
         ApplicationAccessConfig appAccessConfig
     ) {
-        foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControl>())
+        foreach (var rbac in appAccessConfig.RoleBasedAccessControls ?? Enumerable.Empty<RoleBasedAccessControlsConfig>())
         {
             // This is idempotent, so don't bother checking if one already exists
             await RbacClient.CreateRoleAssignment(servicePrincipal, rbac);

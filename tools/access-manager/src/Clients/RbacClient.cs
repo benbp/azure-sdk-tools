@@ -18,7 +18,7 @@ public class RbacClient : IRbacClient
         ArmClient = new ArmClient(credential);
     }
 
-    public async Task CreateRoleAssignment(ServicePrincipal servicePrincipal, RoleBasedAccessControl rbac)
+    public async Task CreateRoleAssignment(ServicePrincipal servicePrincipal, RoleBasedAccessControlsConfig rbac)
     {
         var resource = ArmClient.GetGenericResource(new ResourceIdentifier(rbac.Scope!));
         var role = await resource.GetAuthorizationRoleDefinitions().GetAllAsync($"roleName eq '{rbac.Role}'").FirstAsync();
@@ -51,5 +51,5 @@ public class RbacClient : IRbacClient
 
 public interface IRbacClient
 {
-    public Task CreateRoleAssignment(ServicePrincipal app, RoleBasedAccessControl rbac);
+    public Task CreateRoleAssignment(ServicePrincipal app, RoleBasedAccessControlsConfig rbac);
 }

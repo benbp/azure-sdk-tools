@@ -44,26 +44,41 @@ using System.Text.RegularExpressions;
 public class AccessConfig
 {
     public string ConfigPath { get; set; } = default!;
-
-    public List<ApplicationAccessConfig>? ApplicationAccessConfigs { get; set; }
+    public List<ApplicationAccessConfig> ApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
+    // Keep an unrendered version of config values so we can retain templating when we need to serialize back to the config file
+    public List<ApplicationAccessConfig> RawApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
 
     public AccessConfig(string configPath)
     {
         ConfigPath = configPath;
         var contents = File.ReadAllText(ConfigPath);
-        ApplicationAccessConfigs = AccessConfig.Initialize(contents);
+        (ApplicationAccessConfigs, RawApplicationAccessConfigs) = AccessConfig.Initialize(contents);
     }
 
-    public static List<ApplicationAccessConfig>? Initialize(string configText)
+    public static (List<ApplicationAccessConfig>, List<ApplicationAccessConfig>) Initialize(string configText)
     {
-        // Replace any {{ <key> }} strings in the config with the value from .properties.<key>
-        var propertiesRaw = JsonDocument.Parse(configText);
-        foreach (JsonProperty element in propertiesRaw.RootElement.EnumerateObject())
+        var rendered = new List<ApplicationAccessConfig>();
+        var raw = new List<ApplicationAccessConfig>();
+
+        var appAccessConfigs = JsonDocument.Parse(configText).RootElement.EnumerateArray();
+        foreach (var element in appAccessConfigs)
         {
-            configText = Regex.Replace(configText, "`{`{`s*" + element.Name + "`s*`}`}", element.Value.ToString());
+            var elementRendered = element.ToString();
+
+            // Replace any {{ <key> }} strings in the config with the value from .properties.<key>
+            if (JsonDocument.Parse(elementRendered).RootElement.TryGetProperty("properties", out var properties))
+            {
+                foreach (var prop in properties.EnumerateObject())
+                {
+                    elementRendered = Regex.Replace(elementRendered, @"\{\{\s*" + prop.Name + @"\s*\}\}", prop.Value.ToString());
+                }
+            }
+
+            rendered.Add(JsonSerializer.Deserialize<ApplicationAccessConfig>(elementRendered) ?? new ApplicationAccessConfig());
+            raw.Add(JsonSerializer.Deserialize<ApplicationAccessConfig>(element.ToString()) ?? new ApplicationAccessConfig());
         }
 
-        return JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(configText);
+        return (rendered, raw);
     }
 
     public override string ToString()

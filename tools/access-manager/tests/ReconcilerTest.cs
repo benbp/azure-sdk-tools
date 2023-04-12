@@ -11,17 +11,18 @@ public class ReconcilerTest
     AccessConfig BaseAccessConfig { get; set; }
     AccessConfig FederatedCredentialsOnlyConfig { get; set; }
     AccessConfig RbacOnlyConfig { get; set; }
-    Mock<IGraphClient> GraphClientMock { get; set; }
-    Mock<IRbacClient> RbacClientMock { get; set; }
     Application TestApplication { get; set; }
     ServicePrincipal TestServicePrincipal { get; set; }
+    Mock<IGraphClient> GraphClientMock { get; set; }
+    Mock<IRbacClient> RbacClientMock { get; set; }
+    Mock<IGitHubClient> GitHubClientMock { get; set; }
 
     [OneTimeSetUp]
     public void Before()
     {
-        BaseAccessConfig = AccessConfig.Create("./test-configs/access-config.json");
-        FederatedCredentialsOnlyConfig = AccessConfig.Create("./test-configs/federated-credentials-only-config.json");
-        RbacOnlyConfig = AccessConfig.Create("./test-configs/rbac-only-config.json");
+        BaseAccessConfig = new AccessConfig("./test-configs/access-config.json");
+        FederatedCredentialsOnlyConfig = new AccessConfig("./test-configs/federated-credentials-only-config.json");
+        RbacOnlyConfig = new AccessConfig("./test-configs/rbac-only-config.json");
     }
 
     [SetUp]
@@ -29,6 +30,7 @@ public class ReconcilerTest
     {
         GraphClientMock = new Mock<IGraphClient>();
         RbacClientMock = new Mock<IRbacClient>();
+        GitHubClientMock = new Mock<IGitHubClient>();
 
         TestApplication = new Application
         {
@@ -46,9 +48,21 @@ public class ReconcilerTest
     }
 
     [Test]
+    public void TestReconcileWithTemplate()
+    {
+        var templateAccessConfig = new AccessConfig("./test-configs/access-config-template.json");
+        templateAccessConfig.ApplicationAccessConfigs.Count().Should().Be(1);
+        templateAccessConfig.ApplicationAccessConfigs.First().RoleBasedAccessControls.First().Scope
+            .Should().Be("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager");
+
+        templateAccessConfig.ApplicationAccessConfigs.First().FederatedIdentityCredentials.First().Subject
+            .Should().Be("repo:testfoobaraccessmanager/azure-sdk-tools:ref:refs/heads/main");
+    }
+
+    [Test]
     public async Task TestReconcileWithExistingApp()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         TestApplication.DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName;
         TestServicePrincipal.DisplayName = TestApplication.DisplayName;
 
@@ -69,7 +83,7 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileWithNewApp()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         TestApplication.DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName;
         TestServicePrincipal.DisplayName = TestApplication.DisplayName;
 
@@ -90,7 +104,7 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileWithMissingServicePrincipal()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         TestApplication.DisplayName = BaseAccessConfig.ApplicationAccessConfigs.First().AppDisplayName;
         TestServicePrincipal.DisplayName = TestApplication.DisplayName;
 
@@ -113,7 +127,7 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileWithEmptyFederatedIdentityCredentials()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         var configApp = FederatedCredentialsOnlyConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
 
@@ -131,7 +145,7 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileMergingFederatedIdentityCredentials()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         var configApp = FederatedCredentialsOnlyConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
 
@@ -164,7 +178,7 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileRoleBasedAccessControl()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         var configApp = RbacOnlyConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
         TestServicePrincipal.DisplayName = configApp.AppDisplayName;
@@ -172,13 +186,13 @@ public class ReconcilerTest
         await reconciler.ReconcileRoleBasedAccessControls(TestServicePrincipal, configApp);
 
         RbacClientMock.Verify(c => c.CreateRoleAssignment(
-            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControl>()), Times.Exactly(3));
+            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControlsConfig>()), Times.Exactly(3));
     }
 
     [Test]
     public async Task TestReconcileFromEmpty()
     {
-        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object);
+        var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         var configApp = BaseAccessConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
         TestServicePrincipal.DisplayName = configApp.AppDisplayName;
@@ -207,6 +221,6 @@ public class ReconcilerTest
 
         // Create 2
         RbacClientMock.Verify(c => c.CreateRoleAssignment(
-            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControl>()), Times.Exactly(2));
+            It.IsAny<ServicePrincipal>(), It.IsAny<RoleBasedAccessControlsConfig>()), Times.Exactly(2));
     }
 }
