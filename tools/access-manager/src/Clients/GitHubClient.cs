@@ -8,7 +8,10 @@ public class GitHubClient : IGitHubClient
     public GitHubClient(string? token)
     {
         Client = new Octokit.GitHubClient(new ProductHeaderValue("azsdk-access-manager"));
-        Client.Credentials = new Credentials(token);
+        if (token is not null)
+        {
+            Client.Credentials = new Credentials(token);
+        }
         PublicKeyCache = new Dictionary<(string, string), SecretsPublicKey>();
     }
 
@@ -24,16 +27,18 @@ public class GitHubClient : IGitHubClient
         return publicKeyResponse;
     }
 
+    // TODO: Support and use repository variables. Octokit does not have a client for this yet (4/12/2023).
     public async Task<string> SetRepositorySecret(string owner, string repo, string secretName, string secretValue)
     {
         var publicKey = await GetRepoPublicKeyData(owner, repo);
         var secretBytes = System.Text.Encoding.UTF8.GetBytes(secretValue);
         var publicKeyEncoded = Convert.FromBase64String(publicKey.Key);
         var sealedPublicKeyBox = Sodium.SealedPublicKeyBox.Create(secretValue, publicKeyEncoded);
+        var encryptedSecret = Convert.ToBase64String(sealedPublicKeyBox);
 
         var upsertSecret = new UpsertRepositorySecret
         {
-            EncryptedValue = sealedPublicKeyBox.ToString(),
+            EncryptedValue = encryptedSecret,
             KeyId = publicKey.KeyId,
         };
 

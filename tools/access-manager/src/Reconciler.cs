@@ -28,6 +28,7 @@ public class Reconciler
                 {
                     cfg.Properties["applicationId"] = app.AppId ?? string.Empty;
                     cfg.Render();
+                    Console.WriteLine($"Updating config with application id for {app.AppId}");
                     await accessConfig.Save();
                 }
 
@@ -70,6 +71,7 @@ public class Reconciler
                     await GitHubClient.SetRepositorySecret(owner, repoName, secret.Key, secret.Value);
                     Console.WriteLine($"GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}' created");
                 }
+                Console.WriteLine($"Updated secrets for repository {repository} - {config.Secrets?.Count() ?? 0} created or updated");
             }
         }
     }
