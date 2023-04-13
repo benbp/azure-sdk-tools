@@ -227,6 +227,8 @@ public class ReconcilerTest
         var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
         var configApp = fullAccessConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
+        // Override AppId to ensure we inject it into downstream properties and rendered template values
+        TestApplication.AppId = "11111111-1111-1111-1111-111111111111";
         TestServicePrincipal.DisplayName = configApp.AppDisplayName;
 
         // Application mocks
@@ -251,6 +253,8 @@ public class ReconcilerTest
         // Create repository secrets
         GitHubClientMock.Verify(c => c.SetRepositorySecret(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Exactly(3));
+        GitHubClientMock.Verify(c => c.SetRepositorySecret(
+            It.IsAny<string>(), It.IsAny<string>(), "AZURE_CLIENT_ID", TestApplication.AppId), Times.Exactly(1));
 
         // Delete zero, keep zero, create three
         GraphClientMock.Verify(c => c.DeleteFederatedIdentityCredential(

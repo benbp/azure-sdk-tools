@@ -21,9 +21,17 @@ public class Reconciler
             foreach (var cfg in accessConfig.ApplicationAccessConfigs ?? Enumerable.Empty<ApplicationAccessConfig>())
             {
                 var (app, servicePrincipal) = await ReconcileApplication(cfg);
+
+                // Inject application ID if we created a new app so
+                // downstream configs can reference it (e.g. GithubRepositorySecrets)
+                cfg.Properties["applicationId"] = app.AppId;
+                cfg.Render();
+
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
                 await ReconcileFederatedIdentityCredentials(app, cfg);
                 await ReconcileGithubRepositorySecrets(app, cfg);
+
+                // TODO: Add application id(s) to config on disk as a finally
             }
         }
         catch (ODataError ex)
