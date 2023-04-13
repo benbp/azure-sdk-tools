@@ -45,18 +45,29 @@ public class AccessConfig
 {
     public string ConfigPath { get; set; } = "not-set";
     public List<ApplicationAccessConfig> ApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
-    // Keep an unrendered version of config values so we can retain templating when we need to serialize back to the config file
+    // Keep an unrendered version of config values so we can retain templating
+    // when we need to serialize back to the config file
     public List<ApplicationAccessConfig> RawApplicationAccessConfigs { get; set; } = new List<ApplicationAccessConfig>();
 
     public AccessConfig(string configPath)
     {
         ConfigPath = configPath;
         var contents = File.ReadAllText(ConfigPath);
-        ApplicationAccessConfigs = JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents) ?? new List<ApplicationAccessConfig>();
+
+        ApplicationAccessConfigs =
+            JsonSerializer.Deserialize<List<ApplicationAccessConfig>>(contents) ?? new List<ApplicationAccessConfig>();
+
         foreach (var appAccessConfig in ApplicationAccessConfigs)
         {
             appAccessConfig.Render();
         }
+    }
+
+    public async Task Save()
+    {
+        var contents = JsonSerializer.Serialize(
+            ApplicationAccessConfigs, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(ConfigPath, contents);
     }
 
     public override string ToString()

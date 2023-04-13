@@ -24,8 +24,12 @@ public class Reconciler
 
                 // Inject application ID if we created a new app so
                 // downstream configs can reference it (e.g. GithubRepositorySecrets)
-                cfg.Properties["applicationId"] = app.AppId;
-                cfg.Render();
+                if (!cfg.Properties.ContainsKey("applicationId") || cfg.Properties["applicationId"] != app.AppId)
+                {
+                    cfg.Properties["applicationId"] = app.AppId ?? string.Empty;
+                    cfg.Render();
+                    await accessConfig.Save();
+                }
 
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
                 await ReconcileFederatedIdentityCredentials(app, cfg);

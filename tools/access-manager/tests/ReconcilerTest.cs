@@ -8,19 +8,28 @@ using Microsoft.Graph.Models;
 public class ReconcilerTest
 {
     ApplicationCollectionResponse AppResult { get; set; }
-    AccessConfig NoGitHubAccessConfig { get; set; }
-    AccessConfig FederatedCredentialsOnlyConfig { get; set; }
     Application TestApplication { get; set; }
     ServicePrincipal TestServicePrincipal { get; set; }
     Mock<IGraphClient> GraphClientMock { get; set; }
     Mock<IRbacClient> RbacClientMock { get; set; }
     Mock<IGitHubClient> GitHubClientMock { get; set; }
 
+    AccessConfig NoGitHubAccessConfig { get; set; }
+    AccessConfig FederatedCredentialsOnlyConfig { get; set; }
+    AccessConfig TemplateAccessConfig { get; set; }
+    AccessConfig GithubAccessConfig { get; set; }
+    AccessConfig RbacOnlyConfig { get; set; }
+    AccessConfig FullAccessConfig { get; set; }
+
     [OneTimeSetUp]
     public void Before()
     {
         NoGitHubAccessConfig = new AccessConfig("./test-configs/no-github-access-config.json");
         FederatedCredentialsOnlyConfig = new AccessConfig("./test-configs/federated-credentials-only-config.json");
+        TemplateAccessConfig = new AccessConfig("./test-configs/access-config-template.json");
+        GithubAccessConfig = new AccessConfig("./test-configs/github-only-config.json");
+        RbacOnlyConfig = new AccessConfig("./test-configs/rbac-only-config.json");
+        FullAccessConfig = new AccessConfig("./test-configs/full-access-config.json");
     }
 
     [SetUp]
@@ -48,12 +57,11 @@ public class ReconcilerTest
     [Test]
     public void TestReconcileWithTemplate()
     {
-        var templateAccessConfig = new AccessConfig("./test-configs/access-config-template.json");
-        templateAccessConfig.ApplicationAccessConfigs.Count().Should().Be(1);
-        templateAccessConfig.ApplicationAccessConfigs.First().RoleBasedAccessControls.First().Scope
+        TemplateAccessConfig.ApplicationAccessConfigs.Count().Should().Be(1);
+        TemplateAccessConfig.ApplicationAccessConfigs.First().RoleBasedAccessControls.First().Scope
             .Should().Be("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-testfoobaraccessmanager");
 
-        templateAccessConfig.ApplicationAccessConfigs.First().FederatedIdentityCredentials.First().Subject
+        TemplateAccessConfig.ApplicationAccessConfigs.First().FederatedIdentityCredentials.First().Subject
             .Should().Be("repo:testfoobaraccessmanager/azure-sdk-tools:ref:refs/heads/main");
     }
 
@@ -61,15 +69,14 @@ public class ReconcilerTest
     public async Task TestReconcileWithGithubSecrets()
     {
         var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
-        var githubAccessConfig = new AccessConfig("./test-configs/github-only-config.json");
 
         GitHubClientMock.Setup(c => c.SetRepositorySecret(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()).Result)
             .Returns("test-secret");
 
-        await reconciler.ReconcileGithubRepositorySecrets(TestApplication, githubAccessConfig.ApplicationAccessConfigs.First());
+        await reconciler.ReconcileGithubRepositorySecrets(TestApplication, GithubAccessConfig.ApplicationAccessConfigs.First());
 
-        var config = githubAccessConfig.ApplicationAccessConfigs.First();
+        var config = GithubAccessConfig.ApplicationAccessConfigs.First();
 
         foreach (var secret in config.GithubRepositorySecrets.First().Secrets)
         {
@@ -209,8 +216,7 @@ public class ReconcilerTest
     public async Task TestReconcileRoleBasedAccessControl()
     {
         var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
-        var rbacOnlyConfig = new AccessConfig("./test-configs/rbac-only-config.json");
-        var configApp = rbacOnlyConfig.ApplicationAccessConfigs.First();
+        var configApp = RbacOnlyConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
         TestServicePrincipal.DisplayName = configApp.AppDisplayName;
 
@@ -223,9 +229,8 @@ public class ReconcilerTest
     [Test]
     public async Task TestReconcileFromEmpty()
     {
-        var fullAccessConfig = new AccessConfig("./test-configs/full-access-config.json");
         var reconciler = new Reconciler(GraphClientMock.Object, RbacClientMock.Object, GitHubClientMock.Object);
-        var configApp = fullAccessConfig.ApplicationAccessConfigs.First();
+        var configApp = FullAccessConfig.ApplicationAccessConfigs.First();
         TestApplication.DisplayName = configApp.AppDisplayName;
         // Override AppId to ensure we inject it into downstream properties and rendered template values
         TestApplication.AppId = "11111111-1111-1111-1111-111111111111";
@@ -244,7 +249,7 @@ public class ReconcilerTest
         GraphClientMock.Setup(c => c.ListFederatedIdentityCredentials(
             It.IsAny<Application>()).Result).Returns(new List<FederatedIdentityCredential>());
 
-        await reconciler.Reconcile(fullAccessConfig);
+        await reconciler.Reconcile(FullAccessConfig);
 
         // Create application and service principal
         GraphClientMock.Verify(c => c.CreateApplication(It.IsAny<Application>()), Times.Once);
