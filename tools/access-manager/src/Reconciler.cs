@@ -22,22 +22,19 @@ public class Reconciler
             {
                 var (app, servicePrincipal) = await ReconcileApplication(cfg);
 
-                // Inject application ID if we created a new app so
+                // Inject application ID if we found or created a new app so
                 // downstream configs can reference it (e.g. GithubRepositorySecrets)
-                if (!cfg.Properties.ContainsKey("applicationId") || cfg.Properties["applicationId"] != app.AppId)
-                {
-                    cfg.Properties["applicationId"] = app.AppId ?? string.Empty;
-                    cfg.Render();
-                    Console.WriteLine($"Updating config with application id for {app.AppId}");
-                    await accessConfig.Save();
-                }
+                cfg.Properties["applicationId"] = app.AppId ?? string.Empty;
+                cfg.Render();
 
                 await ReconcileRoleBasedAccessControls(servicePrincipal, cfg);
                 await ReconcileFederatedIdentityCredentials(app, cfg);
                 await ReconcileGithubRepositorySecrets(app, cfg);
-
-                // TODO: Add application id(s) to config on disk as a finally
             }
+
+            Console.WriteLine($"Updating config with new properties...");
+            accessConfig.SyncProperties();
+            await accessConfig.Save();
         }
         catch (ODataError ex)
         {
@@ -59,7 +56,7 @@ public class Reconciler
         {
             foreach (var repository in config.Repositories)
             {
-                foreach (var secret in config.Secrets)
+                foreach (var secret in config.Secrets!)
                 {
                     Console.WriteLine($"Setting GitHub repository secret '{secret.Key}:{secret.Value}' for repository '{repository}'...");
                     var split = repository.Split('/');
