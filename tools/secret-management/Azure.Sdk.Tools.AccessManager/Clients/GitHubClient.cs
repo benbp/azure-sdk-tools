@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Octokit;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class GitHubClient : IGitHubClient
 {
     public Octokit.GitHubClient Client { get; }

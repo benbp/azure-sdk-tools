@@ -1,15 +1,15 @@
 using System.Collections.ObjectModel;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Configuration;
+namespace Azure.Sdk.Tools.SecretManagement.Configuration;
 
 public class RotationConfiguration
 {
     private readonly IDictionary<string, Func<StoreConfiguration, SecretStore>> storeFactories;
 
     private RotationConfiguration(
-        IDictionary<string, Func<StoreConfiguration, SecretStore>> storeFactories, 
+        IDictionary<string, Func<StoreConfiguration, SecretStore>> storeFactories,
         IEnumerable<PlanConfiguration> planConfigurations)
     {
         this.storeFactories = storeFactories;
@@ -228,7 +228,7 @@ public class RotationConfiguration
         return store;
     }
 
-    private void AddCapabilityError(List<string> validationErrors, SecretStore store, string capabilityName, 
+    private void AddCapabilityError(List<string> validationErrors, SecretStore store, string capabilityName,
         string storeUsage)
     {
         string typeName = store.GetType().Name;

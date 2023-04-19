@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class RoleBasedAccessControlsConfig : BaseConfig
 {
     [JsonRequired, JsonPropertyName("role"), JsonPropertyOrder(0)]

@@ -2,9 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
 using Azure.Identity;
-using Azure.Sdk.Tools.SecretRotation.Azure;
-using Azure.Sdk.Tools.SecretRotation.Configuration;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Azure;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
@@ -13,7 +13,7 @@ using Microsoft.VisualStudio.Services.DelegatedAuthorization.Client;
 using Microsoft.VisualStudio.Services.WebApi;
 using AccessToken = Azure.Core.AccessToken;
 
-namespace Azure.Sdk.Tools.SecretRotation.Stores.AzureDevOps;
+namespace Azure.Sdk.Tools.SecretManagement.Stores.AzureDevOps;
 
 public class ServiceAccountPersonalAccessTokenStore : SecretStore
 {
@@ -199,7 +199,7 @@ public class ServiceAccountPersonalAccessTokenStore : SecretStore
             }
         };
     }
-    
+
     private static async Task<VssCredentials> GetVssCredentials(TokenCredential credential)
     {
         AccessToken token = await GetDevopsBearerTokenAsync(credential);

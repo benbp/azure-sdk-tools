@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace Azure.Sdk.Tools.SecretRotation.Configuration;
+namespace Azure.Sdk.Tools.SecretManagement.Configuration;
 
 public class StoreConfiguration
 {

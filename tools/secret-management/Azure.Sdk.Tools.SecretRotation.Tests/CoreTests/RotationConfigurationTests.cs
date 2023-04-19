@@ -1,8 +1,8 @@
-using Azure.Sdk.Tools.SecretRotation.Configuration;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Tests.CoreTests;
+namespace Azure.Sdk.Tools.SecretManagement.Tests.CoreTests;
 
 public class RotationConfigurationTests
 {

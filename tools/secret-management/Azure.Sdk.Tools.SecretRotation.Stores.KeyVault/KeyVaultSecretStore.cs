@@ -2,12 +2,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure.Core;
-using Azure.Sdk.Tools.SecretRotation.Configuration;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Stores.KeyVault;
+namespace Azure.Sdk.Tools.SecretManagement.Stores.KeyVault;
 
 public class KeyVaultSecretStore : SecretStore
 {
@@ -120,7 +120,7 @@ public class KeyVaultSecretStore : SecretStore
     public override async Task<IEnumerable<SecretState>> GetRotationArtifactsAsync()
     {
         var results = new List<SecretState>();
-        
+
         try
         {
 

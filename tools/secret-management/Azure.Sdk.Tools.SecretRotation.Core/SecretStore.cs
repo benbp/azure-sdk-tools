@@ -1,4 +1,4 @@
-namespace Azure.Sdk.Tools.SecretRotation.Core;
+namespace Azure.Sdk.Tools.SecretManagement.Core;
 
 public abstract class SecretStore
 {

@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Graph.Models;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class FederatedIdentityCredentialsConfig : BaseConfig, IEquatable<FederatedIdentityCredential>
 {
     [JsonRequired, JsonPropertyName("audiences"), JsonPropertyOrder(0)]

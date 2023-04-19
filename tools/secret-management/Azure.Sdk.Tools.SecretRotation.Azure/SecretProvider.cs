@@ -3,7 +3,7 @@ using Azure.Core;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Azure;
+namespace Azure.Sdk.Tools.SecretManagement.Azure;
 
 public class SecretProvider : ISecretProvider
 {

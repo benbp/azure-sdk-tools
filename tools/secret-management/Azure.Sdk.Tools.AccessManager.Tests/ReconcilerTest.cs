@@ -1,13 +1,13 @@
-namespace Azure.Sdk.Tools.AccessManager.Tests;
-
 using NUnit.Framework;
 using FluentAssertions;
 using Moq;
 using Microsoft.Graph.Models;
 
+namespace Azure.Sdk.Tools.AccessManager.Tests;
+
 public class ReconcilerTest
 {
-    ApplicationCollectionResponse AppResult { get; set; }
+    ApplicationCollectionResponse AppResult { get; set; } = new ApplicationCollectionResponse();
     Application TestApplication { get; set; }
     ServicePrincipal TestServicePrincipal { get; set; }
     Mock<IGraphClient> GraphClientMock { get; set; }

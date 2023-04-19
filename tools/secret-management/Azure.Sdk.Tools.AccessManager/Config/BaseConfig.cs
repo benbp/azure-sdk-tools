@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public abstract class BaseConfig
 {
     private (string, HashSet<string>) RenderValue(string template, IDictionary<string, string> properties)

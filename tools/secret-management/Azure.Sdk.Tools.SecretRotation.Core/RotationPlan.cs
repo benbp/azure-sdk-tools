@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Core;
+namespace Azure.Sdk.Tools.SecretManagement.Core;
 
 public class RotationPlan
 {
@@ -216,8 +216,8 @@ public class RotationPlan
         }
     }
 
-    private async Task<SecretValue> OriginateNewValueAsync(string operationId, 
-        DateTimeOffset invocationTime, 
+    private async Task<SecretValue> OriginateNewValueAsync(string operationId,
+        DateTimeOffset invocationTime,
         SecretState currentState,
         bool whatIf)
     {

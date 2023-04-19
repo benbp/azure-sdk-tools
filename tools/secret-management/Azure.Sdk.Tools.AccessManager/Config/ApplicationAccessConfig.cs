@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class ApplicationAccessConfig
 {
     [JsonRequired, JsonPropertyName("appDisplayName"), JsonPropertyOrder(0)]

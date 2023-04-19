@@ -1,6 +1,6 @@
-using Azure.Sdk.Tools.SecretRotation.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
 
-namespace Azure.Sdk.Tools.SecretRotation.Tests.CoreTests;
+namespace Azure.Sdk.Tools.SecretManagement.Tests.CoreTests;
 
 public class PlanConfigurationTests
 {
@@ -31,7 +31,7 @@ public class PlanConfigurationTests
         Assert.False(success);
         Assert.Null(configuration);
     }
-    
+
     [Test]
     public void TryLoadFromFile_ValidPath_ReturnConfiguration()
     {

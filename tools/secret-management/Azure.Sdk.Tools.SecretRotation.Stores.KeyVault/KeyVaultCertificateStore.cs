@@ -2,12 +2,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure.Core;
-using Azure.Sdk.Tools.SecretRotation.Configuration;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Azure.Security.KeyVault.Certificates;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretRotation.Stores.KeyVault;
+namespace Azure.Sdk.Tools.SecretManagement.Stores.KeyVault;
 
 public class KeyVaultCertificateStore : SecretStore
 {
@@ -20,7 +20,7 @@ public class KeyVaultCertificateStore : SecretStore
         @"^(?<VaultUri>https://.+?)/certificates/(?<CertificateName>[^/]+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled,
         TimeSpan.FromSeconds(5));
-        
+
     private readonly CertificateClient certificateClient;
     private readonly string certificateName;
     private readonly ILogger logger;
@@ -181,12 +181,12 @@ public class KeyVaultCertificateStore : SecretStore
                 }
 
                 version.Tags.TryGetValue(OperationIdTag, out string? operationId);
-                
+
                 results.Add(new SecretState
                 {
                     Id = version.Id.ToString(),
                     OperationId = operationId,
-                    Tags = version.Tags, 
+                    Tags = version.Tags,
                     RevokeAfterDate = revokeAfterDate,
                 });
             }

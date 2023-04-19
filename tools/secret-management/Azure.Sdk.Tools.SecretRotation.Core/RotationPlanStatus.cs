@@ -1,6 +1,6 @@
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Core;
 
-namespace Azure.Sdk.Tools.SecretRotation.Core;
+namespace Azure.Sdk.Tools.SecretManagement.Core;
 
 public class RotationPlanStatus
 {

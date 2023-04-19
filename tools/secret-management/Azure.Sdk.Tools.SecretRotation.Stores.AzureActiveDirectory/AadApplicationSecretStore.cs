@@ -1,12 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
-using Azure.Sdk.Tools.SecretRotation.Configuration;
-using Azure.Sdk.Tools.SecretRotation.Core;
+using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretManagement.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 
-namespace Azure.Sdk.Tools.SecretRotation.Stores.AzureActiveDirectory;
+namespace Azure.Sdk.Tools.SecretManagement.Stores.AzureActiveDirectory;
 
 public class AadApplicationSecretStore : SecretStore
 {
@@ -71,7 +71,7 @@ public class AadApplicationSecretStore : SecretStore
         IGraphServiceApplicationsCollectionPage? applications =
             await graphClient.Applications.Request().Filter($"appId eq '{this.applicationId}'").GetAsync();
 
-        Application application = applications.FirstOrDefault() 
+        Application application = applications.FirstOrDefault()
             ?? throw new RotationException($"Unable to locate AAD application with id '{this.applicationId}'");
 
         this.logger.LogInformation("Found AAD application with id '{ApplicationId}', object id '{ObjectId}'",
@@ -138,7 +138,7 @@ public class AadApplicationSecretStore : SecretStore
                     "WHAT IF: Post 'remove password' request to graph api for application object id '{ObjectId}' and password id '{PasswordId}'",
                     application.Id,
                     aadKeyId);
-            }    
+            }
             else
             {
                 try

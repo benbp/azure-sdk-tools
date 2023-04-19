@@ -1,6 +1,8 @@
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class Reconciler
 {
     public IGraphClient GraphClient { get; set; }

@@ -1,9 +1,9 @@
-namespace Azure.Sdk.Tools.AccessManager.Tests;
-
 using NUnit.Framework;
 using FluentAssertions;
 using Moq;
 using Microsoft.Graph.Models;
+
+namespace Azure.Sdk.Tools.AccessManager.Tests;
 
 public class BaseConfigTest
 {
@@ -109,19 +109,19 @@ public class BaseConfigTest
 
 public class StringConfig : BaseConfig
 {
-    public string Foo { get; set; }
-    public string Bar { get; set; }
+    public string Foo { get; set; } = string.Empty;
+    public string Bar { get; set; } = string.Empty;
 }
 
 public class ListConfig : BaseConfig
 {
-    public List<string> Foo { get; set; }
-    public List<string> Bar { get; set; }
-    public List<string> Baz { get; set; }
+    public List<string> Foo { get; set; } = new List<string>();
+    public List<string> Bar { get; set; } = new List<string>();
+    public List<string> Baz { get; set; } = new List<string>();
 }
 
 public class DictionaryConfig : BaseConfig
 {
-    public Dictionary<string, string> Foo { get; set; }
-    public SortedDictionary<string, string> Bar { get; set; }
+    public Dictionary<string, string> Foo { get; set; } = new Dictionary<string, string>();
+    public SortedDictionary<string, string> Bar { get; set; } = new SortedDictionary<string, string>();
 }

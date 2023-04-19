@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-namespace Azure.Sdk.Tools.SecretRotation.Configuration;
+namespace Azure.Sdk.Tools.SecretManagement.Configuration;
 
 public class PlanConfiguration
 {

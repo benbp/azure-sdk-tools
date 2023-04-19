@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json.Serialization;
 
+namespace Azure.Sdk.Tools.AccessManager;
+
 public class GithubRepositorySecretsConfig : BaseConfig
 {
     [JsonRequired, JsonPropertyName("repositories"), JsonPropertyOrder(0)]
