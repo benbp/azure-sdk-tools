@@ -1,4 +1,4 @@
-namespace Azure.Sdk.Tools.SecretManagement.Stores.Generic;
+namespace Azure.Sdk.Tools.SecretRotation.Stores.Generic;
 
 public interface IUserValueProvider
 {

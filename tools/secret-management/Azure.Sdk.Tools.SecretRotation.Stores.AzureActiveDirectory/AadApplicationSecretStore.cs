@@ -1,12 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
-using Azure.Sdk.Tools.SecretManagement.Configuration;
-using Azure.Sdk.Tools.SecretManagement.Core;
+using Azure.Sdk.Tools.SecretRotation.Configuration;
+using Azure.Sdk.Tools.SecretRotation.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 
-namespace Azure.Sdk.Tools.SecretManagement.Stores.AzureActiveDirectory;
+namespace Azure.Sdk.Tools.SecretRotation.Stores.AzureActiveDirectory;
 
 public class AadApplicationSecretStore : SecretStore
 {

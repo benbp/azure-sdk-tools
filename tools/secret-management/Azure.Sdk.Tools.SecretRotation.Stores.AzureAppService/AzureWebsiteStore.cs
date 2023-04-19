@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 using Azure.Core;
 using Azure.ResourceManager;
 using Azure.ResourceManager.AppService;
-using Azure.Sdk.Tools.SecretManagement.Configuration;
-using Azure.Sdk.Tools.SecretManagement.Core;
+using Azure.Sdk.Tools.SecretRotation.Configuration;
+using Azure.Sdk.Tools.SecretRotation.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretManagement.Stores.AzureAppService;
+namespace Azure.Sdk.Tools.SecretRotation.Stores.AzureAppService;
 
 public class AzureWebsiteStore : SecretStore
 {

@@ -1,4 +1,4 @@
-namespace Azure.Sdk.Tools.SecretManagement.Tests;
+namespace Azure.Sdk.Tools.SecretRotation.Tests;
 
 public class TestFiles
 {

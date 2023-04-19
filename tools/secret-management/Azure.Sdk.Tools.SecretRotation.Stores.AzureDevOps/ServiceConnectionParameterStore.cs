@@ -1,14 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
-using Azure.Sdk.Tools.SecretManagement.Configuration;
-using Azure.Sdk.Tools.SecretManagement.Core;
+using Azure.Sdk.Tools.SecretRotation.Configuration;
+using Azure.Sdk.Tools.SecretRotation.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 
-namespace Azure.Sdk.Tools.SecretManagement.Stores.AzureDevOps;
+namespace Azure.Sdk.Tools.SecretRotation.Stores.AzureDevOps;
 
 public class ServiceConnectionParameterStore : SecretStore
 {

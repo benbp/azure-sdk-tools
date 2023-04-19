@@ -1,10 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Azure.Sdk.Tools.SecretManagement.Configuration;
-using Azure.Sdk.Tools.SecretManagement.Core;
+using Azure.Sdk.Tools.SecretRotation.Configuration;
+using Azure.Sdk.Tools.SecretRotation.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretManagement.Stores.Generic;
+namespace Azure.Sdk.Tools.SecretRotation.Stores.Generic;
 
 public class ManualActionStore : SecretStore
 {

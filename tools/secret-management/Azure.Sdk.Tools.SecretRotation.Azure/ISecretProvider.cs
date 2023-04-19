@@ -1,6 +1,6 @@
 using Azure.Core;
 
-namespace Azure.Sdk.Tools.SecretManagement.Azure;
+namespace Azure.Sdk.Tools.SecretRotation.Azure;
 
 public interface ISecretProvider
 {

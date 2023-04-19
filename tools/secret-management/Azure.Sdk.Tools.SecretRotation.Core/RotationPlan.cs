@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using Azure.Sdk.Tools.SecretManagement.Core;
+using Azure.Sdk.Tools.SecretRotation.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Azure.Sdk.Tools.SecretManagement.Core;
+namespace Azure.Sdk.Tools.SecretRotation.Core;
 
 public class RotationPlan
 {

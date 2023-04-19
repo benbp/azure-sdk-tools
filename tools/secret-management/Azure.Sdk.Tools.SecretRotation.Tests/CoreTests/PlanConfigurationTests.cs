@@ -1,6 +1,6 @@
-using Azure.Sdk.Tools.SecretManagement.Configuration;
+using Azure.Sdk.Tools.SecretRotation.Configuration;
 
-namespace Azure.Sdk.Tools.SecretManagement.Tests.CoreTests;
+namespace Azure.Sdk.Tools.SecretRotation.Tests.CoreTests;
 
 public class PlanConfigurationTests
 {
