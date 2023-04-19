@@ -7,7 +7,7 @@ namespace Azure.Sdk.Tools.AccessManager.Tests;
 
 public class BaseConfigTest
 {
-    public SortedDictionary<string, string> Properties { get; set; }
+    public SortedDictionary<string, string> Properties { get; set; } = default!;
 
     [SetUp]
     public void BeforeEach()

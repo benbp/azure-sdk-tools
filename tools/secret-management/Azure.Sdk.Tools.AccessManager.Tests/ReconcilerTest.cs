@@ -7,20 +7,20 @@ namespace Azure.Sdk.Tools.AccessManager.Tests;
 
 public class ReconcilerTest
 {
-    ApplicationCollectionResponse AppResult { get; set; } = new ApplicationCollectionResponse();
-    Application TestApplication { get; set; }
-    ServicePrincipal TestServicePrincipal { get; set; }
-    Mock<IGraphClient> GraphClientMock { get; set; }
-    Mock<IRbacClient> RbacClientMock { get; set; }
-    Mock<IGitHubClient> GitHubClientMock { get; set; }
+    ApplicationCollectionResponse AppResult { get; set; } = default!;
+    Application TestApplication { get; set; } = default!;
+    ServicePrincipal TestServicePrincipal { get; set; } = default!;
+    Mock<IGraphClient> GraphClientMock { get; set; } = default!;
+    Mock<IRbacClient> RbacClientMock { get; set; } = default!;
+    Mock<IGitHubClient> GitHubClientMock { get; set; } = default!;
 
-    AccessConfig NoGitHubAccessConfig { get; set; }
-    AccessConfig FederatedCredentialsOnlyConfig { get; set; }
-    AccessConfig TemplateAccessConfig { get; set; }
-    AccessConfig TemplateMissingPropertyAccessConfig { get; set; }
-    AccessConfig GithubAccessConfig { get; set; }
-    AccessConfig RbacOnlyConfig { get; set; }
-    AccessConfig FullAccessConfig { get; set; }
+    AccessConfig NoGitHubAccessConfig { get; set; } = default!;
+    AccessConfig FederatedCredentialsOnlyConfig { get; set; } = default!;
+    AccessConfig TemplateAccessConfig { get; set; } = default!;
+    AccessConfig TemplateMissingPropertyAccessConfig { get; set; } = default!;
+    AccessConfig GithubAccessConfig { get; set; } = default!;
+    AccessConfig RbacOnlyConfig { get; set; } = default!;
+    AccessConfig FullAccessConfig { get; set; } = default!;
 
     [OneTimeSetUp]
     public void Before()
