@@ -1,25 +1,36 @@
 # NOTE: currently azure-sdk-actions only hosts check enforcer code.
 # If further functionality is added, this name should be updated to reflect
 # the more generic behavior
-name: Check Enforcer
+name: Test Workflow
 
 on:
-  check_suite:
-    types: [completed]
   issue_comment:
     types: [created]
 
 permissions: {}
 
 jobs:
-  event-handler:
-    permissions:
-      statuses: write # to set status (azure/azure-sdk-actions)
-      pull-requests: write # to read pull requests and write comments (azure/azure-sdk-actions)
-      checks: read # to read check status (azure/azure-sdk-actions)
-    name: Handle ${{ github.event_name }} ${{ github.event.action }} event
+  event-handler-1:
+    name: Job name 1
     runs-on: ubuntu-latest # This image is intentionally set to "latest", and not to a specific version
     steps:
-      - uses: azure/azure-sdk-actions@main
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - name: 'Test 1'
+      shell: pwsh
+      run: |
+        echo foobar 1 a
+  event-handler-2:
+    name: Job name 1
+    runs-on: ubuntu-latest # This image is intentionally set to "latest", and not to a specific version
+    steps:
+    - name: 'Test 1'
+      shell: pwsh
+      run: |
+        echo foobar 1 b
+  event-handler-3:
+    name: Job name 3
+    runs-on: ubuntu-latest # This image is intentionally set to "latest", and not to a specific version
+    steps:
+    - name: 'Test 1'
+      shell: pwsh
+      run: |
+        echo foobar 3
