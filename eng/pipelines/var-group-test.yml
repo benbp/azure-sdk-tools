@@ -1,0 +1,8 @@
+trigger: none
+
+jobs:
+  - job:
+    displayName: Var from $(foo)
+    steps:
+      - pwsh: echo '$(foo)'
+        displayName: Var from $(foo)
