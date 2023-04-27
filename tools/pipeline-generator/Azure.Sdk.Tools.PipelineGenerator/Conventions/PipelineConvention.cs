@@ -23,7 +23,7 @@ namespace PipelineGenerator.Conventions
         private Dictionary<string, BuildDefinitionReference> pipelineReferences;
 
         protected ILogger Logger { get; }
-        protected PipelineGenerationContext Context { get; }
+        public PipelineGenerationContext Context { get; }
         public abstract string SearchPattern { get; }
         public abstract string PipelineNameSuffix { get; }
         public abstract string PipelineCategory { get; }
@@ -56,7 +56,7 @@ namespace PipelineGenerator.Conventions
                         project: projectReference.Id,
                         definitionId: definition.Id,
                         cancellationToken: cancellationToken
-                        );
+                    );
                 }
                 else
                 {
@@ -87,28 +87,38 @@ namespace PipelineGenerator.Conventions
 
             Logger.LogDebug("Applying convention to '{0}' definition.", definitionName);
             var hasChanges = await ApplyConventionAsync(definition, component);
+            var hasPermissionsChanges = await ApplyPermissionsAsync(definition, cancellationToken);
 
-            if (!hasChanges && !Context.OverwriteTriggers)
+            if (!hasChanges && !hasPermissionsChanges && !Context.OverwriteTriggers)
             {
-                Logger.LogDebug("No changes for definition '{0}'.", definitionName);
+                Logger.LogDebug("No changes for definition or variable group permissions '{0}'.", definitionName);
                 return definition;
             }
 
             if (Context.WhatIf)
             {
-                Logger.LogWarning("Skipping update to definition '{0}' (--whatif).", definitionName);
+                Logger.LogWarning("Skipping update to definition or variable group permissions '{0}' (--whatif).", definitionName);
                 return definition;
             }
 
-            Logger.LogInformation("Convention had changes, updating '{0}' definition.", definitionName);
-            var buildClient = await Context.GetBuildHttpClientAsync(cancellationToken);
-            definition.Comment = "Updated by pipeline generation tool";
-            definition = await buildClient.UpdateDefinitionAsync(
-                definition: definition,
-                cancellationToken: cancellationToken
-                );
+            if (hasChanges || Context.OverwriteTriggers)
+            {
+                Logger.LogInformation("Convention had changes, updating '{0}' definition.", definitionName);
+                var buildClient = await Context.GetBuildHttpClientAsync(cancellationToken);
+                definition.Comment = "Updated by pipeline generation tool";
+                definition = await buildClient.UpdateDefinitionAsync(
+                    definition: definition,
+                    cancellationToken: cancellationToken
+                    );
+            }
 
-            var variableGroupsClient = await Context.GetPipelinePermissionsClientAsync(cancellationToken);
+            if (hasPermissionsChanges)
+            {
+                var variableGroupsClient = await Context.GetPipelinePermissionsClientAsync(cancellationToken);
+                var projectReference = await Context.GetProjectReferenceAsync(cancellationToken);
+                await variableGroupsClient.AuthorizePipelineForVariableGroupsAsync(
+                    projectReference.Id, definition.VariableGroups.Select(vg => vg.Id).ToArray(), definition.Id, cancellationToken);
+            }
 
             return definition;
         }
@@ -327,6 +337,23 @@ namespace PipelineGenerator.Conventions
             schedule.BranchFilters.Add($"+{Context.Branch}");
 
             return schedule;
+        }
+
+        protected async Task<bool> ApplyPermissionsAsync(BuildDefinition definition, CancellationToken cancellationToken)
+        {
+            var variableGroupsClient = await Context.GetPipelinePermissionsClientAsync(cancellationToken);
+            var projectReference = await Context.GetProjectReferenceAsync(cancellationToken);
+            foreach (var variableGroupId in Context.VariableGroups)
+            {
+                var permissions = await variableGroupsClient.GetVariableGroupPipelinePermissionsAsync(
+                    projectReference.Id, variableGroupId, cancellationToken);
+                if (!permissions.Pipelines.Any(p => p.Id == definition.Id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         protected virtual Task<bool> ApplyConventionAsync(BuildDefinition definition, SdkComponent component)
