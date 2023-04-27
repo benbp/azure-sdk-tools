@@ -2,7 +2,7 @@ trigger: none
 
 jobs:
   - job:
-    displayName: Var from $(foo)
+    displayName: Var test
     steps:
       - pwsh: echo '$(foo)'
         displayName: Var from $(foo)

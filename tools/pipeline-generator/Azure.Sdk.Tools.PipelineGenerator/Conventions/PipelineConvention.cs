@@ -88,27 +88,27 @@ namespace PipelineGenerator.Conventions
             Logger.LogDebug("Applying convention to '{0}' definition.", definitionName);
             var hasChanges = await ApplyConventionAsync(definition, component);
 
-            if (hasChanges || Context.OverwriteTriggers)
-            {
-                if (!Context.WhatIf)
-                {
-                    Logger.LogInformation("Convention had changes, updating '{0}' definition.", definitionName);
-                    var buildClient = await Context.GetBuildHttpClientAsync(cancellationToken);
-                    definition.Comment = "Updated by pipeline generation tool";
-                    definition = await buildClient.UpdateDefinitionAsync(
-                        definition: definition,
-                        cancellationToken: cancellationToken
-                        );
-                }
-                else
-                {
-                    Logger.LogWarning("Skipping update to definition '{0}' (--whatif).", definitionName);
-                }
-            }
-            else
+            if (!hasChanges && !Context.OverwriteTriggers)
             {
                 Logger.LogDebug("No changes for definition '{0}'.", definitionName);
+                return definition;
             }
+
+            if (Context.WhatIf)
+            {
+                Logger.LogWarning("Skipping update to definition '{0}' (--whatif).", definitionName);
+                return definition;
+            }
+
+            Logger.LogInformation("Convention had changes, updating '{0}' definition.", definitionName);
+            var buildClient = await Context.GetBuildHttpClientAsync(cancellationToken);
+            definition.Comment = "Updated by pipeline generation tool";
+            definition = await buildClient.UpdateDefinitionAsync(
+                definition: definition,
+                cancellationToken: cancellationToken
+                );
+
+            var variableGroupsClient = await Context.GetPipelinePermissionsClientAsync(cancellationToken);
 
             return definition;
         }

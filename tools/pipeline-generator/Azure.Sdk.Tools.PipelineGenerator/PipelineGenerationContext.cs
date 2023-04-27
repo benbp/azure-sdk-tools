@@ -183,6 +183,19 @@ namespace PipelineGenerator
             return cachedBuildClient;
         }
 
+        private PipelinePermissionsClient cachedPipelinePermissionsClient;
+
+        public async Task<PipelinePermissionsClient> GetPipelinePermissionsClientAsync(CancellationToken cancellationToken)
+        {
+            if (cachedPipelinePermissionsClient == null)
+            {
+                var connection = await GetConnectionAsync();
+                cachedPipelinePermissionsClient = await connection.GetClientAsync<PipelinePermissionsClient>(cancellationToken);
+            }
+
+            return cachedPipelinePermissionsClient;
+        }
+
         private TaskAgentHttpClient cachedTaskAgentClient;
 
         private async Task<TaskAgentHttpClient> GetTaskAgentClientAsync(CancellationToken cancellationToken)
