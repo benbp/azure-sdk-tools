@@ -141,7 +141,7 @@ namespace Azure.Sdk.Tools.TestProxy.Store
                     HideOrigin(config);
                     throw GenerateInvokeException(e.Result);
                 }
-                await UpdateAssetsJson(generatedTagName, config);
+                await UpdateAssetsConfig(generatedTagName, config);
                 await BreadCrumb.Update(config);
             }
 
@@ -662,7 +662,7 @@ namespace Azure.Sdk.Tools.TestProxy.Store
         /// </summary>
         /// <param name="newSha"></param>
         /// <param name="config"></param>
-        public async Task UpdateAssetsJson(string newSha, GitAssetsConfiguration config)
+        public async Task UpdateAssetsConfig(string newSha, GitAssetsConfiguration config)
         {
             // only do work if the SHAs aren't equivalent
             if (config.Tag != newSha)
@@ -687,6 +687,83 @@ namespace Azure.Sdk.Tools.TestProxy.Store
                 File.WriteAllText(config.AssetsJsonLocation.ToString(), content);
             }
         }
+
+        /// <summary>
+        /// Implementation for initializing store-specific asset config file
+        /// </summary>
+        /// <param name="assetsJsonPath"></param>
+        /// <param name="assetsRepo"></param>
+        /// <param name="language"></param>
+        /// <param name="tagPrefix"></param>
+        public async Task CreateAssetsConfig(string assetsJsonPath)
+        {
+            if (!assetsJsonPath.ToLowerInvariant().EndsWith(AssetsJsonFileName))
+            {
+                assetsJsonPath = Path.Join(assetsJsonPath, AssetsJsonFileName);
+            }
+            var assetsFilePath = ResolveAssetsJson(assetsJsonPath);
+
+            #region prompt for assets repo path prefix
+            var defaultPathPrefix = "";
+            if (assetsJsonPath.Contains("azure-sdk-for-"))
+            {
+                defaultPathPrefix = assetsJsonPath.Split("azure-sdk-for-")[1].Split("/")[0];
+            }
+            _consoleWrapper.WriteLine("Enter AssetsRepoPrefixPath (e.g. language name like 'python' or 'java'): ");
+            if (!String.IsNullOrEmpty(defaultPathPrefix))
+            {
+                _consoleWrapper.WriteLine($"Press enter for default: {defaultPathPrefix}");
+            }
+            var pathPrefix = _consoleWrapper.ReadLine();
+            if (String.IsNullOrEmpty(pathPrefix) && !String.IsNullOrEmpty(defaultPathPrefix))
+            {
+                pathPrefix = defaultPathPrefix;
+            }
+            else if (String.IsNullOrEmpty(pathPrefix))
+            {
+                throw new HttpException(HttpStatusCode.InternalServerError, "AssetsRepoPrefixPath cannot be empty.");
+            }
+            pathPrefix = pathPrefix.ToLowerInvariant().Trim();
+            #endregion
+
+            #region prompt for assets repo tag prefix
+            var defaultTagPrefix = "";
+            if (assetsJsonPath.Contains("azure-sdk-for-"))
+            {
+                var split = assetsJsonPath.Split(pathPrefix);
+                if (split.Length
+                [1].Split("/")[0];
+            }
+            _consoleWrapper.WriteLine("Enter AssetsRepoPrefixPath (e.g. language name like 'python' or 'java'): ");
+            if (!String.IsNullOrEmpty(defaultTagPrefix))
+            {
+                _consoleWrapper.WriteLine($"Press enter for default: {defaultTagPrefix}");
+            }
+            var tagPrefix = _consoleWrapper.ReadLine();
+            if (String.IsNullOrEmpty(pathPrefix) && !String.IsNullOrEmpty(defaultTagPrefix))
+            {
+                pathPrefix = defaultPathPrefix;
+            }
+            else if (String.IsNullOrEmpty(pathPrefix))
+            {
+                throw new HttpException(HttpStatusCode.InternalServerError, "AssetsRepoPrefixPath cannot be empty.");
+            }
+            pathPrefix = pathPrefix.ToLowerInvariant().Trim();
+            #endregion
+
+
+            var content = new GitAssetsConfiguration()
+            {
+                AssetsRepo = pathPrefix,
+                AssetsRepoPrefixPath = new NormalizedString(language),
+                TagPrefix = tagPrefix,
+                Tag = "",
+            };
+
+            var json = JsonSerializer.Serialize(content, new JsonSerializerOptions() { WriteIndented = true });
+            await File.WriteAllTextAsync(assetsFilePath, json);
+        }
+
         #endregion
     }
 }

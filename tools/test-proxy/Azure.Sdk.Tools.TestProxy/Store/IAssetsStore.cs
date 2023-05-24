@@ -31,5 +31,15 @@ namespace Azure.Sdk.Tools.TestProxy.Store
         /// <param name="pathToAssetsJson"></param>
         /// <returns></returns>
         public abstract Task<NormalizedString> GetPath(string pathToAssetsJson);
+
+        /// <summary>
+        /// Create a new assets.json configuration file and write it to disk
+        /// </summary>
+        /// <param name="assetsJsonPath"></param>
+        /// <param name="assetsRepo"></param>
+        /// <param name="language"></param>
+        /// <param name="tagPrefix"></param>
+        /// <returns></returns>
+        public abstract Task CreateAssetsConfig(string assetsJsonPath, string assetsRepo, string language, string tagPrefix);
     }
 }

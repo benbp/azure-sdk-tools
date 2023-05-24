@@ -75,6 +75,7 @@ namespace Azure.Sdk.Tools.TestProxy
             Resolver = new StoreResolver();
             DefaultStore = Resolver.ResolveStore(defaultOptions.StoragePlugin ?? "GitStore");
             var assetsJson = string.Empty;
+            var assetsFilePath = string.Empty;
 
             switch (commandObj)
             {
@@ -84,7 +85,8 @@ namespace Azure.Sdk.Tools.TestProxy
                     break;
                 case ConfigShowOptions configOptions:
                     assetsJson = RecordingHandler.GetAssetsJsonLocation(configOptions.AssetsJsonPath, TargetLocation);
-                    using(var f = File.OpenRead(assetsJson))
+                    assetsFilePath = await DefaultStore.GetPath(assetsJson);
+                    using(var f = File.OpenRead(assetsFilePath))
                     {
                         using var json = JsonDocument.Parse(f);
                         System.Console.WriteLine(JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = true }));
@@ -92,7 +94,7 @@ namespace Azure.Sdk.Tools.TestProxy
                     break;
                 case ConfigCreateOptions configOptions:
                     assetsJson = RecordingHandler.GetAssetsJsonLocation(configOptions.AssetsJsonPath, TargetLocation);
-                    throw new NotImplementedException("Interactive creation of assets.json feature is not yet implemented.");
+                    await DefaultStore.CreateAssetsConfig(assetsJson,
                 case ConfigOptions configOptions:
                     System.Console.WriteLine("Config verb requires a subcommand after the \"config\" verb.\n\nCorrect Usage: \"Azure.Sdk.Tools.TestProxy config locate|show|create -a path/to/assets.json\"");
                     break;
