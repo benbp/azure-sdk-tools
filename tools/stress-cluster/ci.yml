@@ -17,6 +17,13 @@ pr:
       - eng/common/scripts/stress-testing
 
 jobs:
+  - job: Show Packages
+    pool:
+      name: azsdk-pool-mms-ubuntu-2004-general
+      vmImage: ubuntu-20.04
+    steps:
+      pwsh: apt list
+
   - job: Analyze
     pool:
       name: azsdk-pool-mms-ubuntu-2204-general
