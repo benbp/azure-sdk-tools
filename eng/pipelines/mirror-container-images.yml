@@ -28,7 +28,7 @@ jobs:
           displayName: Login to ${{ image.mirror }} ACR
           inputs:
             command: login
-            containerRegistry: ${{ split(image.mirror, '.')[0] }}
+            containerRegistry: ${{ image.mirror }}
         - task: Powershell@2
           displayName: Mirror ${{ image.source }} to ${{ image.mirror }}
           inputs:
