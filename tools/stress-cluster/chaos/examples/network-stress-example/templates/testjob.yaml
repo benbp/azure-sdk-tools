@@ -8,10 +8,17 @@ metadata:
 spec:
   nodeSelector:
     sku: 'default'
+  shareProcessNamespace: true
   containers:
-    - name: network-example
-      command: ["bash", "poll.sh"]
+    - name: network-example-sidecar
+      command: ["bash", "-c", "tail -f /dev/null; exit 0"]
       imagePullPolicy: Always
       image: {{ .Stress.imageTag }}
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
+    - name: network-example
+      command: ["bash", "-c", "yum install -y procps; sleep 10; kill `pidof tail`"]
+      imagePullPolicy: Always
+      image: {{ .Stress.imageTag }}
+      {{- include "stress-test-addons.container-env" . | nindent 6 }}
+
 {{- end -}}
