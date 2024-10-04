@@ -52,11 +52,13 @@ module appInsights 'monitoring/app-insights.bicep' = {
     }
 }
 
+var testDashboardDisplayName: 'Azure SDK Stress Testing - ${groupSuffix}'
+
 module test_dashboard 'monitoring/stress-test-workbook.bicep' = {
     name: 'test_dashboard'
     scope: group
     params: {
-        workbookDisplayName: 'Azure SDK Stress Testing - ${groupSuffix}'
+        workbookDisplayName: testDashboardDisplayName
         location: clusterLocation
         logAnalyticsResource: logWorkspace.outputs.id
     }
@@ -67,6 +69,7 @@ module status_dashboard 'monitoring/stress-status-workbook.bicep' = {
     scope: group
     params: {
         workbookDisplayName: 'Stress Status - ${groupSuffix}'
+        linkedWorkbookDisplayName: testDashboardDisplayName
         location: clusterLocation
         logAnalyticsResource: logWorkspace.outputs.id
     }

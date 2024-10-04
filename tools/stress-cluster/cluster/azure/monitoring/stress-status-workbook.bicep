@@ -1,8 +1,8 @@
-param logAnalyticsResource string
-param location string = resourceGroup().location
-
 @description('The friendly name for the workbook that is used in the Gallery or Saved List.  This name must be unique within a resource group.')
 param workbookDisplayName string
+
+@description('The friendly name for the workbook that this workbook provides links to')
+param linkedWorkbookDisplayName string
 
 @description('The gallery that the workbook will been shown under. Supported values include workbook, tsg, etc. Usually, this is \'workbook\'')
 param workbookType string = 'workbook'
@@ -31,7 +31,7 @@ var workbookContent = {
             type: 4
             isRequired: true
             value: {
-              durationMs: 604800000
+              durationMs: 43200000
             }
             typeSettings: {
               selectableValues: [
@@ -136,7 +136,7 @@ var workbookContent = {
             type: 3
             content: {
               version: 'KqlItem/1.0'
-              query: 'let StatusTable = KubePodInventory\r\n| where ControllerKind =~ "Job"\r\n        and PodCreationTimeStamp {TimeRange}\r\n        and Namespace !in ("kube-system", "stress-infra")\r\n        and "{ShowErrorsOnly}" contains ContainerStatusReason\r\n| summarize arg_max(TimeGenerated, *)\r\n        by extractjson(\'$.controller-uid\', tostring(parse_json(PodLabel)[0]))\r\n| extend TestName = replace_regex(ControllerName,  \'-[[:digit:]]+\', \'\')\r\n| sort by Namespace asc, TestName asc, PodCreationTimeStamp asc;\r\n\r\nlet FailTrend = StatusTable\r\n| extend IsError=case(ContainerStatusReason in~ ("Completed", "PodInitializing", ""), 0,\r\n                      ContainerStatusReason in~ ("Error", "ImagePullBackOff", "ErrImagePull"), 2,\r\n                      1)\r\n| summarize FailTrend=make_list(IsError, 10) by TestName, Namespace;\r\n\r\nStatusTable\r\n| summarize arg_max(TimeGenerated, *) by TestName, Namespace\r\n| join (FailTrend) on TestName, Namespace\r\n| sort by Namespace asc, TestName asc, PodCreationTimeStamp desc\r\n| extend Duration=strcat(replace_string(replace_string(tostring(format_timespan(TimeGenerated - PodCreationTimeStamp, \'d-HH:mm\')), \'-\', \'d \'), \':\', \'hr \'), \'m\')\r\n| where extractjson(\'$.controller-uid\', tostring(parse_json(PodLabel)[0])) in ({TestNameParameter})\r\n| extend Status = case(\r\n    ContainerStatus =~ "running", ContainerStatus,\r\n    ContainerStatusReason\r\n)\r\n| project TestName,\r\n        Namespace,\r\n        StartTime=format_datetime(PodCreationTimeStamp, \'MM-dd-yyyy HH:mm\'),\r\n        Status,\r\n        Duration,\r\n        FailTrend\r\n'
+              query: 'let StatusTable = KubePodInventory\r\n| where ControllerKind =~ "Job"\r\n        and PodCreationTimeStamp {TimeRange}\r\n        and Namespace !in ("kube-system", "stress-infra")\r\n        and "{ShowErrorsOnly}" contains ContainerStatusReason\r\n| summarize arg_max(TimeGenerated, *)\r\n        by extractjson("$.controller-uid", tostring(parse_json(PodLabel)[0]))\r\n| extend TestName = replace_regex(ControllerName,  "-[[:digit:]]+", "")\r\n| sort by Namespace asc, TestName asc, PodCreationTimeStamp asc;\r\n\r\nlet FailTrend = StatusTable\r\n| extend IsError=case(ContainerStatusReason in~ ("Completed", "PodInitializing", "Pending", ""), 0,\r\n                      ContainerStatusReason in~ ("Error", "ImagePullBackOff", "ErrImagePull"), 2,\r\n                      1)\r\n| summarize FailTrend=make_list(IsError, 10) by TestName, Namespace;\r\n\r\nlet StressDashboardUrl = "https://ms.portal.azure.com/#blade/AppInsightsExtension/WorkbookViewerBlade/ComponentId/azure%20monitor/ConfigurationId/${workbookSourceId}/providers/microsoft.insights/workbooks/546042c5-aad1-51c3-844c-32fff9adeed0/WorkbookTemplateName/${replace(linkedWorkbookDisplayName, " ", "%20")}/NotebookParams/";\r\n\r\nStatusTable\r\n| summarize arg_max(TimeGenerated, *) by TestName, Namespace\r\n| join (FailTrend) on TestName, Namespace\r\n| sort by Namespace asc, TestName asc, PodCreationTimeStamp desc\r\n| extend Duration=strcat(replace_string(replace_string(tostring(format_timespan(TimeGenerated - PodCreationTimeStamp, "d-HH:mm")), "-", "d "), ":", "hr "), "m")\r\n| where extractjson("$.controller-uid", tostring(parse_json(PodLabel)[0])) in ({TestNameParameter})\r\n| extend Status = case(\r\n    ContainerStatus =~ "running", ContainerStatus,\r\n    ContainerStatusReason\r\n)\r\n| extend Status = case(\r\n    isempty(Status), "Pending", Status\r\n)\r\n| extend PodDetails = strcat(StressDashboardUrl, url_encode(strcat(@"{"TimeRange":{"durationMs":604800000},"NamespaceParameter":["", Namespace, @""],"PodUidParameter":["", PodUid ,@""]}" )))\r\n| project TestName,\r\n        Namespace,\r\n        StartTime=format_datetime(PodCreationTimeStamp, "MM-dd-yyyy HH:mm"),\r\n        Status,\r\n        Duration,\r\n        FailTrend,\r\n        PodDetails\r\n'
               size: 3
               title: 'Stress Test Status'
               timeContextFromParameter: 'TimeRange'
@@ -196,6 +196,12 @@ var workbookContent = {
                           text: 'Running'
                         }
                         {
+                          operator: '=='
+                          thresholdValue: 'Pending'
+                          representation: 'gray'
+                          text: 'Pending'
+                        }
+                        {
                           operator: 'Default'
                           thresholdValue: null
                           text: 'N/A'
@@ -213,6 +219,14 @@ var workbookContent = {
                       palette: 'greenRed'
                     }
                   }
+                  {
+                    columnMatch: 'PodDetails'
+                    formatter: 7
+                    formatOptions: {
+                      linkTarget: 'Url'
+                      linkLabel: 'Link to pod status'
+                    }
+                  }
                 ]
               }
             }
@@ -226,13 +240,13 @@ var workbookContent = {
       name: 'group - 3'
     }
   ]
-  isLocked: false
   fallbackResourceIds: [
     workbookSourceId
   ]
+  $schema: 'https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json'
 }
 
-resource workbookId_resource 'microsoft.insights/workbooks@2021-03-08' = {
+resource workbookId_resource 'microsoft.insights/workbooks@2022-04-01' = {
   name: workbookId
   location: location
   kind: 'shared'
