@@ -52,7 +52,7 @@ module appInsights 'monitoring/app-insights.bicep' = {
     }
 }
 
-var testDashboardDisplayName: 'Azure SDK Stress Testing - ${groupSuffix}'
+var testDashboardDisplayName = 'Azure SDK Stress Testing - ${groupSuffix}'
 
 module test_dashboard 'monitoring/stress-test-workbook.bicep' = {
     name: 'test_dashboard'
