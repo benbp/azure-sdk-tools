@@ -1,0 +1,22 @@
+[
+    {
+        "Package": "@azure-sdk-mcp/mcp-server-test",
+        "Version": "0.0.1",
+        "Type": "node",
+        "Port": 3001,
+        "Feed": "public"
+    },
+    {
+        "Package": "azure-sdk-mcp-python-test",
+        "Version": "0.0.3",
+        "Type": "python",
+        "Port": 3002,
+        "Feed": "public"
+    },
+    {
+        "Package": "azure-mcp",
+        "Type": "local",
+        "Executable": "/home/ben/mcp/azure-mcp/.dist/azmcp",
+        "Port": 3003
+    }
+]
