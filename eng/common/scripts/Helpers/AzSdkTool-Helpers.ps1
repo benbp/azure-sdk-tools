@@ -1,42 +1,4 @@
 Set-StrictMode -Version 4
-$AVAILABLE_TEST_PROXY_BINARIES = @{
-    "Windows" = @{
-        "AMD64" = @{
-            "system" = "Windows"
-            "machine" = "AMD64"
-            "file_name" = "test-proxy-standalone-win-x64.zip"
-            "executable" = "Azure.Sdk.Tools.TestProxy.exe"
-        }
-    }
-    "Linux" = @{
-        "X86_64" = @{
-            "system" = "Linux"
-            "machine" = "X86_64"
-            "file_name" = "test-proxy-standalone-linux-x64.tar.gz"
-            "executable" = "Azure.Sdk.Tools.TestProxy"
-        }
-        "ARM64" = @{
-            "system" = "Linux"
-            "machine" = "ARM64"
-            "file_name" = "test-proxy-standalone-linux-arm64.tar.gz"
-            "executable" = "Azure.Sdk.Tools.TestProxy"
-        }
-    }
-    "Darwin" = @{
-        "X86_64" = @{
-            "system" = "Darwin"
-            "machine" = "X86_64"
-            "file_name" = "test-proxy-standalone-osx-x64.zip"
-            "executable" = "Azure.Sdk.Tools.TestProxy"
-        }
-        "ARM64" = @{
-            "system" = "Darwin"
-            "machine" = "ARM64"
-            "file_name" = "test-proxy-standalone-osx-arm64.zip"
-            "executable" = "Azure.Sdk.Tools.TestProxy"
-        }
-    }
-}
 
 function Get-SystemArchitecture {
     $unameOutput = uname -m
@@ -48,9 +10,53 @@ function Get-SystemArchitecture {
     }
 }
 
-function Get-Proxy-Meta () {
+function Get-Package-Meta(
+    [Parameter(mandatory=$true)]
+    $FileName,
+    [Parameter(mandatory=$true)]
+    $Package
+) {
     $ErrorActionPreferenceDefault = $ErrorActionPreference
     $ErrorActionPreference = "Stop"
+
+    $AVAILABLE_BINARIES = @{
+        "Windows" = @{
+            "AMD64" = @{
+                "system" = "Windows"
+                "machine" = "AMD64"
+                "file_name" = "$FileName-standalone-win-x64.zip"
+                "executable" = "$Package.exe"
+            }
+        }
+        "Linux" = @{
+            "X86_64" = @{
+                "system" = "Linux"
+                "machine" = "X86_64"
+                "file_name" = "$FileName-standalone-linux-x64.tar.gz"
+                "executable" = "$Package"
+            }
+            "ARM64" = @{
+                "system" = "Linux"
+                "machine" = "ARM64"
+                "file_name" = "$FileName-standalone-linux-arm64.tar.gz"
+                "executable" = "$Package"
+            }
+        }
+        "Darwin" = @{
+            "X86_64" = @{
+                "system" = "Darwin"
+                "machine" = "X86_64"
+                "file_name" = "$FileName-standalone-osx-x64.zip"
+                "executable" = "$Package"
+            }
+            "ARM64" = @{
+                "system" = "Darwin"
+                "machine" = "ARM64"
+                "file_name" = "$FileName-standalone-osx-arm64.zip"
+                "executable" = "$Package"
+            }
+        }
+    }
 
     $os = "unknown"
     $machine = Get-SystemArchitecture
@@ -67,18 +73,7 @@ function Get-Proxy-Meta () {
 
     $ErrorActionPreference = $ErrorActionPreferenceDefault
 
-    return $AVAILABLE_TEST_PROXY_BINARIES[$os][$machine]
-}
-
-function Get-Proxy-Url (
-    [Parameter(mandatory=$true)]$Version
-) {
-    $systemDetails = Get-Proxy-Meta
-
-    $file = $systemDetails.file_name
-    $url = "https://github.com/Azure/azure-sdk-tools/releases/download/Azure.Sdk.Tools.TestProxy_$Version/$file"
-
-    return $url
+    return $AVAILABLE_BINARIES[$os][$machine]
 }
 
 function Cleanup-Directory ($path) {
@@ -108,26 +103,31 @@ function Is-Work-Necessary (
 
 <#
 .SYNOPSIS
-Installs a standalone version of the test-proxy.
+Installs a standalone version of an engsys tool.
 .PARAMETER Version
-The version of the proxy to install. Requires a full version to be provided. EG "1.0.0-dev.20240617.1"
+The version of the tool to install. Requires a full version to be provided. EG "1.0.0-dev.20240617.1"
 .PARAMETER Directory
-The directory within which the test-proxy exe will exist after this function invokes. Defaults to "."
+The directory within which the exe will exist after this function invokes. Defaults to "."
 #>
-function Install-Standalone-TestProxy (
+function Install-Standalone-Tool (
     [Parameter(mandatory=$true)]
-    $Version,
+    [string]$Version,
+    [Parameter(mandatory=$true)]
+    [string]$FileName,
+    [Parameter(mandatory=$true)]
+    [string]$Package,
+    [Parameter()]
     $Directory="."
 ) {
     $ErrorActionPreference = "Stop"
-    $systemDetails = Get-Proxy-Meta
+    $systemDetails = Get-Package-Meta -FileName $FileName -Package $Package
 
     if (!(Test-Path $Directory) -and $Directory -ne ".") {
         New-Item -ItemType Directory -Path $Directory -Force
     }
 
     $downloadFolder = Resolve-Path $Directory
-    $downloadUrl = Get-Proxy-Url $Version
+    $downloadUrl = "https://github.com/Azure/azure-sdk-tools/releases/download/${Package}_${Version}/$($systemDetails.file_name)"
     $downloadFile = $downloadUrl.Split('/')[-1]
     $downloadLocation = Join-Path $downloadFolder $downloadFile
     $savedVersionTxt = Join-Path $downloadFolder "downloaded_version.txt"
@@ -159,4 +159,6 @@ function Install-Standalone-TestProxy (
     else {
         Write-Host "Target version `"$Version`" already present in target directory `"$downloadFolder.`""
     }
+
+    return $executable_path
 }
