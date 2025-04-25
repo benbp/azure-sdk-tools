@@ -11,9 +11,9 @@ function Get-SystemArchitecture {
 }
 
 function Get-Package-Meta(
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     $FileName,
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     $Package
 ) {
     $ErrorActionPreferenceDefault = $ErrorActionPreference
@@ -22,37 +22,37 @@ function Get-Package-Meta(
     $AVAILABLE_BINARIES = @{
         "Windows" = @{
             "AMD64" = @{
-                "system" = "Windows"
-                "machine" = "AMD64"
-                "file_name" = "$FileName-standalone-win-x64.zip"
+                "system"     = "Windows"
+                "machine"    = "AMD64"
+                "file_name"  = "$FileName-standalone-win-x64.zip"
                 "executable" = "$Package.exe"
             }
         }
-        "Linux" = @{
+        "Linux"   = @{
             "X86_64" = @{
-                "system" = "Linux"
-                "machine" = "X86_64"
-                "file_name" = "$FileName-standalone-linux-x64.tar.gz"
+                "system"     = "Linux"
+                "machine"    = "X86_64"
+                "file_name"  = "$FileName-standalone-linux-x64.tar.gz"
                 "executable" = "$Package"
             }
-            "ARM64" = @{
-                "system" = "Linux"
-                "machine" = "ARM64"
-                "file_name" = "$FileName-standalone-linux-arm64.tar.gz"
+            "ARM64"  = @{
+                "system"     = "Linux"
+                "machine"    = "ARM64"
+                "file_name"  = "$FileName-standalone-linux-arm64.tar.gz"
                 "executable" = "$Package"
             }
         }
-        "Darwin" = @{
+        "Darwin"  = @{
             "X86_64" = @{
-                "system" = "Darwin"
-                "machine" = "X86_64"
-                "file_name" = "$FileName-standalone-osx-x64.zip"
+                "system"     = "Darwin"
+                "machine"    = "X86_64"
+                "file_name"  = "$FileName-standalone-osx-x64.zip"
                 "executable" = "$Package"
             }
-            "ARM64" = @{
-                "system" = "Darwin"
-                "machine" = "ARM64"
-                "file_name" = "$FileName-standalone-osx-arm64.zip"
+            "ARM64"  = @{
+                "system"     = "Darwin"
+                "machine"    = "ARM64"
+                "file_name"  = "$FileName-standalone-osx-arm64.zip"
                 "executable" = "$Package"
             }
         }
@@ -65,9 +65,11 @@ function Get-Package-Meta(
         $os = "Windows"
         # we only support x64 on windows, if that doesn't work the platform is unsupported
         $machine = "AMD64"
-    } elseif ($IsLinux) {
+    }
+    elseif ($IsLinux) {
         $os = "Linux"
-    } elseif ($IsMacOS) {
+    }
+    elseif ($IsMacOS) {
         $os = "Darwin"
     }
 
@@ -84,9 +86,9 @@ function Cleanup-Directory ($path) {
 }
 
 function Is-Work-Necessary (
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     $Version,
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     $Directory
 ) {
     $savedVersionTxt = Join-Path $Directory "downloaded_version.txt"
@@ -110,37 +112,64 @@ The version of the tool to install. Requires a full version to be provided. EG "
 The directory within which the exe will exist after this function invokes. Defaults to "."
 #>
 function Install-Standalone-Tool (
-    [Parameter(mandatory=$true)]
+    [Parameter()]
     [string]$Version,
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     [string]$FileName,
-    [Parameter(mandatory=$true)]
+    [Parameter(mandatory = $true)]
     [string]$Package,
     [Parameter()]
-    $Directory="."
+    [string]$Repository = "Azure/azure-sdk-tools",
+    [Parameter()]
+    $Directory = "."
 ) {
     $ErrorActionPreference = "Stop"
+    $PSNativeCommandUseErrorActionPreference = $true
+
     $systemDetails = Get-Package-Meta -FileName $FileName -Package $Package
 
     if (!(Test-Path $Directory) -and $Directory -ne ".") {
-        New-Item -ItemType Directory -Path $Directory -Force
+        New-Item -ItemType Directory -Path $Directory -Force | Out-Null
+    }
+
+    $tag = "${Package}_${Version}"
+
+    if (!$Version -or $Version -eq "*") {
+        Write-Host "Attempting to find latest version for package '$Package'"
+        $releasesUrl = "https://api.github.com/repos/$Repository/releases"
+        $releases = Invoke-RestMethod -Uri $releasesUrl
+        $found = $false
+        foreach ($release in $releases) {
+            if ($release.tag_name -like "$Package*") {
+                $tag = $release.tag_name
+                $Version = $release.tag_name -replace "${Package}_", ""
+                $found = $true
+                break
+            }
+        }
+        if ($found -eq $false) {
+            throw "No release found for package '$Package'"
+        }
     }
 
     $downloadFolder = Resolve-Path $Directory
-    $downloadUrl = "https://github.com/Azure/azure-sdk-tools/releases/download/${Package}_${Version}/$($systemDetails.file_name)"
+    $downloadUrl = "https://github.com/$Repository/releases/download/$tag/$($systemDetails.file_name)"
     $downloadFile = $downloadUrl.Split('/')[-1]
     $downloadLocation = Join-Path $downloadFolder $downloadFile
     $savedVersionTxt = Join-Path $downloadFolder "downloaded_version.txt"
+    $executable_path = Join-Path $downloadFolder $systemDetails.executable
 
     if (Is-Work-Necessary $version $downloadFolder) {
-        Write-Host "Commencing installation of `"$Version`" to `"$downloadFolder`" from $downloadUrl."
+        Write-Host "Installing '$Package' '$Version' to '$downloadFolder' from $downloadUrl"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadLocation
 
         if ($downloadFile -like "*.zip") {
             Expand-Archive -Path $downloadLocation -DestinationPath $downloadFolder -Force
-        } elseif ($downloadFile -like "*.tar.gz") {
+        }
+        elseif ($downloadFile -like "*.tar.gz") {
             tar -xzf $downloadLocation -C $downloadFolder
-        } else {
+        }
+        else {
             throw "Unsupported file format"
         }
 
@@ -151,13 +180,12 @@ function Install-Standalone-Tool (
         Set-Content -Path $savedVersionTxt -Value $Version
 
         # Set executable permissions if on macOS (Darwin)
-        $executable_path = Join-Path $downloadFolder $systemDetails.executable
         if ($IsMacOS) {
             chmod 755 $executable_path
         }
     }
     else {
-        Write-Host "Target version `"$Version`" already present in target directory `"$downloadFolder.`""
+        Write-Host "Target version '$Version' already present in target directory '$downloadFolder'"
     }
 
     return $executable_path
