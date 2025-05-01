@@ -69,8 +69,13 @@ public sealed class Program
         Console.WriteLine("Testing AI Agents Service...");
         var filename = "public-4817839-187.txt";
         var contents = await File.ReadAllTextAsync(filename);
-        var file = await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
-        var response = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");
+        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
+        var (response, usage) = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");
         Console.WriteLine(response);
+
+        Console.WriteLine("Usage:");
+        Console.WriteLine($"  Total: {usage.TotalTokens}");
+        Console.WriteLine($"  Prompt: {usage.PromptTokens}");
+        Console.WriteLine($"  Completions: {usage.CompletionTokens}");
     }
 }

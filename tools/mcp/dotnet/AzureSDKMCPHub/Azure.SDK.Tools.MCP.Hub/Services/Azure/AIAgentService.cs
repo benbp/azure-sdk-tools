@@ -6,8 +6,15 @@ namespace Azure.SDK.Tools.MCP.Hub.Services.Azure;
 public interface IAIAgentService
 {
     AgentsClient GetClient();
-    Task<VectorStoreFileBatch> UploadFileAsync(Stream contents, string filename);
-    Task<string> QueryFileAsync(string filename, string query);
+    Task UploadFileAsync(Stream contents, string filename);
+    Task<(string, TokenUsage)> QueryFileAsync(string filename, string query);
+}
+
+public class TokenUsage
+{
+    public long PromptTokens { get; set; }
+    public long CompletionTokens { get; set; }
+    public long TotalTokens { get; set; }
 }
 
 public class AIAgentService : IAIAgentService
@@ -53,11 +60,18 @@ public class AIAgentService : IAIAgentService
         return this.client;
     }
 
-    public async Task<VectorStoreFileBatch> UploadFileAsync(Stream contents, string filename)
+    public async Task UploadFileAsync(Stream contents, string filename)
     {
         if (string.IsNullOrWhiteSpace(filename) || Path.GetExtension(filename) == string.Empty)
         {
             throw new ArgumentException($"Filename '{filename}' must have a file extension (*.txt, *.md, ...)", nameof(filename));
+        }
+
+        var files = await this.client.GetFilesAsync(purpose: AgentFilePurpose.Agents);
+        if (files.Value.Any(f => f.Filename == filename))
+        {
+            Console.WriteLine($"File '{filename}' already exists. Skipping upload.");
+            return;
         }
 
         if (string.IsNullOrEmpty(this.vectorStoreId))
@@ -71,7 +85,6 @@ public class AIAgentService : IAIAgentService
             this.vectorStoreId = vectorStore.Id;
         }
 
-        // TODO: handle duplicates/repeats
         AgentFile file = await this.client.UploadFileAsync(contents, AgentFilePurpose.Agents, filename);
 
         VectorStoreFileBatch batch = await this.client.CreateVectorStoreFileBatchAsync(
@@ -93,13 +106,12 @@ public class AIAgentService : IAIAgentService
             }
             await Task.Delay(TimeSpan.FromSeconds(1));
         }
-
-        return batch;
     }
 
-    public async Task<string> QueryFileAsync(string filename, string query)
+    public async Task<(string, TokenUsage)> QueryFileAsync(string filename, string query)
     {
         var prompt = $"Looking only in file '{filename}' answer the following: " + query;
+        Console.WriteLine($"[DEBUG] Prompt: {prompt}");
         AgentThread thread = await this.client.CreateThreadAsync();
 
         Agent agent = await this.client.GetAgentAsync(this.agentId);
@@ -132,6 +144,12 @@ public class AIAgentService : IAIAgentService
             }
         }
 
-        return string.Join("\n", response);
+        var tokenUsage = new TokenUsage
+        {
+            PromptTokens = runResponse.Usage.PromptTokens,
+            CompletionTokens = runResponse.Usage.CompletionTokens,
+            TotalTokens = runResponse.Usage.TotalTokens
+        };
+        return (string.Join("\n", response), tokenUsage);
     }
 }

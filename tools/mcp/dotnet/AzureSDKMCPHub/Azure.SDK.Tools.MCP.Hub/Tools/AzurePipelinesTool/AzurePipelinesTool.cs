@@ -146,7 +146,7 @@ public class AzurePipelinesTool : MCPHubTool
 
         using var stream = new MemoryStream(logBytes);
 
-        var file = await this.aiAgentService.UploadFileAsync(stream, filename);
+        await this.aiAgentService.UploadFileAsync(stream, filename);
 
         var response = "";
         return string.Join("\n", response);
