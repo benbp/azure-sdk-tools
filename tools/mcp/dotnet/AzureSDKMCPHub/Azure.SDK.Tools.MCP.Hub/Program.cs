@@ -67,7 +67,9 @@ public sealed class Program
         var ai = new AIAgentService(azureService);
 
         Console.WriteLine("Testing AI Agents Service...");
-        var filename = "public-4817839-187.txt";
+        // var filename = "public-4817839-187.txt";
+        // var filename = "internal-4815544-2642.txt";
+        var filename = "internal-4820258-2224-b.txt";
         var contents = await File.ReadAllTextAsync(filename);
         await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
         var (response, usage) = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");

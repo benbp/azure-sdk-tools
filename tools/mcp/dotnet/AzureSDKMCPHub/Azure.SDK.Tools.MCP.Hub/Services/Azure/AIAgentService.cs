@@ -85,6 +85,8 @@ public class AIAgentService : IAIAgentService
             this.vectorStoreId = vectorStore.Id;
         }
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        Console.WriteLine($"[INFO] Starting upload of '{filename}' to vector store '{this.vectorStoreName ?? this.vectorStoreId}' at {DateTime.UtcNow:O}");
         AgentFile file = await this.client.UploadFileAsync(contents, AgentFilePurpose.Agents, filename);
 
         VectorStoreFileBatch batch = await this.client.CreateVectorStoreFileBatchAsync(
@@ -104,8 +106,11 @@ public class AIAgentService : IAIAgentService
             {
                 throw new Exception($"File processing failed for {filename} uploading to vector store {this.vectorStoreId}.");
             }
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await Task.Delay(TimeSpan.FromSeconds(0.5));
         }
+
+        stopwatch.Stop();
+        Console.WriteLine($"[INFO] Upload and indexing of '{filename}' completed in {stopwatch.Elapsed.TotalSeconds:F2} seconds.");
     }
 
     public async Task<(string, TokenUsage)> QueryFileAsync(string filename, string query)
@@ -113,6 +118,7 @@ public class AIAgentService : IAIAgentService
         var prompt = $"Looking only in file '{filename}' answer the following: " + query;
         Console.WriteLine($"[DEBUG] Prompt: {prompt}");
         AgentThread thread = await this.client.CreateThreadAsync();
+
 
         Agent agent = await this.client.GetAgentAsync(this.agentId);
         ThreadRun runResponse = await this.client.CreateRunAsync(thread, agent);
