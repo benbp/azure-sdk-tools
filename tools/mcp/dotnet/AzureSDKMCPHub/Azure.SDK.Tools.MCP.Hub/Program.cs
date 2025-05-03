@@ -57,8 +57,7 @@ public sealed class Program
         };
 
         Console.WriteLine("Testing Azure Pipelines Tool...");
-        var output = await azpTool.AnalyzePipelineFailureLog(4815910, 174);
-        Console.WriteLine(output);
+        var output = await azpTool.AnalyzePipelineFailureLog(4815910, 174); Console.WriteLine(output);
     }
 
     public static async Task TestAI()
@@ -69,26 +68,23 @@ public sealed class Program
         Console.WriteLine("Testing AI Agents Service...");
         // var filename = "public-4817839-187.txt";
         // var filename = "internal-4815544-2642.txt";
-        var filename = "internal-4820258-2224-b.txt";
-        var contents = await File.ReadAllTextAsync(filename);
-        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
-        var (response, usage) = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");
-        Console.WriteLine(response);
 
-        Console.WriteLine("Usage:");
-        Console.WriteLine($"  Total: {usage.TotalTokens}");
-        Console.WriteLine($"  Prompt: {usage.PromptTokens}");
-        Console.WriteLine($"  Completions: {usage.CompletionTokens}");
+        Console.WriteLine("Testing golang ci lint 4817839...");
+        var filename1 = "public-4817839-187.txt";
+        var contents1 = await File.ReadAllTextAsync(filename1);
+        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents1)), filename1);
+        var (response1, usage1) = await ai.QueryFileAsync(filename1, "Why did this pipeline fail?");
+        Console.WriteLine(response1);
+        usage1.LogCost();
 
-        var filename = "internal-4820258-2224-b.txt";
-        var contents = await File.ReadAllTextAsync(filename);
-        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
-        var (response, usage) = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");
-        Console.WriteLine(response);
+        Console.WriteLine("Testing cpp core 4820258...");
+        var filename2 = "internal-4820258-2224.txt";
+        var contents2 = await File.ReadAllTextAsync(filename2);
+        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents2)), filename2);
+        var (response2, usage2) = await ai.QueryFileAsync(filename2, "Why did this pipeline fail?");
+        Console.WriteLine(response2);
+        usage2.LogCost();
 
-        Console.WriteLine("Usage:");
-        Console.WriteLine($"  Total: {usage.TotalTokens}");
-        Console.WriteLine($"  Prompt: {usage.PromptTokens}");
-        Console.WriteLine($"  Completions: {usage.CompletionTokens}");
+        (usage1 + usage2).LogCost();
     }
 }

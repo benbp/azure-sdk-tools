@@ -19,7 +19,7 @@ public class TokenUsage
     protected double TotalCost { get; set; }
     public List<string> Models { get; set; } = [];
 
-    public TokenUsage(string model, int inputTokens, int outputTokens)
+    public TokenUsage(string model, long inputTokens, long outputTokens)
     {
         PromptTokens = inputTokens;
         CompletionTokens = outputTokens;
@@ -82,6 +82,7 @@ public class AIAgentService : IAIAgentService
     private string vectorStoreId;
     private readonly AgentsClient client;
     private readonly string agentId;
+    private readonly string model;
 
     public AIAgentService(IAzureService azureService)
     {
@@ -101,6 +102,7 @@ public class AIAgentService : IAIAgentService
         {
             throw new InvalidOperationException("MODEL_DEPLOYMENT_NAME environment variable is not set.");
         }
+        this.model = modelDeploymentName;
         // The vector store ID is annoying to find, so support name as an alternative
         var _vectorStoreId = System.Environment.GetEnvironmentVariable("AZURE_AI_VECTOR_STORE_ID");
         var _vectorStoreName = System.Environment.GetEnvironmentVariable("AZURE_AI_VECTOR_STORE_NAME");
@@ -208,12 +210,7 @@ public class AIAgentService : IAIAgentService
             }
         }
 
-        var tokenUsage = new TokenUsage
-        {
-            PromptTokens = runResponse.Usage.PromptTokens,
-            CompletionTokens = runResponse.Usage.CompletionTokens,
-            TotalTokens = runResponse.Usage.TotalTokens
-        };
+        var tokenUsage = new TokenUsage(this.model, runResponse.Usage.PromptTokens, runResponse.Usage.CompletionTokens);
         return (string.Join("\n", response), tokenUsage);
     }
 }

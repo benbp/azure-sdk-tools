@@ -147,9 +147,9 @@ public class AzurePipelinesTool : MCPHubTool
         using var stream = new MemoryStream(logBytes);
 
         await this.aiAgentService.UploadFileAsync(stream, filename);
-
-        var response = "";
-        return string.Join("\n", response);
+        var (response, usage) = await this.aiAgentService.QueryFileAsync(filename, "Inspect the log file and tell me why this pipeline step failed");
+        usage.LogCost();
+        return response;
     }
 
     public bool IsTestStep(string stepName)
