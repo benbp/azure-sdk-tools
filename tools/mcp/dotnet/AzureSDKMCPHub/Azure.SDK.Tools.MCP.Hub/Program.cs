@@ -79,5 +79,16 @@ public sealed class Program
         Console.WriteLine($"  Total: {usage.TotalTokens}");
         Console.WriteLine($"  Prompt: {usage.PromptTokens}");
         Console.WriteLine($"  Completions: {usage.CompletionTokens}");
+
+        var filename = "internal-4820258-2224-b.txt";
+        var contents = await File.ReadAllTextAsync(filename);
+        await ai.UploadFileAsync(new MemoryStream(Encoding.UTF8.GetBytes(contents)), filename);
+        var (response, usage) = await ai.QueryFileAsync(filename, "Why did this pipeline fail?");
+        Console.WriteLine(response);
+
+        Console.WriteLine("Usage:");
+        Console.WriteLine($"  Total: {usage.TotalTokens}");
+        Console.WriteLine($"  Prompt: {usage.PromptTokens}");
+        Console.WriteLine($"  Completions: {usage.CompletionTokens}");
     }
 }

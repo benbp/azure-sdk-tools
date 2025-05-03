@@ -12,9 +12,68 @@ public interface IAIAgentService
 
 public class TokenUsage
 {
-    public long PromptTokens { get; set; }
-    public long CompletionTokens { get; set; }
-    public long TotalTokens { get; set; }
+    protected long PromptTokens { get; set; }
+    protected long CompletionTokens { get; set; }
+    protected double InputCost { get; set; }
+    protected double OutputCost { get; set; }
+    protected double TotalCost { get; set; }
+    public List<string> Models { get; set; } = [];
+
+    public TokenUsage(string model, int inputTokens, int outputTokens)
+    {
+        PromptTokens = inputTokens;
+        CompletionTokens = outputTokens;
+        Models = [model];
+        SetCost(model);
+    }
+
+    protected TokenUsage() { }
+
+    private void SetCost(string model)
+    {
+        var oneMillion = 1000000;
+        double inputPrice, outputPrice;
+
+        // Prices assume the slightly more expensive regional model pricing
+        if (model == "gpt-4o")
+        {
+            (inputPrice, outputPrice) = (2.75, 11);
+        }
+        else if (model == "gpt-4o-mini")
+        {
+            (inputPrice, outputPrice) = (0.165, 0.66);
+        }
+        else if (model == "o3-mini")
+        {
+            (inputPrice, outputPrice) = (1.21, 4.84);
+        }
+        else
+        {
+            return;
+        }
+
+        InputCost = PromptTokens / oneMillion * inputPrice;
+        OutputCost = CompletionTokens / oneMillion * outputPrice;
+    }
+
+    public void LogCost()
+    {
+        var _inputCost = InputCost == 0 ? "?" : InputCost.ToString("F3");
+        var _outputCost = OutputCost == 0 ? "?" : OutputCost.ToString("F3");
+        Console.WriteLine("Usage (cost / tokens):");
+        Console.WriteLine($"  Input: ${_inputCost} / {PromptTokens}");
+        Console.WriteLine($"  Output: ${_outputCost} / {CompletionTokens}");
+        Console.WriteLine($"  Total: ${_inputCost + _outputCost} / {PromptTokens + CompletionTokens}");
+    }
+
+    public static TokenUsage operator +(TokenUsage a, TokenUsage b) => new()
+    {
+        Models = a.Models.Union(b.Models).ToList(),
+        PromptTokens = a.PromptTokens + b.PromptTokens,
+        CompletionTokens = a.CompletionTokens + b.CompletionTokens,
+        InputCost = a.InputCost + b.InputCost,
+        OutputCost = a.OutputCost + b.OutputCost,
+    };
 }
 
 public class AIAgentService : IAIAgentService
@@ -118,8 +177,7 @@ public class AIAgentService : IAIAgentService
         var prompt = $"Looking only in file '{filename}' answer the following: " + query;
         Console.WriteLine($"[DEBUG] Prompt: {prompt}");
         AgentThread thread = await this.client.CreateThreadAsync();
-
-
+        await this.client.CreateMessageAsync(thread.Id, MessageRole.User, prompt);
         Agent agent = await this.client.GetAgentAsync(this.agentId);
         ThreadRun runResponse = await this.client.CreateRunAsync(thread, agent);
 
