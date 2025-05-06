@@ -1,4 +1,4 @@
-﻿using ModelContextProtocol.Server;
+using ModelContextProtocol.Server;
 using System.ComponentModel;
 using System.Text.Json;
 using Azure.Core;
@@ -137,6 +137,10 @@ public class AzurePipelinesTool : MCPHubTool
         return JsonSerializer.Serialize(string.Join("\n", output));
     }
 
+    [McpServerTool, Description(@"
+        Download an azure pipelines log file and upload it to the configured AI agent for analysis.
+        Returns structured data that the MCP client LLM can use to aid in describing the failure(s).
+    ")]
     public async Task<string> AnalyzePipelineFailureLog(int buildId, int logId)
     {
         var logContent = await this.buildClient.GetBuildLogLinesAsync(this.project, buildId, logId);
