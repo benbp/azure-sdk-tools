@@ -19,7 +19,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
 
         public override Command GetCommand()
         {
-            Command command = new Command("host");
+            Command command = new Command("start");
 
             command.SetHandler(async ctx =>
             {
@@ -49,7 +49,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
             {
                 consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Error;
             });
-
             builder.Services.AddSingleton<IAzureService, AzureService>();
 
             builder.Services
@@ -64,6 +63,5 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
 
             return builder;
         }
-
     }
 }

@@ -15,7 +15,7 @@ using Azure.Sdk.Tools.Cli.Contract;
 namespace Azure.Sdk.Tools.Cli.Tools.AzurePipelinesTool;
 
 [McpServerToolType, Description("Fetches data from Azure Pipelines")]
-public class AzurePipelinesTool : MCPTool
+public class AzurePipelinesTool
 {
     public string? project;
 
@@ -36,7 +36,7 @@ public class AzurePipelinesTool : MCPTool
         this.logger = logger;
     }
 
-    public override Command GetCommand()
+    public  Command GetCommand()
     {
         Command command = new("azure-pipelines");
 
