@@ -1,28 +1,30 @@
 using ModelContextProtocol.Server;
 using System.ComponentModel;
+using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using Azure.Core;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.TestResults.WebApi;
-using Azure.Sdk.Tools.Cli.Services.Azure;
 using Microsoft.VisualStudio.Services.OAuth;
+using Azure.Sdk.Tools.Cli.Services.Azure;
 using Azure.Sdk.Tools.Cli.Contract;
-using System.CommandLine.Invocation;
-using System.CommandLine;
 
 namespace Azure.Sdk.Tools.Cli.Tools.AzurePipelinesTool;
 
 [McpServerToolType, Description("Fetches data from Azure Pipelines")]
 public class AzurePipelinesTool : MCPTool
 {
-    private string? project;
+    public string? project;
 
     private readonly BuildHttpClient buildClient;
     private readonly TestResultsHttpClient testClient;
+    private readonly IAIAgentService aiAgentService;
+    private readonly ILogger<AzurePipelinesTool> logger;
 
-    public AzurePipelinesTool(IAzureService azureService)
+    public AzurePipelinesTool(IAzureService azureService, IAIAgentService aiAgentService, ILogger<AzurePipelinesTool> logger)
     {
         var tokenScope = new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" };  // Azure DevOps scope
         var token = azureService.GetCredential().GetToken(new TokenRequestContext(tokenScope));
@@ -30,17 +32,25 @@ public class AzurePipelinesTool : MCPTool
         var connection = new VssConnection(new Uri($"https://dev.azure.com/azure-sdk"), tokenCredential);
         this.buildClient = connection.GetClient<BuildHttpClient>();
         this.testClient = connection.GetClient<TestResultsHttpClient>();
+        this.aiAgentService = aiAgentService;
+        this.logger = logger;
     }
 
     public override Command GetCommand()
     {
-        throw new NotImplementedException();
+        Command command = new("azure-pipelines");
+
+        command.SetHandler(async ctx =>
+        {
+            ctx.ExitCode = await HandleCommand(ctx, ctx.GetCancellationToken());
+        });
+
+        return command;
     }
 
-    public override async Task<int>HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<int> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
-
-        return 0;
+        return await Task.FromResult(0);
     }
 
     [McpServerTool, Description("Gets details for a pipeline run")]
@@ -48,7 +58,6 @@ public class AzurePipelinesTool : MCPTool
     {
         // _project state changes to the last successful GET to the build api
         var project = this.project ?? "public";
-        Console.WriteLine("BEBRODER IN PIPELINE RUN");
 
         try
         {
@@ -139,13 +148,28 @@ public class AzurePipelinesTool : MCPTool
     ")]
     public async Task<string> GetPipelineFailureLog(int buildId, int logId)
     {
-        var logContent = await buildClient.GetBuildLogLinesAsync(project, buildId, logId);
+        var logContent = await this.buildClient.GetBuildLogLinesAsync(project, buildId, logId);
         var output = new List<string>();
         foreach (var line in logContent)
         {
             output.Add(line);
         }
         return JsonSerializer.Serialize(string.Join("\n", output));
+    }
+
+    public async Task<string> AnalyzePipelineFailureLog(int buildId, int logId)
+    {
+        var logContent = await this.buildClient.GetBuildLogLinesAsync(this.project, buildId, logId);
+        var logText = string.Join("\n", logContent);
+        var logBytes = System.Text.Encoding.UTF8.GetBytes(logText);
+        var filename = $"{this.project}-{buildId}-{logId}.txt";
+
+        using var stream = new MemoryStream(logBytes);
+
+        var file = await this.aiAgentService.UploadFileAsync(stream, filename);
+
+        var response = "";
+        return string.Join("\n", response);
     }
 
     public bool IsTestStep(string stepName)

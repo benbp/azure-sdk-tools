@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Azure.Sdk.Tools.Cli.Contract\Azure.Sdk.Tools.Cli.Contract.csproj" />
+    <ProjectReference Include="../Azure.Sdk.Tools.Cli.Contract/Azure.Sdk.Tools.Cli.Contract.csproj" />
   </ItemGroup>
 
 </Project>

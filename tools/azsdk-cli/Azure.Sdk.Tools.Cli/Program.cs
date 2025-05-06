@@ -21,7 +21,7 @@ public sealed class Program
         var commandFactory = serviceProvider.GetRequiredService<CommandFactory>();
         var rootCommand = commandFactory.CreateRootCommand();
 
-        // should probably swap over to returning a CommandResponse object similar to 
+        // should probably swap over to returning a CommandResponse object similar to
         // azure-mcp...but at the same time we could just structured log the result in the
         // HandleCommand function of each tool, then maybe a ConsoleFormatter to turn the structured
         // log into something easy to read?
