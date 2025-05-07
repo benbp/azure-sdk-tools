@@ -26,8 +26,12 @@ public sealed class Program
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<IGitHelper, GitHelper>();
         services.AddSingleton<ITypeSpecHelper, TypeSpecHelper>();
-        services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
-        services.AddSingleton<IDevOpsService, DevOpsService>();
+        // services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
+        // services.AddSingleton<IDevOpsService, DevOpsService>();
+
+        services.AddSingleton<Lazy<IAzureService>>(provider => new Lazy<IAzureService>(() => provider.GetRequiredService<IAzureService>()));
+        services.AddSingleton<Lazy<IAIAgentService>>(provider => new Lazy<IAIAgentService>(() => provider.GetRequiredService<IAIAgentService>()));
+
 
         var serviceProvider = services.BuildServiceProvider();
         var commandFactory = serviceProvider.GetRequiredService<CommandFactory>();

@@ -1,4 +1,3 @@
-using Azure.Sdk.Tools.Cli.Services.Azure;
 using Azure.Sdk.Tools.Cli.Contract;
 using System.CommandLine;
 using System.CommandLine.Invocation;
@@ -33,7 +32,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
         public override async Task<int> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             // todo: should probably actually read out the unmatched args here like we do in test-proxy to grab the ASP.NET arguments
-            var host = CreateAppBuilder(new string[]{}).Build();
+            var host = CreateAppBuilder(new string[] { }).Build();
             await host.RunAsync(ct);
 
             return 0;
@@ -51,8 +50,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
             builder.Services.AddSingleton<IGitHubService, GitHubService>();
             builder.Services.AddSingleton<IGitHelper, GitHelper>();
             builder.Services.AddSingleton<ITypeSpecHelper, TypeSpecHelper>();
-            builder.Services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
-            builder.Services.AddSingleton<IDevOpsService, DevOpsService>();
+            // builder.Services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
+            // builder.Services.AddSingleton<IDevOpsService, DevOpsService>();
 
             builder.Services
                 .AddMcpServer()
