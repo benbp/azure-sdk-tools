@@ -3,17 +3,18 @@ using Azure.Sdk.Tools.Cli.Contract;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using Azure.Sdk.Tools.Cli.Commands;
+using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Services;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 
 namespace Azure.Sdk.Tools.Cli.Tools.HostServer
 {
     public class HostServerTool : MCPTool
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<HostServerTool> _logger;
 
-        public HostServerTool(IServiceProvider serviceProvider, ILogger<HostServerTool> logger)
+        public HostServerTool(ILogger<HostServerTool> logger)
         {
-            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
@@ -31,10 +32,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
 
         public override async Task<int> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
-            // ctx gives us access to options via getNamedOption() and we can pass the arguments that are used
-            // were passed our command creation in GetCommand()
-
-            // todo: should probably actually read out the unmatched args here like we do in test-proxy
+            // todo: should probably actually read out the unmatched args here like we do in test-proxy to grab the ASP.NET arguments
             var host = CreateAppBuilder(new string[]{}).Build();
             await host.RunAsync(ct);
 
@@ -50,6 +48,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
                 consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Error;
             });
             builder.Services.AddSingleton<IAzureService, AzureService>();
+            builder.Services.AddSingleton<IGitHubService, GitHubService>();
+            builder.Services.AddSingleton<IGitHelper, GitHelper>();
+            builder.Services.AddSingleton<ITypeSpecHelper, TypeSpecHelper>();
+            builder.Services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
+            builder.Services.AddSingleton<IDevOpsService, DevOpsService>();
 
             builder.Services
                 .AddMcpServer()
