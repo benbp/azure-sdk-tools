@@ -5,7 +5,6 @@ namespace Azure.Sdk.Tools.Cli.Services;
 
 public interface IAzureAgentService
 {
-    PersistentAgentsClient GetClient();
     Task DeleteAgents();
     Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query);
 }
@@ -15,7 +14,7 @@ public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentSer
     private readonly string projectEndpoint = projectEndpoint ?? "https://ai-prmarottai3149546654251245.services.ai.azure.com/api/projects/prmarott-apiview";
     private readonly string model = model ?? "gpt-4o-mini";
 
-    private PersistentAgentsClient client;
+    private readonly PersistentAgentsClient client = new(projectEndpoint, azureService.GetCredential());
 
     private const string LogQueryPrompt = @"You are an assistant that analyzes Azure Pipelines failure logs.
 You will be provided with a log file from an Azure Pipelines build.
@@ -32,23 +31,9 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
     ""suggested_fix"": ""...""
 }";
 
-    private void Initialize()
-    {
-        client = new(projectEndpoint, azureService.GetCredential());
-    }
-
-    public PersistentAgentsClient GetClient()
-    {
-        if (client == null)
-        {
-            Initialize();
-        }
-        return client;
-    }
 
     public async Task DeleteAgents()
     {
-        var client = GetClient();
         AsyncPageable<PersistentAgent> agents = client.Administration.GetAgentsAsync();
         await foreach (var agent in agents)
         {
@@ -68,9 +53,7 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
             throw new ArgumentException($"Filename '{filename}' must have a file extension (*.txt, *.md, ...)", nameof(filename));
         }
 
-        var client = GetClient();
         PersistentAgentFileInfo uploaded = await client.Files.UploadFileAsync(contents, PersistentAgentFilePurpose.Agents, filename);
-        Dictionary<string, string> fileIds = new() { { uploaded.Id, uploaded.Filename } };
         PersistentAgentsVectorStore vectorStore = await client.VectorStores.CreateVectorStoreAsync(fileIds: [uploaded.Id], name: filename);
         FileSearchToolResource tool = new();
         tool.VectorStoreIds.Add(vectorStore.Id);
