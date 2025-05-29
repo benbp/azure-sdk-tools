@@ -6,12 +6,13 @@ namespace Azure.Sdk.Tools.Cli.Services;
 public interface IAzureAgentService
 {
     AgentsClient GetClient();
-    Task<(string, TokenUsageHelper)> QueryFileAsync(Stream contents, string filename, string session, string query);
+    Task DeleteAgents();
+    Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query);
 }
 
-public class AzureAgentService(IAzureService azureService, string? endpoint, string? model) : IAzureAgentService
+public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? _connectionString, string? model) : IAzureAgentService
 {
-    private readonly string endpoint = endpoint ?? "eastus2.api.azureml.ms;faa080af-c1d8-40ad-9cce-e1a450ca5b57;prmarott-apiview;prmarott-apiview";
+    private readonly string connectionString = _connectionString ?? "eastus2.api.azureml.ms;faa080af-c1d8-40ad-9cce-e1a450ca5b57;prmarott-apiview;prmarott-apiview";
     private readonly string model = model ?? "gpt-4o-mini";
 
     private AgentsClient client;
@@ -33,7 +34,7 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
 
     private void Initialize()
     {
-        client = new(endpoint, azureService.GetCredential());
+        client = new(connectionString, azureService.GetCredential());
     }
 
     public AgentsClient GetClient()
@@ -45,7 +46,21 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
         return client;
     }
 
-    public async Task<(string, TokenUsageHelper)> QueryFileAsync(Stream contents, string filename, string session, string query)
+    public async Task DeleteAgents()
+    {
+        var client = GetClient();
+        PageableList<Agent> agents = await client.GetAgentsAsync();
+        foreach (Agent agent in agents)
+        {
+            if (agent.Name.StartsWith("internal") || agent.Name.StartsWith("public"))
+            {
+                logger.LogInformation("Deleting agent {AgentId} ({AgentName})", agent.Id, agent.Name);
+                // await client.DeleteAgentAsync(agent.Id);
+            }
+        }
+    }
+
+    public async Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query)
     {
         if (string.IsNullOrWhiteSpace(filename) || Path.GetExtension(filename) == string.Empty)
         {

@@ -216,7 +216,7 @@ public class AzurePipelinesTool(
 
             return failedRunData;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             logger.LogError("Failed to get pipeline failed test results {buildId}: {exception}", buildId, ex.Message);
             SetFailure();
@@ -248,7 +248,7 @@ public class AzurePipelinesTool(
             logger.LogDebug("Analyzing pipeline failure log {filename} with AI agent", filename);
 
             using var stream = new MemoryStream(logBytes);
-            var (result, _usage) = await azureAgentService.QueryFileAsync(stream, filename, session, "Why did this pipeline fail?");
+            var (result, _usage) = await azureAgentService.QueryFile(stream, filename, session, "Why did this pipeline fail?");
             if (usage != null)
             {
                 usage += _usage;
