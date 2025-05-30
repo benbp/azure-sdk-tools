@@ -247,7 +247,8 @@ public class AzurePipelinesTool(
 
                 var logContent = await buildClient.GetBuildLogLinesAsync(project, buildId, logId, cancellationToken: ct);
                 var logText = string.Join("\n", logContent);
-                var tempPath = Path.GetTempFileName();
+                var tempPath = Path.GetTempFileName() + ".txt";
+                logger.LogDebug("Writing log id {logId} to temporary file {tempPath}", logId, tempPath);
                 await File.WriteAllTextAsync(tempPath, logText, ct);
                 var filename = $"{session}-{logId}.txt";
                 logs.Add(tempPath);

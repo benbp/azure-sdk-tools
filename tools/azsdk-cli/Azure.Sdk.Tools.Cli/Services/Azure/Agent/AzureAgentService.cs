@@ -7,7 +7,7 @@ public interface IAzureAgentService
 {
     string ProjectEndpoint { get; }
 
-    Task DeleteAgents();
+    Task DeleteAgents(CancellationToken ct);
     Task<(string, TokenUsageHelper)> QueryFiles(List<string> files, string session, string query, CancellationToken ct);
 }
 
@@ -34,18 +34,35 @@ Provide suggested next steps. Respond only in valid JSON with a single object in
     ""suggested_fixes"": ""...""
 }";
 
-
-    public async Task DeleteAgents()
+    public async Task DeleteAgents(CancellationToken ct = default)
     {
         logger.LogInformation("Deleting agents in project '{ProjectEndpoint}'", ProjectEndpoint);
-        AsyncPageable<PersistentAgent> agents = client.Administration.GetAgentsAsync();
+        AsyncPageable<PersistentAgent> agents = client.Administration.GetAgentsAsync(cancellationToken: ct);
         await foreach (var agent in agents)
         {
-            if (agent.Name.StartsWith("internal") || agent.Name.StartsWith("public"))
-            {
-                logger.LogInformation("Deleting agent {AgentId} ({AgentName})", agent.Id, agent.Name);
-                await client.Administration.DeleteAgentAsync(agent.Id);
-            }
+            logger.LogInformation("Deleting agent {AgentId} ({AgentName})", agent.Id, agent.Name);
+            await client.Administration.DeleteAgentAsync(agent.Id, ct);
+        }
+
+        AsyncPageable<PersistentAgentThread> threads = client.Threads.GetThreadsAsync(cancellationToken: ct);
+        await foreach (var thread in threads)
+        {
+            logger.LogInformation("Deleting thread {ThreadId}", thread.Id);
+            await client.Threads.DeleteThreadAsync(thread.Id, ct);
+        }
+
+        AsyncPageable<PersistentAgentsVectorStore> vectorStores = client.VectorStores.GetVectorStoresAsync(cancellationToken: ct);
+        await foreach (var vectorStore in vectorStores)
+        {
+            logger.LogInformation("Deleting vector store {VectorStoreId} ({VectorStoreName})", vectorStore.Id, vectorStore.Name);
+            await client.VectorStores.DeleteVectorStoreAsync(vectorStore.Id, ct);
+        }
+
+        var files = await client.Files.GetFilesAsync(cancellationToken: ct);
+        foreach (var file in files.Value)
+        {
+            logger.LogInformation("Deleting file {FileId} ({FileName})", file.Id, file.Filename);
+            await client.Files.DeleteFileAsync(file.Id, ct);
         }
     }
 
@@ -118,15 +135,6 @@ Provide suggested next steps. Respond only in valid JSON with a single object in
 
         // NOTE: in the future we will want to keep these around if the user wants to keep querying the file in a session
         logger.LogDebug("Deleting temporary resources: agent {AgentId}, vector store {VectorStoreId}, {fileCount} files", agent.Id, vectorStore.Id, uploaded.Count);
-
-        await client.VectorStores.DeleteVectorStoreAsync(vectorStore.Id);
-        await client.Threads.DeleteThreadAsync(thread.Id);
-        await client.Administration.DeleteAgentAsync(agent.Id);
-        foreach (var fileId in uploaded)
-        {
-            logger.LogDebug("Deleting file {FileId}", fileId);
-            await client.Files.DeleteFileAsync(fileId);
-        }
 
         var tokenUsage = new TokenUsageHelper(model, run.Usage.PromptTokens, run.Usage.CompletionTokens);
         return (string.Join("\n", response), tokenUsage);

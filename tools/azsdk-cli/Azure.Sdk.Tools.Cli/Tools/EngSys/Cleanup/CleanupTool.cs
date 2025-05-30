@@ -22,7 +22,8 @@ public class CleanupTool(IAzureAgentServiceFactory agentServiceFactory, ILogger<
         Command cleanupCommand = new("cleanup", "Cleanup commands");
         Command cleanupAgentsCommand = new (CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
 
-        cleanupCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+        cleanupAgentsCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+
         engsysCommand.AddCommand(cleanupCommand);
         cleanupCommand.AddCommand(cleanupAgentsCommand);
 
@@ -38,20 +39,20 @@ public class CleanupTool(IAzureAgentServiceFactory agentServiceFactory, ILogger<
             return;
         }
         var projectEndpoint = ctx.ParseResult.GetValueForOption(projectEndpointOpt);
-        await CleanupAgents(projectEndpoint);
+        await CleanupAgents(projectEndpoint, ct);
     }
 
     [McpServerTool, Description("Clean up AI agents in an AI foundry project. Leave projectEndpoint empty if not specified")]
-    public async Task CleanupAgents(string? projectEndpoint = null)
+    public async Task CleanupAgents(string? projectEndpoint = null, CancellationToken ct = default)
     {
         try
         {
             var agentService = agentServiceFactory.Create(projectEndpoint, null);
-            await agentService.DeleteAgents();
+            await agentService.DeleteAgents(ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while cleaning up agents in project {ProjectName}.", projectEndpoint);
+            logger.LogError(ex, "An error occurred while cleaning up agents in project '{ProjectName}'.", projectEndpoint ?? "unspecified");
             SetFailure();
         }
     }
