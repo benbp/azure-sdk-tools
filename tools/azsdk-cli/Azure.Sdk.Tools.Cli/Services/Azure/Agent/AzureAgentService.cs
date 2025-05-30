@@ -9,12 +9,11 @@ public interface IAzureAgentService
     Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query);
 }
 
-public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? projectEndpoint, string? model) : IAzureAgentService
+public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? _projectEndpoint, string? _model) : IAzureAgentService
 {
-    private readonly string projectEndpoint = projectEndpoint ?? "https://ai-prmarottai3149546654251245.services.ai.azure.com/api/projects/prmarott-apiview";
-    private readonly string model = model ?? "gpt-4o-mini";
-
-    private readonly PersistentAgentsClient client = new(projectEndpoint, azureService.GetCredential());
+    private static readonly string defaultProjectEndpoint = "https://ai-prmarottai3149546654251245.services.ai.azure.com/api/projects/prmarott-apiview";
+    private readonly string model = _model ?? "gpt-4o-mini";
+    private readonly PersistentAgentsClient client = new(_projectEndpoint ?? defaultProjectEndpoint, azureService.GetCredential());
 
     private const string LogQueryPrompt = @"You are an assistant that analyzes Azure Pipelines failure logs.
 You will be provided with a log file from an Azure Pipelines build.
