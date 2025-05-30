@@ -18,13 +18,15 @@ public class CleanupTool(IAzureAgentServiceFactory agentServiceFactory, ILogger<
 
     public override Command GetCommand()
     {
-        Command command = new("cleanup", "Cleanup commands");
-        var cleanupCommand = new Command(CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
+        Command engsysCommand = new("eng", "Internal azsdk engineering system commands");
+        Command cleanupCommand = new("cleanup", "Cleanup commands");
+        Command cleanupAgentsCommand = new (CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
 
         cleanupCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-        command.AddCommand(cleanupCommand);
+        engsysCommand.AddCommand(cleanupCommand);
+        cleanupCommand.AddCommand(cleanupAgentsCommand);
 
-        return command;
+        return engsysCommand;
     }
 
     public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)

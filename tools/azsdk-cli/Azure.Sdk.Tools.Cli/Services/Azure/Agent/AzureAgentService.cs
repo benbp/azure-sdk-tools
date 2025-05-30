@@ -13,7 +13,7 @@ public interface IAzureAgentService
 
 public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? _projectEndpoint, string? _model) : IAzureAgentService
 {
-    public string ProjectEndpoint { get; }  = _projectEndpoint ?? defaultProjectEndpoint;
+    public string ProjectEndpoint { get; } = _projectEndpoint ?? defaultProjectEndpoint;
     private static readonly string defaultProjectEndpoint = "https://azsdk-engsys-ai.services.ai.azure.com/api/projects/azsdk-engsys-ai";
     private readonly string model = _model ?? "gpt-4.1-mini";
 
