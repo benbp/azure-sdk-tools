@@ -8,7 +8,7 @@ public interface IAzureAgentService
     string ProjectEndpoint { get; }
 
     Task DeleteAgents();
-    Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query);
+    Task<(string, TokenUsageHelper)> QueryFiles(List<string> files, string session, string query, CancellationToken ct);
 }
 
 public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? _projectEndpoint, string? _model) : IAzureAgentService
@@ -20,18 +20,18 @@ public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentSer
     private readonly PersistentAgentsClient client = new(_projectEndpoint ?? defaultProjectEndpoint, azureService.GetCredential());
 
     private const string LogQueryPrompt = @"You are an assistant that analyzes Azure Pipelines failure logs.
-You will be provided with a log file from an Azure Pipelines build.
-Your task is to analyze the log and provide a summary of the failure.
+You will be provided with log files from an Azure Pipelines build.
+Your task is to analyze the logs and provide a summary of the failures.
 Include relevant data like error type, error messages, functions and error lines.
 Find other log lines in addition to the final error that may be descriptive of the problem.
 Errors like 'Powershell exited with code 1' are not error messages, but the error message may be in the logs above it.
-Provide suggested next steps. Respond only in valid JSON, in the following format:
+Provide suggested next steps. Respond only in valid JSON with a single object in the following format:
 {
     ""summary"": ""..."",
     ""errors"": [
         { ""file"": ""..."", ""line"": ..., ""message"": ""..."" }
     ],
-    ""suggested_fix"": ""...""
+    ""suggested_fixes"": ""...""
 }";
 
 
@@ -49,15 +49,21 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
         }
     }
 
-    public async Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query)
+    public async Task<(string, TokenUsageHelper)> QueryFiles(List<string> files, string session, string query, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(filename) || Path.GetExtension(filename) == string.Empty)
+        List<string> uploaded = [];
+        foreach (var file in files)
         {
-            throw new ArgumentException($"Filename '{filename}' must have a file extension (*.txt, *.md, ...)", nameof(filename));
+            if (string.IsNullOrWhiteSpace(file) || Path.GetExtension(file) == string.Empty)
+            {
+                throw new Exception($"Filename '{file}' must have a file extension (*.txt, *.md, ...)");
+            }
+            logger.LogDebug("Uploading file {FileName}", file);
+            PersistentAgentFileInfo info = await client.Files.UploadFileAsync(file, PersistentAgentFilePurpose.Agents, ct);
+            uploaded.Add(info.Id);
         }
 
-        PersistentAgentFileInfo uploaded = await client.Files.UploadFileAsync(contents, PersistentAgentFilePurpose.Agents, filename);
-        PersistentAgentsVectorStore vectorStore = await client.VectorStores.CreateVectorStoreAsync(fileIds: [uploaded.Id], name: filename);
+        PersistentAgentsVectorStore vectorStore = await client.VectorStores.CreateVectorStoreAsync(uploaded, name: session, cancellationToken: ct);
         FileSearchToolResource tool = new();
         tool.VectorStoreIds.Add(vectorStore.Id);
 
@@ -68,14 +74,14 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
             tools: [new FileSearchToolDefinition()],
             toolResources: new ToolResources() { FileSearch = tool });
 
-        PersistentAgentThread thread = await client.Threads.CreateThreadAsync();
-        PersistentThreadMessage messageResponse = await client.Messages.CreateMessageAsync(thread.Id, MessageRole.User, query);
-        ThreadRun run = await client.Runs.CreateRunAsync(thread, agent);
+        PersistentAgentThread thread = await client.Threads.CreateThreadAsync(cancellationToken: ct);
+        await client.Messages.CreateMessageAsync(thread.Id, MessageRole.User, query, cancellationToken: ct);
+        ThreadRun run = await client.Runs.CreateRunAsync(thread, agent, ct);
 
         do
         {
             Thread.Sleep(TimeSpan.FromMilliseconds(500));
-            run = await client.Runs.GetRunAsync(thread.Id, run.Id);
+            run = await client.Runs.GetRunAsync(thread.Id, run.Id, cancellationToken: ct);
         }
         while (run.Status == RunStatus.Queued || run.Status == RunStatus.InProgress);
 
@@ -86,7 +92,8 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
 
         AsyncPageable<PersistentThreadMessage> messages = client.Messages.GetMessagesAsync(
             threadId: thread.Id,
-            order: ListSortOrder.Ascending
+            order: ListSortOrder.Ascending,
+            cancellationToken: ct
         );
 
         var response = new List<string>();
@@ -110,13 +117,16 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
         }
 
         // NOTE: in the future we will want to keep these around if the user wants to keep querying the file in a session
-        logger.LogDebug("Deleting temporary resources: agent {AgentId}, vector store {VectorStoreId}, file {FileId}",
-            agent.Id, vectorStore.Id, uploaded.Id);
+        logger.LogDebug("Deleting temporary resources: agent {AgentId}, vector store {VectorStoreId}, {fileCount} files", agent.Id, vectorStore.Id, uploaded.Count);
 
         await client.VectorStores.DeleteVectorStoreAsync(vectorStore.Id);
-        await client.Files.DeleteFileAsync(uploaded.Id);
         await client.Threads.DeleteThreadAsync(thread.Id);
         await client.Administration.DeleteAgentAsync(agent.Id);
+        foreach (var fileId in uploaded)
+        {
+            logger.LogDebug("Deleting file {FileId}", fileId);
+            await client.Files.DeleteFileAsync(fileId);
+        }
 
         var tokenUsage = new TokenUsageHelper(model, run.Usage.PromptTokens, run.Usage.CompletionTokens);
         return (string.Join("\n", response), tokenUsage);
