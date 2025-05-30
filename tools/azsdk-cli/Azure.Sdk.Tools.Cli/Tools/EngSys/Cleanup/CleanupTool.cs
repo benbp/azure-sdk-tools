@@ -2,12 +2,15 @@
 // Licensed under the MIT License.
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.ComponentModel;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Contract;
+using ModelContextProtocol.Server;
 
-namespace Azure.Sdk.Tools.Cli.Commands;
+namespace Azure.Sdk.Tools.Cli.Tools;
 
-public class CleanupCommand(IAzureAgentServiceFactory agentServiceFactory, ILogger<CleanupCommand> logger) : MCPTool
+[McpServerToolType, Description("Cleans up various engsys resources")]
+public class CleanupTool(IAzureAgentServiceFactory agentServiceFactory, ILogger<CleanupTool> logger) : MCPTool
 {
     public const string CleanupAgentsCommandName = "agents";
 
@@ -33,27 +36,20 @@ public class CleanupCommand(IAzureAgentServiceFactory agentServiceFactory, ILogg
             return;
         }
         var projectEndpoint = ctx.ParseResult.GetValueForOption(projectEndpointOpt);
-        await CleanupAgents(projectEndpoint, ct);
+        await CleanupAgents(projectEndpoint);
     }
 
-    public async Task CleanupAgents(string projectEndpoint, CancellationToken ct)
+    [McpServerTool, Description("Clean up AI agents in an AI foundry project. Leave projectEndpoint empty if not specified")]
+    public async Task CleanupAgents(string? projectEndpoint = null)
     {
-        var agentService = agentServiceFactory.Create(projectEndpoint, null);
-        if (agentService == null)
-        {
-            logger.LogError("Failed to create agent service client. Please check the provided subscription ID, resource group, and project name.");
-            SetFailure();
-            return;
-        }
-
         try
         {
+            var agentService = agentServiceFactory.Create(projectEndpoint, null);
             await agentService.DeleteAgents();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while cleaning up agents.");
-            logger.LogWarning("Ensure you have the 'Cognitive Services Contributor' role for the AI Foundry project {ProjectName}.", agentService.ProjectEndpoint);
+            logger.LogError(ex, "An error occurred while cleaning up agents in project {ProjectName}.", projectEndpoint);
             SetFailure();
         }
     }

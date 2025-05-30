@@ -37,14 +37,14 @@ Provide suggested next steps. Respond only in valid JSON, in the following forma
 
     public async Task DeleteAgents()
     {
+        logger.LogInformation("Deleting agents in project '{ProjectEndpoint}'", ProjectEndpoint);
         AsyncPageable<PersistentAgent> agents = client.Administration.GetAgentsAsync();
         await foreach (var agent in agents)
         {
-            var i = 1;
             if (agent.Name.StartsWith("internal") || agent.Name.StartsWith("public"))
             {
-                logger.LogInformation("[{i}] Deleting agent {AgentId} ({AgentName})", i++, agent.Id, agent.Name);
-                // await client.DeleteAgentAsync(agent.Id);
+                logger.LogInformation("Deleting agent {AgentId} ({AgentName})", agent.Id, agent.Name);
+                await client.Administration.DeleteAgentAsync(agent.Id);
             }
         }
     }
