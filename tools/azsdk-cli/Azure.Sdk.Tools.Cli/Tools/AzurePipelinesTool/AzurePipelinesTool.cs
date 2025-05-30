@@ -39,7 +39,7 @@ public class AzurePipelinesTool(
     private readonly Option<int> buildIdOpt = new(["--build-id", "-b"], "Pipeline/Build ID") { IsRequired = true };
     private readonly Option<int> logIdOpt = new(["--log-id"], "ID of the pipeline task log");
     private readonly Option<string> projectOpt = new(["--project", "-p"], "Pipeline project name");
-    private readonly Option<string> aiEndpointOpt = new(["--ai-endpoint"], "The endpoint for the Azure AI Agent service");
+    private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
 
     public override Command GetCommand()
@@ -47,7 +47,7 @@ public class AzurePipelinesTool(
         Command command = new("azp", "Azure Pipelines Tool");
         var pipelineRunCommand = new Command(getPipelineRunCommandName, "Get details for a pipeline run") { buildIdOpt, projectOpt };
         var analyzePipelineCommand = new Command(analyzePipelineCommandName, "Analyze a pipeline run") {
-            buildIdOpt, projectOpt, logIdOpt, aiEndpointOpt, aiModelOpt
+            buildIdOpt, projectOpt, logIdOpt, projectEndpointOpt, aiModelOpt
         };
 
         // Do not add a handler for the 'azp' command, that way System.CommandLine can fall back to the
@@ -79,11 +79,11 @@ public class AzurePipelinesTool(
         else if (cmd == analyzePipelineCommandName)
         {
             var logId = ctx.ParseResult.GetValueForOption(logIdOpt);
-            var aiEndpoint = ctx.ParseResult.GetValueForOption(aiEndpointOpt);
+            var projectEndpoint = ctx.ParseResult.GetValueForOption(projectEndpointOpt);
             var aiModel = ctx.ParseResult.GetValueForOption(aiModelOpt);
 
             logger.LogInformation("Analyzing pipeline {buildId}...", buildId);
-            azureAgentService = azureAgentServiceFactory.Create(aiModel, aiEndpoint);
+            azureAgentService = azureAgentServiceFactory.Create(projectEndpoint, aiModel);
 
             if (logId != 0)
             {

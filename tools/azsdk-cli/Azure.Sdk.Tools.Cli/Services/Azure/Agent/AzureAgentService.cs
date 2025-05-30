@@ -5,14 +5,18 @@ namespace Azure.Sdk.Tools.Cli.Services;
 
 public interface IAzureAgentService
 {
+    string ProjectEndpoint { get; }
+
     Task DeleteAgents();
     Task<(string, TokenUsageHelper)> QueryFile(Stream contents, string filename, string session, string query);
 }
 
 public class AzureAgentService(IAzureService azureService, ILogger<AzureAgentService> logger, string? _projectEndpoint, string? _model) : IAzureAgentService
 {
-    private static readonly string defaultProjectEndpoint = "https://ai-prmarottai3149546654251245.services.ai.azure.com/api/projects/prmarott-apiview";
-    private readonly string model = _model ?? "gpt-4o-mini";
+    public string ProjectEndpoint { get; }  = _projectEndpoint ?? defaultProjectEndpoint;
+    private static readonly string defaultProjectEndpoint = "https://azsdk-engsys-ai.services.ai.azure.com/api/projects/azsdk-engsys-ai";
+    private readonly string model = _model ?? "gpt-4.1-mini";
+
     private readonly PersistentAgentsClient client = new(_projectEndpoint ?? defaultProjectEndpoint, azureService.GetCredential());
 
     private const string LogQueryPrompt = @"You are an assistant that analyzes Azure Pipelines failure logs.

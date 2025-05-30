@@ -11,15 +11,12 @@ public class CleanupCommand(IAzureAgentServiceFactory agentServiceFactory, ILogg
 {
     public const string CleanupAgentsCommandName = "agents";
 
-    public Option<string> subscriptionIdOpt = new(["--subscription", "-s"], "The Azure subscription ID to use");
-    public Option<string> resourceGroupOpt = new(["--resource-group", "-g"], "The Azure resource group to target") { IsRequired = true };
-    public Option<string> accountNameOpt = new(["--account-name", "-a"], "The ai services account to clean up") { IsRequired = false };
-    public Option<string> projectNameOpt = new(["--project-name", "-p"], "The AI foundry project/ML workspace to clean up") { IsRequired = false };
+    public Option<string> projectEndpointOpt = new(["--project-endpoint", "-e"], "The AI foundry project to clean up") { IsRequired = false };
 
     public override Command GetCommand()
     {
         Command command = new("cleanup", "Cleanup commands");
-        var cleanupCommand = new Command(CleanupAgentsCommandName, "Cleanup ai agents") { subscriptionIdOpt, resourceGroupOpt, accountNameOpt, projectNameOpt };
+        var cleanupCommand = new Command(CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
 
         cleanupCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
         command.AddCommand(cleanupCommand);
@@ -35,16 +32,13 @@ public class CleanupCommand(IAzureAgentServiceFactory agentServiceFactory, ILogg
             SetFailure();
             return;
         }
-        var subscriptionId = ctx.ParseResult.GetValueForOption(subscriptionIdOpt);
-        var resourceGroup = ctx.ParseResult.GetValueForOption(resourceGroupOpt);
-        var accountName = ctx.ParseResult.GetValueForOption(accountNameOpt);
-        var projectName = ctx.ParseResult.GetValueForOption(projectNameOpt);
-        await CleanupAgents(subscriptionId, resourceGroup, accountName, projectName, ct);
+        var projectEndpoint = ctx.ParseResult.GetValueForOption(projectEndpointOpt);
+        await CleanupAgents(projectEndpoint, ct);
     }
 
-    public async Task CleanupAgents(string subscriptionId, string resourceGroup, string accountName, string projectName, CancellationToken ct)
+    public async Task CleanupAgents(string projectEndpoint, CancellationToken ct)
     {
-        var agentService = await agentServiceFactory.Create(subscriptionId, resourceGroup, accountName, projectName, ct);
+        var agentService = agentServiceFactory.Create(projectEndpoint, null);
         if (agentService == null)
         {
             logger.LogError("Failed to create agent service client. Please check the provided subscription ID, resource group, and project name.");
@@ -59,7 +53,7 @@ public class CleanupCommand(IAzureAgentServiceFactory agentServiceFactory, ILogg
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred while cleaning up agents.");
-            logger.LogWarning("Ensure you have the 'Cognitive Services Contributor' role for the AI Foundry project {ProjectName}.", projectName);
+            logger.LogWarning("Ensure you have the 'Cognitive Services Contributor' role for the AI Foundry project {ProjectName}.", agentService.ProjectEndpoint);
             SetFailure();
         }
     }
