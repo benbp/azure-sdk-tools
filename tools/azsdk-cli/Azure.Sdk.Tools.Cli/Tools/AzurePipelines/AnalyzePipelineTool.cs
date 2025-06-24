@@ -45,12 +45,14 @@ public class AnalyzePipelinesTool : MCPTool
     public AnalyzePipelinesTool(
         IAzureService azureService,
         IAzureAgentServiceFactory azureAgentServiceFactory,
+        ILogAnalysisHelper logAnalysisHelper,
         IOutputService output,
         ILogger<AnalyzePipelinesTool> logger
     ) : base()
     {
         this.azureService = azureService;
         this.azureAgentServiceFactory = azureAgentServiceFactory;
+        this.logAnalysisHelper = logAnalysisHelper;
         this.output = output;
         this.logger = logger;
 
@@ -63,7 +65,7 @@ public class AnalyzePipelinesTool : MCPTool
     public override Command GetCommand()
     {
         var analyzePipelineCommand = new Command("analyze", "Analyze a pipeline run") {
-            buildIdOpt, projectOpt, logIdOpt, projectEndpointOpt, aiModelOpt
+            buildIdOpt, projectOpt, logIdOpt, analyzeWithAgentOpt, projectEndpointOpt, aiModelOpt
         };
         analyzePipelineCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
 

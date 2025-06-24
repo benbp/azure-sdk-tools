@@ -49,10 +49,10 @@ public class LogEntry
 {
     [JsonPropertyName("file")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string File { get; set; } = string.Empty;
+    public string File { get; set; }
     [JsonPropertyName("url")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string Url { get; set; } = string.Empty;
+    public string Url { get; set; }
     [JsonPropertyName("line")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Line { get; set; }
