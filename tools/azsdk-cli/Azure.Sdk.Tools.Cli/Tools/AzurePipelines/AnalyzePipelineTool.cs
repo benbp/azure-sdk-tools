@@ -28,17 +28,34 @@ public class AnalyzePipelinesTool : MCPTool
     private readonly IOutputService output;
     private readonly ILogger<AnalyzePipelinesTool> logger;
 
-    private BuildHttpClient buildClient;
-    private TestResultsHttpClient testClient;
     private IAzureAgentService azureAgentService;
     private TokenUsageHelper usage;
-    private readonly bool initialized = false;
+    private bool initialized = false;
+
+    private BuildHttpClient _buildClient;
+    public BuildHttpClient buildClient
+    {
+        get
+        {
+            Initialize();
+            return _buildClient;
+        }
+    }
+    private TestResultsHttpClient _testClient;
+    public TestResultsHttpClient testClient
+    {
+        get
+        {
+            Initialize();
+            return _testClient;
+        }
+    }
 
     // Options
     private readonly Option<int> buildIdOpt = new(["--build-id", "-b"], "Pipeline/Build ID") { IsRequired = true };
     private readonly Option<int> logIdOpt = new(["--log-id"], "ID of the pipeline task log");
     private readonly Option<string> projectOpt = new(["--project", "-p"], "Pipeline project name");
-    private readonly Option<bool> analyzeWithAgentOpt = new(["--agent", "-a"], () => true, "Analyze logs with RAG via upstream ai agent");
+    private readonly Option<bool> analyzeWithAgentOpt = new(["--agent", "-a"], () => false, "Analyze logs with RAG via upstream ai agent");
     private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
 
@@ -74,8 +91,6 @@ public class AnalyzePipelinesTool : MCPTool
 
     public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
-        Initialize();
-
         var cmd = ctx.ParseResult.CommandResult.Command.Name;
         var buildId = ctx.ParseResult.GetValueForOption(buildIdOpt);
         var project = ctx.ParseResult.GetValueForOption(projectOpt);
@@ -97,27 +112,40 @@ public class AnalyzePipelinesTool : MCPTool
         }
         else
         {
-            var result = await AnalyzePipeline("", project, buildId, analyzeWithAgent, ct);
+            var result = await AnalyzePipeline(project, buildId, analyzeWithAgent, ct);
             ctx.ExitCode = ExitCode;
             usage?.LogCost();
             output.Output(result);
         }
     }
 
-    private void Initialize()
+    private void Initialize(bool auth = true)
     {
         if (initialized)
         {
             return;
         }
-        var tokenScope = new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" };  // Azure DevOps scope
-        var msftCorpTenant = "72f988bf-86f1-41af-91ab-2d7cd011db47";
-        var token = azureService.GetCredential(msftCorpTenant).GetToken(new TokenRequestContext(tokenScope));
-        var tokenCredential = new VssOAuthAccessTokenCredential(token.Token);
-        var connection = new VssConnection(new Uri($"https://dev.azure.com/azure-sdk"), tokenCredential);
-        buildClient = connection.GetClient<BuildHttpClient>();
-        testClient = connection.GetClient<TestResultsHttpClient>();
+
+        if (auth)
+        {
+            var tokenScope = new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" };  // Azure DevOps scope
+            var msftCorpTenant = "72f988bf-86f1-41af-91ab-2d7cd011db47";
+            var token = azureService.GetCredential(msftCorpTenant).GetToken(new TokenRequestContext(tokenScope));
+            var tokenCredential = new VssOAuthAccessTokenCredential(token.Token);
+            var connection = new VssConnection(new Uri($"https://dev.azure.com/azure-sdk"), tokenCredential);
+            _buildClient = connection.GetClient<BuildHttpClient>();
+            _testClient = connection.GetClient<TestResultsHttpClient>();
+        }
+        else
+        {
+            var connection = new VssConnection(new Uri($"https://dev.azure.com/azure-sdk"), null);
+            _buildClient = connection.GetClient<BuildHttpClient>();
+            _testClient = connection.GetClient<TestResultsHttpClient>();
+        }
+
+        initialized = true;
     }
+
 
     public async Task<Build> GetPipelineRun(string? project, int buildId)
     {
@@ -309,12 +337,12 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
 
-    [McpServerTool, Description("Analyze azure pipeline for failures")]
-    public async Task<AnalyzePipelineResponse> AnalyzePipeline(int buildId, CancellationToken ct)
+    [McpServerTool, Description("Analyze azure pipeline for failures. Set analyzeWithAgent to false unless requested otherwise by the user")]
+    public async Task<AnalyzePipelineResponse> AnalyzePipeline(int buildId, bool analyzeWithAgent, CancellationToken ct)
     {
         try
         {
-            return await AnalyzePipeline("", null, buildId, false, ct);
+            return await AnalyzePipeline(null, buildId, analyzeWithAgent, ct);
         }
         catch (Exception ex)
         {
@@ -328,9 +356,8 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
 
-    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string foobar, string? project, int buildId, bool analyzeWithAgent, CancellationToken ct)
+    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string? project, int buildId, bool analyzeWithAgent, CancellationToken ct)
     {
-        Console.WriteLine(foobar);
         try
         {
             if (string.IsNullOrEmpty(project))
