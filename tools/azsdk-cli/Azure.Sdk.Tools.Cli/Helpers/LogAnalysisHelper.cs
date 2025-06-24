@@ -40,6 +40,9 @@ public class LogAnalysisHelper(ILogger<LogAnalysisHelper> logger) : ILogAnalysis
 {
     private readonly ILogger<LogAnalysisHelper> logger = logger;
 
+    public const int DEFAULT_BEFORE_LINES = 20;
+    public const int DEFAULT_AFTER_LINES = 20;
+
     // Built-in error keywords for robust error detection
     private static readonly HashSet<Keyword> defaultErrorKeywords =
     [
@@ -93,8 +96,8 @@ public class LogAnalysisHelper(ILogger<LogAnalysisHelper> logger) : ILogAnalysis
             }
         }
 
-        beforeLines ??= 3;
-        afterLines ??= 20;
+        beforeLines ??= DEFAULT_BEFORE_LINES;
+        afterLines ??= DEFAULT_AFTER_LINES;
         var before = new Queue<string>((int)beforeLines);
         var after = new Queue<string>((int)afterLines);
         var maxAfterLines = afterLines ?? 100;
