@@ -22,21 +22,23 @@ namespace Azure.Sdk.Tools.Cli.Tools;
 [McpServerToolType, Description("Fetches data from an Azure Pipelines run.")]
 public class AnalyzePipelinesTool : MCPTool
 {
+    private readonly IAzureService azureService;
+    private readonly IAzureAgentServiceFactory azureAgentServiceFactory;
+    private readonly ILogAnalysisHelper logAnalysisHelper;
+    private readonly IOutputService output;
+    private readonly ILogger<AnalyzePipelinesTool> logger;
+
     private BuildHttpClient buildClient;
     private TestResultsHttpClient testClient;
     private IAzureAgentService azureAgentService;
     private TokenUsageHelper usage;
     private readonly bool initialized = false;
 
-    private IAzureService azureService;
-    private IAzureAgentServiceFactory azureAgentServiceFactory;
-    private IOutputService output;
-    private ILogger<AnalyzePipelinesTool> logger;
-
     // Options
     private readonly Option<int> buildIdOpt = new(["--build-id", "-b"], "Pipeline/Build ID") { IsRequired = true };
     private readonly Option<int> logIdOpt = new(["--log-id"], "ID of the pipeline task log");
     private readonly Option<string> projectOpt = new(["--project", "-p"], "Pipeline project name");
+    private readonly Option<bool> analyzeWithAgentOpt = new(["--agent", "-a"], () => true, "Analyze logs with RAG via upstream ai agent");
     private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
 
@@ -77,6 +79,7 @@ public class AnalyzePipelinesTool : MCPTool
         var project = ctx.ParseResult.GetValueForOption(projectOpt);
 
         var logId = ctx.ParseResult.GetValueForOption(logIdOpt);
+        var analyzeWithAgent = ctx.ParseResult.GetValueForOption(analyzeWithAgentOpt);
         var projectEndpoint = ctx.ParseResult.GetValueForOption(projectEndpointOpt);
         var aiModel = ctx.ParseResult.GetValueForOption(aiModelOpt);
 
@@ -85,14 +88,14 @@ public class AnalyzePipelinesTool : MCPTool
 
         if (logId != 0)
         {
-            var result = await AnalyzePipelineFailureLog(project, buildId, [logId], ct);
+            var result = await AnalyzePipelineFailureLogs(project, buildId, [logId], analyzeWithAgent, ct);
             ctx.ExitCode = ExitCode;
             usage?.LogCost();
             output.Output(result);
         }
         else
         {
-            var result = await AnalyzePipeline(project, buildId, ct);
+            var result = await AnalyzePipeline(project, buildId, analyzeWithAgent, ct);
             ctx.ExitCode = ExitCode;
             usage?.LogCost();
             output.Output(result);
@@ -225,7 +228,7 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
 
-    public async Task<LogAnalysisResponse> AnalyzePipelineFailureLog(string? project, int buildId, List<int> logIds, CancellationToken ct)
+    public async Task<LogAnalysisResponse> AnalyzePipelineFailureLogs(string? project, int buildId, List<int> logIds, bool analyzeWithAgent, CancellationToken ct)
     {
         try
         {
@@ -246,28 +249,32 @@ public class AnalyzePipelinesTool : MCPTool
                 logs.Add(tempPath);
             }
 
+            if (!analyzeWithAgent)
+            {
+                LogAnalysisResponse response = new() { Errors = [] };
+                foreach (var log in logs)
+                {
+                    var localLogResult = await logAnalysisHelper.AnalyzeLogContent(log, null, null, null);
+                    response.Errors.AddRange(localLogResult);
+                }
+                return response;
+            }
+
             var (result, _usage) = await azureAgentService.QueryFiles(logs, session, "Why did this pipeline fail?", ct);
-
-            foreach (var log in logs)
-            {
-                File.Delete(log);
-            }
-
-            if (usage != null)
-            {
-                usage += _usage;
-            }
-            else
-            {
-                usage = _usage;
-            }
-
             // Sometimes chat gpt likes to wrap the json in markdown
             if (result.StartsWith("```json")
                 && result.EndsWith("```"))
             {
                 result = result[7..^3].Trim();
             }
+
+            foreach (var log in logs)
+            {
+                File.Delete(log);
+            }
+
+
+            usage = usage != null ? usage + _usage : _usage;
 
             try
             {
@@ -302,6 +309,23 @@ public class AnalyzePipelinesTool : MCPTool
     {
         try
         {
+            return await AnalyzePipeline(project, buildId, false, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to analyze pipeline {buildId}: {exception}", buildId, ex.Message);
+            SetFailure();
+            return new AnalyzePipelineResponse()
+            {
+                ResponseError = $"Failed to analyze pipeline {buildId}: {ex.Message}",
+            };
+        }
+    }
+
+    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string? project, int buildId, bool analyzeWithAgent, CancellationToken ct)
+    {
+        try
+        {
             if (string.IsNullOrEmpty(project))
             {
                 var pipeline = await GetPipelineRun(project, buildId);
@@ -318,7 +342,7 @@ public class AnalyzePipelinesTool : MCPTool
                 .Distinct()
                 .ToList() ?? [];
 
-            var analysis = await AnalyzePipelineFailureLog(project, buildId, logIds, ct);
+            var analysis = await AnalyzePipelineFailureLogs(project, buildId, logIds, analyzeWithAgent, ct);
             taskAnalysis.Add(analysis);
 
             return new AnalyzePipelineResponse()

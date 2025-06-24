@@ -37,7 +37,7 @@ public class LogAnalysisResponse : Response
             output += $"### Suggested Fix:" + Environment.NewLine +
                       $"{SuggestedFix}" + Environment.NewLine + Environment.NewLine +
                       $"### Errors:" + Environment.NewLine +
-                      $"{string.Join(Environment.NewLine+Environment.NewLine, Errors.Select(e => $"--> {e.File}:{e.Line}{Environment.NewLine}{e.Message}"))}" +
+                      $"{string.Join(Environment.NewLine + Environment.NewLine, Errors.Select(e => $"--> {e.File}:{e.Line}{Environment.NewLine}{e.Message}"))}" +
                       Environment.NewLine;
         }
 
@@ -50,6 +50,9 @@ public class LogEntry
     [JsonPropertyName("file")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string File { get; set; } = string.Empty;
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string Url { get; set; } = string.Empty;
     [JsonPropertyName("line")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Line { get; set; }
