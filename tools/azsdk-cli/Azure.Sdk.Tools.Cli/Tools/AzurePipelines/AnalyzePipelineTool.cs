@@ -97,7 +97,7 @@ public class AnalyzePipelinesTool : MCPTool
         }
         else
         {
-            var result = await AnalyzePipeline(project, buildId, analyzeWithAgent, ct);
+            var result = await AnalyzePipeline("", project, buildId, analyzeWithAgent, ct);
             ctx.ExitCode = ExitCode;
             usage?.LogCost();
             output.Output(result);
@@ -156,6 +156,7 @@ public class AnalyzePipelinesTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError("Failed to get pipeline task failures {buildId}: {exception}", buildId, ex.Message);
+            logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
             SetFailure();
             return null;
         }
@@ -219,14 +220,15 @@ public class AnalyzePipelinesTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError("Failed to get pipeline failed test results {buildId}: {exception}", buildId, ex.Message);
+            logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
             SetFailure();
-            return new List<FailedTestRunResponse>()
-            {
+            return
+            [
                 new FailedTestRunResponse()
                 {
                     ResponseError = $"Failed to get pipeline failed test results {buildId}: {ex.Message}",
                 }
-            };
+            ];
         }
     }
 
@@ -298,6 +300,7 @@ public class AnalyzePipelinesTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError("Failed to analyze pipeline {buildId}: {error}", buildId, ex.Message);
+            logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
             SetFailure();
             return new LogAnalysisResponse()
             {
@@ -307,15 +310,16 @@ public class AnalyzePipelinesTool : MCPTool
     }
 
     [McpServerTool, Description("Analyze azure pipeline for failures")]
-    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string? project, int buildId, CancellationToken ct)
+    public async Task<AnalyzePipelineResponse> AnalyzePipeline(int buildId, CancellationToken ct)
     {
         try
         {
-            return await AnalyzePipeline(project, buildId, false, ct);
+            return await AnalyzePipeline("", null, buildId, false, ct);
         }
         catch (Exception ex)
         {
             logger.LogError("Failed to analyze pipeline {buildId}: {exception}", buildId, ex.Message);
+            logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
             SetFailure();
             return new AnalyzePipelineResponse()
             {
@@ -324,8 +328,9 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
 
-    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string? project, int buildId, bool analyzeWithAgent, CancellationToken ct)
+    public async Task<AnalyzePipelineResponse> AnalyzePipeline(string foobar, string? project, int buildId, bool analyzeWithAgent, CancellationToken ct)
     {
+        Console.WriteLine(foobar);
         try
         {
             if (string.IsNullOrEmpty(project))
@@ -356,6 +361,7 @@ public class AnalyzePipelinesTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError("Failed to analyze pipeline {buildId}: {exception}", buildId, ex.Message);
+            logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
             SetFailure();
             return new AnalyzePipelineResponse()
             {
