@@ -28,12 +28,16 @@ public class AnalyzePipelinesTool : MCPTool
     private readonly IOutputService output;
     private readonly ILogger<AnalyzePipelinesTool> logger;
 
+    private const string PUBLIC_PROJECT = "public";
+    private const string INTERNAL_PROJECT = "internal";
+
     private IAzureAgentService azureAgentService;
     private TokenUsageHelper usage;
     private bool initialized = false;
 
+    private readonly HttpClient httpClient = new();
     private BuildHttpClient _buildClient;
-    public BuildHttpClient buildClient
+    private BuildHttpClient buildClient
     {
         get
         {
@@ -42,7 +46,7 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
     private TestResultsHttpClient _testClient;
-    public TestResultsHttpClient testClient
+    private TestResultsHttpClient testClient
     {
         get
         {
@@ -151,9 +155,21 @@ public class AnalyzePipelinesTool : MCPTool
     {
         try
         {
-            var _project = project ?? "public";
+            var _project = project ?? PUBLIC_PROJECT;
+            Build? build;
             logger.LogDebug("Getting pipeline run for {project} {buildId}", _project, buildId);
-            var build = await buildClient.GetBuildAsync(_project, buildId);
+            if (project == PUBLIC_PROJECT)
+            {
+                var url = $"https://dev.azure.com/azure-sdk/_project/_apis/build/builds/{buildId}?api-version=7.1-preview.7";
+                var response = await httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                build = JsonSerializer.Deserialize<Build>(json);
+            }
+            else
+            {
+                build = await buildClient.GetBuildAsync(_project, buildId);
+            }
             return build;
         }
         catch (Exception ex)
@@ -163,7 +179,7 @@ public class AnalyzePipelinesTool : MCPTool
                 throw new Exception($"Failed to find build {buildId} in project 'public': {ex.Message}");
             }
             // If project is not specified, try both azure sdk public and internal devops projects
-            return await GetPipelineRun("internal", buildId);
+            return await GetPipelineRun(INTERNAL_PROJECT, buildId);
         }
     }
 
@@ -171,15 +187,42 @@ public class AnalyzePipelinesTool : MCPTool
     {
         try
         {
+            List<TimelineRecord> failedTasks;
+
             logger.LogDebug("Getting pipeline task failures for {project} {buildId}", project, buildId);
-            var timeline = await buildClient.GetBuildTimelineAsync(project, buildId, cancellationToken: ct);
-            var failedNonTests = timeline.Records.Where(
-                                    r => r.Result == TaskResult.Failed
-                                    && r.RecordType == "Task"
-                                    && !IsTestStep(r.Name))
-                                .ToList();
-            logger.LogDebug("Found {count} failed tasks", failedNonTests.Count);
-            return failedNonTests;
+
+            // Try an unauthenticated request which supports all client scenarios (AI agents, external contributors, etc.)
+            // The devops sdk doesn't seem to support unauthenticated requests
+            if (project == PUBLIC_PROJECT)
+            {
+                var timelineUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1-preview.1";
+                var response = await httpClient.GetAsync(timelineUrl, ct);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(json);
+                failedTasks = doc.RootElement.GetProperty("records")
+                    .EnumerateArray()
+                    .Where(r =>
+                        r.GetProperty("result").GetString() == "failed" &&
+                        r.GetProperty("type").GetString() == "Task" &&
+                        !IsTestStep(r.GetProperty("name").GetString()))
+                    .Select(r => JsonSerializer.Deserialize<TimelineRecord>(r.GetRawText()))
+                    .Where(r => r != null)
+                    .Cast<TimelineRecord>()
+                    .ToList();
+            }
+            else
+            {
+                var timeline = await buildClient.GetBuildTimelineAsync(project, buildId, cancellationToken: ct);
+                failedTasks = timeline.Records.Where(
+                                        r => r.Result == TaskResult.Failed
+                                        && r.RecordType == "Task"
+                                        && !IsTestStep(r.Name))
+                                    .ToList();
+            }
+
+            logger.LogDebug("Found {count} failed tasks", failedTasks.Count);
+            return failedTasks;
         }
         catch (Exception ex)
         {
@@ -190,17 +233,78 @@ public class AnalyzePipelinesTool : MCPTool
         }
     }
 
-    [McpServerTool, Description(@"
-        Analyze and diagnose the failed test results from a pipeline.
-        Include relevant data like test name and environment, error type, error messages, functions and error lines.
-        Provide suggested next steps.
-    ")]
+    private async Task<List<FailedTestRunResponse>> getFailedTestResultsHttp(string project, int buildId, CancellationToken ct = default)
+    {
+        var url = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs?buildIds={buildId}&api-version=7.1-preview.7";
+        var response = await httpClient.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+        var runs = doc.RootElement.GetProperty("value").EnumerateArray().ToList();
+        var failedTestRuns = new List<FailedTestRunResponse>();
+
+        foreach (var run in runs)
+        {
+            var runId = run.GetProperty("id").GetInt32();
+            var resultsUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs/{runId}/results?outcomes=Failed,Aborted&api-version=7.1-preview.7";
+            var resultsResponse = await httpClient.GetAsync(resultsUrl, ct);
+            resultsResponse.EnsureSuccessStatusCode();
+
+            var resultsJson = await resultsResponse.Content.ReadAsStringAsync(ct);
+
+            while (true)
+            {
+                using var resultsDoc = JsonDocument.Parse(resultsJson);
+
+                foreach (var result in resultsDoc.RootElement.GetProperty("value").EnumerateArray())
+                {
+                    if (!result.TryGetProperty("outcome", out var outcomeProp) || outcomeProp.GetString() != "Failed" || outcomeProp.GetString() != "Aborted")
+                    {
+                        continue;
+                    }
+
+                    failedTestRuns.Add(new FailedTestRunResponse
+                    {
+                        RunId = runId,
+                        TestCaseTitle = result.GetProperty("testCaseTitle").GetString() ?? "",
+                        ErrorMessage = result.GetProperty("errorMessage").GetString() ?? "",
+                        StackTrace = result.GetProperty("stackTrace").GetString() ?? "",
+                        Outcome = result.GetProperty("outcome").GetString() ?? "",
+                        Url = result.GetProperty("url").GetString() ?? ""
+                    });
+                }
+
+                var continuationToken = resultsResponse.Headers.TryGetValues("x-ms-continuationtoken", out var values) ? values.FirstOrDefault() : null;
+                if (string.IsNullOrEmpty(continuationToken))
+                {
+                    break;
+                }
+
+                var pagedResultsUrl = $"{resultsUrl}&continuationToken={continuationToken}";
+                resultsResponse = await httpClient.GetAsync(pagedResultsUrl, ct);
+                resultsResponse.EnsureSuccessStatusCode();
+                resultsJson = await resultsResponse.Content.ReadAsStringAsync(ct);
+            }
+        }
+
+        return failedTestRuns;
+    }
+
     public async Task<List<FailedTestRunResponse>> GetPipelineFailedTestResults(string project, int buildId, CancellationToken ct = default)
     {
         try
         {
             logger.LogDebug("Getting pipeline failed test results for {project} {buildId}", project, buildId);
             var results = new List<ShallowTestCaseResult>();
+
+            // Try an unauthenticated request which supports all client scenarios (AI agents, external contributors, etc.)
+            // The devops sdk doesn't seem to support unauthenticated requests
+            if (project == PUBLIC_PROJECT)
+            {
+                return await getFailedTestResultsHttp(project, buildId, ct);
+            }
+
             var testRuns = await testClient.GetTestResultsByPipelineAsync(project, buildId, cancellationToken: ct);
             results.AddRange(testRuns);
             while (testRuns.ContinuationToken != null)
@@ -264,7 +368,7 @@ public class AnalyzePipelinesTool : MCPTool
     {
         try
         {
-            project ??= "public";
+            project ??= PUBLIC_PROJECT;
             var session = $"{project}-{buildId}";
             List<string> logs = [];
 
