@@ -4,6 +4,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Azure.Core;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Contract;
@@ -160,8 +161,9 @@ public class AnalyzePipelinesTool : MCPTool
             logger.LogDebug("Getting pipeline run for {project} {buildId}", _project, buildId);
             if (project == PUBLIC_PROJECT)
             {
-                var url = $"https://dev.azure.com/azure-sdk/_project/_apis/build/builds/{buildId}?api-version=7.1-preview.7";
-                var response = await httpClient.GetAsync(url);
+                var pipelineUrl = $"https://dev.azure.com/azure-sdk/{_project}/_apis/build/builds/{buildId}?api-version=7.1";
+                logger.LogDebug("Getting pipeline details from {url}", pipelineUrl);
+                var response = await httpClient.GetAsync(pipelineUrl);
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadAsStringAsync();
                 build = JsonSerializer.Deserialize<Build>(json);
@@ -195,11 +197,24 @@ public class AnalyzePipelinesTool : MCPTool
             // The devops sdk doesn't seem to support unauthenticated requests
             if (project == PUBLIC_PROJECT)
             {
-                var timelineUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1-preview.1";
+                var timelineUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1";
+                logger.LogDebug("Getting timeline records from {url}", timelineUrl);
                 var response = await httpClient.GetAsync(timelineUrl, ct);
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadAsStringAsync(ct);
                 using var doc = JsonDocument.Parse(json);
+                var debug = doc.RootElement.GetProperty("records")
+                    .EnumerateArray()
+                    .Where(r =>
+                        r.GetProperty("result").GetString() == "failed" &&
+                        r.GetProperty("type").GetString() == "Task" &&
+                        !IsTestStep(r.GetProperty("name").GetString())).ToList();
+
+                var debug_txt = debug[0].GetRawText();
+                debug_txt = Regex.Unescape(debug_txt);
+
+                var debug_tr = JsonSerializer.Deserialize<TimelineRecord>(debug_txt);
+
                 failedTasks = doc.RootElement.GetProperty("records")
                     .EnumerateArray()
                     .Where(r =>
@@ -235,19 +250,31 @@ public class AnalyzePipelinesTool : MCPTool
 
     private async Task<List<FailedTestRunResponse>> getFailedTestResultsHttp(string project, int buildId, CancellationToken ct = default)
     {
-        var url = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs?buildIds={buildId}&api-version=7.1-preview.7";
-        var response = await httpClient.GetAsync(url, ct);
+        var testRunUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs?buildIds={buildId}&api-version=7.1";
+        logger.LogDebug("Getting test runs from {url}", testRunUrl);
+        var response = await httpClient.GetAsync(testRunUrl, ct);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(json);
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("BBP error {ex}", ex);
+            logger.LogError("{json}", json);
+            throw;
+        }
         var runs = doc.RootElement.GetProperty("value").EnumerateArray().ToList();
         var failedTestRuns = new List<FailedTestRunResponse>();
 
         foreach (var run in runs)
         {
             var runId = run.GetProperty("id").GetInt32();
-            var resultsUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs/{runId}/results?outcomes=Failed,Aborted&api-version=7.1-preview.7";
+            var resultsUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs/{runId}/results?outcomes=Failed,Aborted&api-version=7.1";
+            logger.LogDebug("Getting test run run results from {url}", resultsUrl);
             var resultsResponse = await httpClient.GetAsync(resultsUrl, ct);
             resultsResponse.EnsureSuccessStatusCode();
 
@@ -470,7 +497,8 @@ public class AnalyzePipelinesTool : MCPTool
                 project = pipeline.Project.Name;
             }
             var failedTasks = await GetPipelineTaskFailures(project, buildId, ct);
-            var failedTests = await GetPipelineFailedTestResults(project, buildId, ct);
+            // var failedTests = await GetPipelineFailedTestResults(project, buildId, ct);
+            var failedTests = new List<FailedTestRunResponse>();
 
             var taskAnalysis = new List<LogAnalysisResponse>();
 
