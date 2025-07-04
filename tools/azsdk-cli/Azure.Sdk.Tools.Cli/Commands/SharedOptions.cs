@@ -11,13 +11,14 @@ namespace Azure.Sdk.Tools.Cli.Commands
 {
     public static class SharedOptions
     {
-        public static readonly List<Type> ToolsList = new List<Type>(){
+        public static readonly List<Type> ToolsList = [
             typeof(AnalyzePipelinesTool),
             typeof(PipelineDetailsTool),
             typeof(CleanupTool),
             typeof(LogAnalysisTool),
             typeof(HostServerTool),
             typeof(ReleasePlanTool),
+            typeof(ReleaseReadinessTool),
             typeof(SpecCommonTools),
             typeof(SpecPullRequestTools),
             typeof(SpecWorkflowTool),
@@ -26,11 +27,12 @@ namespace Azure.Sdk.Tools.Cli.Commands
             typeof(FileValidationTool),
             typeof(DownloadPromptsTool),
             typeof(SdkReleaseTool),
+            typeof(TestAnalysisTool),
             #if DEBUG
             // only add this tool in debug mode
             typeof(HelloWorldTool),
             #endif
-        };
+        ];
 
         public static Option<string> ToolOption = new("--tools")
         {
