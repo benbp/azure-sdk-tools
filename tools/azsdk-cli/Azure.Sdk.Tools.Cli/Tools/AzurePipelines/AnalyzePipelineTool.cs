@@ -5,6 +5,7 @@ using System.CommandLine.Invocation;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml;
 using Azure.Core;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Contract;
@@ -298,7 +299,7 @@ public class AnalyzePipelinesTool : MCPTool
                         ErrorMessage = result.GetProperty("errorMessage").GetString() ?? "",
                         StackTrace = result.GetProperty("stackTrace").GetString() ?? "",
                         Outcome = result.GetProperty("outcome").GetString() ?? "",
-                        Url = result.GetProperty("url").GetString() ?? ""
+                        Uri = result.GetProperty("url").GetString() ?? ""
                     });
                 }
 
@@ -369,7 +370,7 @@ public class AnalyzePipelinesTool : MCPTool
                         ErrorMessage = tc.ErrorMessage,
                         StackTrace = tc.StackTrace,
                         Outcome = tc.Outcome,
-                        Url = tc.Url
+                        Uri = tc.Url
                     });
                 }
             }
