@@ -22,13 +22,13 @@ using ModelContextProtocol.Server;
 namespace Azure.Sdk.Tools.Cli.Tools;
 
 [McpServerToolType, Description("Fetches data from an Azure Pipelines run.")]
-public class AnalyzePipelinesTool : MCPTool
+public class PipelineAnalysisTool : MCPTool
 {
     private readonly IAzureService azureService;
     private readonly IAzureAgentServiceFactory azureAgentServiceFactory;
     private readonly ILogAnalysisHelper logAnalysisHelper;
     private readonly IOutputService output;
-    private readonly ILogger<AnalyzePipelinesTool> logger;
+    private readonly ILogger<PipelineAnalysisTool> logger;
 
     private const string PUBLIC_PROJECT = "public";
     private const string INTERNAL_PROJECT = "internal";
@@ -65,12 +65,12 @@ public class AnalyzePipelinesTool : MCPTool
     private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
 
-    public AnalyzePipelinesTool(
+    public PipelineAnalysisTool(
         IAzureService azureService,
         IAzureAgentServiceFactory azureAgentServiceFactory,
         ILogAnalysisHelper logAnalysisHelper,
         IOutputService output,
-        ILogger<AnalyzePipelinesTool> logger
+        ILogger<PipelineAnalysisTool> logger
     ) : base()
     {
         this.azureService = azureService;
