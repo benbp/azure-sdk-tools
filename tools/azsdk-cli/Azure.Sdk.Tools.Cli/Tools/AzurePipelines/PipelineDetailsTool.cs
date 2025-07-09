@@ -28,7 +28,7 @@ public class PipelineDetailsTool : MCPTool
     private ILogger<PipelineDetailsTool> logger;
 
     // Options
-    private readonly Option<int> buildIdOpt = new(["--build-id", "-b"], "Pipeline/Build ID") { IsRequired = true };
+    private readonly Argument<int> buildIdArg = new("Pipeline/Build ID");
     private readonly Option<string> projectOpt = new(["--project", "-p"], "Pipeline project name");
 
     public PipelineDetailsTool(
@@ -49,7 +49,7 @@ public class PipelineDetailsTool : MCPTool
 
     public override Command GetCommand()
     {
-        var pipelineRunCommand = new Command("pipeline", "Get details for a pipeline run") { buildIdOpt, projectOpt };
+        var pipelineRunCommand = new Command("pipeline", "Get details for a pipeline run") { buildIdArg, projectOpt };
         pipelineRunCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
 
         return pipelineRunCommand;
@@ -60,7 +60,7 @@ public class PipelineDetailsTool : MCPTool
         Initialize();
 
         var cmd = ctx.ParseResult.CommandResult.Command.Name;
-        var buildId = ctx.ParseResult.GetValueForOption(buildIdOpt);
+        var buildId = ctx.ParseResult.GetValueForArgument(buildIdArg);
         var project = ctx.ParseResult.GetValueForOption(projectOpt);
 
         logger.LogInformation("Getting pipeline run {buildId}...", buildId);
@@ -83,21 +83,21 @@ public class PipelineDetailsTool : MCPTool
     }
 
     [McpServerTool, Description("Gets details for a pipeline run. Do not specify project unless asked")]
-    public async Task<DefaultCommandResponse> GetPipelineRun(int buildId, string? project = null)
+    public async Task<ObjectCommandResponse> GetPipelineRun(int buildId, string? project = null)
     {
         try
         {
-            if (string.IsNullOrEmpty(project))
+            if (!string.IsNullOrEmpty(project))
             {
                 logger.LogDebug("Getting pipeline run for {project} {buildId}", project, buildId);
                 var build = await buildClient.GetBuildAsync(project, buildId);
-                return new DefaultCommandResponse { Result = build };
+                return new ObjectCommandResponse { Result = build };
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get build {buildId} in project {project}", buildId, project);
-            return new DefaultCommandResponse
+            return new ObjectCommandResponse
             {
                 ResponseError = $"Failed to get build {buildId} in project {project}: {ex.Message}"
             };
@@ -106,12 +106,12 @@ public class PipelineDetailsTool : MCPTool
         try
         {
             var build = await buildClient.GetBuildAsync("public", buildId);
-            return new DefaultCommandResponse { Result = build };
+            return new ObjectCommandResponse { Result = build };
         }
         catch (Exception)
         {
             var build = await buildClient.GetBuildAsync("internal", buildId);
-            return new DefaultCommandResponse { Result = build };
+            return new ObjectCommandResponse { Result = build };
         }
     }
 }
