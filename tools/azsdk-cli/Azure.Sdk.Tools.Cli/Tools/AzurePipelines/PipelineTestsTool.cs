@@ -87,39 +87,55 @@ public class PipelineTestsTool : MCPTool
         using var doc = JsonDocument.Parse(artifactsJson);
         var artifacts = doc.RootElement.GetProperty("value").EnumerateArray();
 
+        var seenFiles = new HashSet<string>();
+        var tempDir = Path.Combine(Path.GetTempPath(), buildId.ToString());
+        if (Directory.Exists(tempDir))
+        {
+            await Task.Factory.StartNew(() =>
+            {
+                Directory.Delete(tempDir, true);
+            });
+        }
+        Directory.CreateDirectory(tempDir);
+
         foreach (var artifact in artifacts)
         {
             var name = artifact.GetProperty("name").GetString();
-            if (name != null && name.StartsWith("LLM Artifacts", StringComparison.OrdinalIgnoreCase))
+            if (name == null || name.StartsWith("LLM Artifacts", StringComparison.OrdinalIgnoreCase) == false)
             {
-                var downloadUrl = artifact.GetProperty("resource").GetProperty("downloadUrl").GetString();
-                if (string.IsNullOrEmpty(downloadUrl))
-                {
-                    continue;
-                }
-
-                var tempDir = Path.Combine(Path.GetTempPath(), $"{name}_{Guid.NewGuid()}");
-                Directory.CreateDirectory(tempDir);
-
-                logger.LogDebug("Downloading artifact '{artifactName}' to '{tempDir}'", name, tempDir);
-
-                var zipPath = Path.Combine(tempDir, "artifact.zip");
-                using (var zipStream = await httpClient.GetStreamAsync(downloadUrl))
-                using (var fileStream = File.Create(zipPath))
-                {
-                    await zipStream.CopyToAsync(fileStream);
-                }
-
-                await Task.Factory.StartNew(() =>
-                {
-                    System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, tempDir);
-                    File.Delete(zipPath);
-                });
-
-                var files = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories).ToList();
-                result[name] = files;
+                continue;
             }
+
+            var downloadUrl = artifact.GetProperty("resource").GetProperty("downloadUrl").GetString();
+            if (string.IsNullOrEmpty(downloadUrl))
+            {
+                continue;
+            }
+
+            logger.LogDebug("Downloading artifact '{artifactName}' to '{tempDir}'", name, tempDir);
+
+            var zipPath = Path.Combine(tempDir, "artifact.zip");
+
+            using (var zipStream = await httpClient.GetStreamAsync(downloadUrl))
+            using (var fileStream = File.Create(zipPath))
+            {
+                await zipStream.CopyToAsync(fileStream);
+            }
+
+            await Task.Factory.StartNew(() =>
+            {
+                System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, tempDir);
+                File.Delete(zipPath);
+            });
+
+            var files = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories).ToList();
+            var newFiles = files.Where(f => !seenFiles.Contains(f)).ToList();
+            seenFiles.UnionWith(newFiles);
+
+            var testPlatform = name["LLM Artifacts - ".Length..];
+            result[testPlatform] = newFiles;
         }
+
         return result;
     }
 
