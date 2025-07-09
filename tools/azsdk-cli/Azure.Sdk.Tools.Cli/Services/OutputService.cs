@@ -42,7 +42,7 @@ public class OutputService : IOutputService
 
         if (response is System.Collections.IEnumerable enumerable && response is not string)
         {
-            var separator = "--------------------------------------------------------------------------------";
+            var separator = "--------------------------------------------------------------------------------" + Environment.NewLine;
             if (elementType == null
                 || elementType.IsPrimitive || elementType == typeof(decimal) || elementType == typeof(string))
             {
