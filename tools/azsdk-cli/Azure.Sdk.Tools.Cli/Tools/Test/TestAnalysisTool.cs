@@ -16,7 +16,7 @@ namespace Azure.Sdk.Tools.Cli.Tools;
 public class TestAnalysisTool : MCPTool
 {
     private readonly IOutputService output;
-    private readonly ILogger<AnalyzePipelinesTool> logger;
+    private readonly ILogger<PipelineAnalysisTool> logger;
 
     // Options
     private readonly Option<string> trxPathOpt = new(["--trx-file"], "Path to the TRX file for failed test runs") { IsRequired = true };
@@ -28,7 +28,7 @@ public class TestAnalysisTool : MCPTool
         IAzureAgentServiceFactory azureAgentServiceFactory,
         ILogAnalysisHelper logAnalysisHelper,
         IOutputService output,
-        ILogger<AnalyzePipelinesTool> logger
+        ILogger<PipelineAnalysisTool> logger
     ) : base()
     {
         this.output = output;

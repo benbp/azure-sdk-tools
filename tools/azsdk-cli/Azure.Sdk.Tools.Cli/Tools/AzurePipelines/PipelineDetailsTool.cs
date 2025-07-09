@@ -8,6 +8,7 @@ using System.Text.Json;
 using Azure.Core;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Contract;
+using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.OAuth;
@@ -63,7 +64,7 @@ public class PipelineDetailsTool : MCPTool
         var project = ctx.ParseResult.GetValueForOption(projectOpt);
 
         logger.LogInformation("Getting pipeline run {buildId}...", buildId);
-        var result = await GetPipelineRun(project, buildId);
+        var result = await GetPipelineRun(buildId, project);
         ctx.ExitCode = ExitCode;
         output.Output(result);
     }
@@ -81,24 +82,36 @@ public class PipelineDetailsTool : MCPTool
         buildClient = connection.GetClient<BuildHttpClient>();
     }
 
-    [McpServerTool, Description("Gets details for a pipeline run")]
-    public async Task<Build> GetPipelineRun(string? project, int buildId)
+    [McpServerTool, Description("Gets details for a pipeline run. Do not specify project unless asked")]
+    public async Task<DefaultCommandResponse> GetPipelineRun(int buildId, string? project = null)
     {
         try
         {
-            var _project = project ?? "public";
-            logger.LogDebug("Getting pipeline run for {project} {buildId}", _project, buildId);
-            var build = await buildClient.GetBuildAsync(_project, buildId);
-            return build;
+            if (string.IsNullOrEmpty(project))
+            {
+                logger.LogDebug("Getting pipeline run for {project} {buildId}", project, buildId);
+                var build = await buildClient.GetBuildAsync(project, buildId);
+                return new DefaultCommandResponse { Result = build };
+            }
         }
         catch (Exception ex)
         {
-            if (!string.IsNullOrEmpty(project))
+            logger.LogError(ex, "Failed to get build {buildId} in project {project}", buildId, project);
+            return new DefaultCommandResponse
             {
-                throw new Exception($"Failed to find build {buildId} in project 'public': {ex.Message}");
-            }
-            // If project is not specified, try both azure sdk public and internal devops projects
-            return await GetPipelineRun("internal", buildId);
+                ResponseError = $"Failed to get build {buildId} in project {project}: {ex.Message}"
+            };
+        }
+
+        try
+        {
+            var build = await buildClient.GetBuildAsync("public", buildId);
+            return new DefaultCommandResponse { Result = build };
+        }
+        catch (Exception)
+        {
+            var build = await buildClient.GetBuildAsync("internal", buildId);
+            return new DefaultCommandResponse { Result = build };
         }
     }
 }
