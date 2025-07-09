@@ -41,7 +41,7 @@ public class FailedTestRunResponse : Response
         {
             output += $"URI: {Uri}{Environment.NewLine}";
         }
-        output += $"### Stack Trace{Environment.NewLine}{StackTrace}{Environment.NewLine}";
+        output += $"{Environment.NewLine}### Stack Trace{Environment.NewLine}{StackTrace}{Environment.NewLine}";
         output += $"### Error Message{Environment.NewLine}{ErrorMessage}{Environment.NewLine}";
 
         return ToString(output);

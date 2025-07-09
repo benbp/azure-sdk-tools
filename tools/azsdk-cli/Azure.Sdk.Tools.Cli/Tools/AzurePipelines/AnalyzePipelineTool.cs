@@ -249,89 +249,12 @@ public class PipelineAnalysisTool : MCPTool
         }
     }
 
-    private async Task<List<FailedTestRunResponse>> getFailedTestResultsHttp(string project, int buildId, CancellationToken ct = default)
-    {
-        var testRunUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs?buildIds={buildId}&api-version=7.1";
-        logger.LogDebug("Getting test runs from {url}", testRunUrl);
-        var response = await httpClient.GetAsync(testRunUrl, ct);
-        response.EnsureSuccessStatusCode();
-
-        var json = await response.Content.ReadAsStringAsync(ct);
-        JsonDocument doc;
-        try
-        {
-            doc = JsonDocument.Parse(json);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("BBP error {ex}", ex);
-            logger.LogError("{json}", json);
-            throw;
-        }
-        var runs = doc.RootElement.GetProperty("value").EnumerateArray().ToList();
-        var failedTestRuns = new List<FailedTestRunResponse>();
-
-        foreach (var run in runs)
-        {
-            var runId = run.GetProperty("id").GetInt32();
-            var resultsUrl = $"https://dev.azure.com/azure-sdk/{project}/_apis/test/Runs/{runId}/results?outcomes=Failed,Aborted&api-version=7.1";
-            logger.LogDebug("Getting test run run results from {url}", resultsUrl);
-            var resultsResponse = await httpClient.GetAsync(resultsUrl, ct);
-            resultsResponse.EnsureSuccessStatusCode();
-
-            var resultsJson = await resultsResponse.Content.ReadAsStringAsync(ct);
-
-            while (true)
-            {
-                using var resultsDoc = JsonDocument.Parse(resultsJson);
-
-                foreach (var result in resultsDoc.RootElement.GetProperty("value").EnumerateArray())
-                {
-                    if (!result.TryGetProperty("outcome", out var outcomeProp) || outcomeProp.GetString() != "Failed" || outcomeProp.GetString() != "Aborted")
-                    {
-                        continue;
-                    }
-
-                    failedTestRuns.Add(new FailedTestRunResponse
-                    {
-                        RunId = runId,
-                        TestCaseTitle = result.GetProperty("testCaseTitle").GetString() ?? "",
-                        ErrorMessage = result.GetProperty("errorMessage").GetString() ?? "",
-                        StackTrace = result.GetProperty("stackTrace").GetString() ?? "",
-                        Outcome = result.GetProperty("outcome").GetString() ?? "",
-                        Uri = result.GetProperty("url").GetString() ?? ""
-                    });
-                }
-
-                var continuationToken = resultsResponse.Headers.TryGetValues("x-ms-continuationtoken", out var values) ? values.FirstOrDefault() : null;
-                if (string.IsNullOrEmpty(continuationToken))
-                {
-                    break;
-                }
-
-                var pagedResultsUrl = $"{resultsUrl}&continuationToken={continuationToken}";
-                resultsResponse = await httpClient.GetAsync(pagedResultsUrl, ct);
-                resultsResponse.EnsureSuccessStatusCode();
-                resultsJson = await resultsResponse.Content.ReadAsStringAsync(ct);
-            }
-        }
-
-        return failedTestRuns;
-    }
-
     public async Task<List<FailedTestRunResponse>> GetPipelineFailedTestResults(string project, int buildId, CancellationToken ct = default)
     {
         try
         {
             logger.LogDebug("Getting pipeline failed test results for {project} {buildId}", project, buildId);
             var results = new List<ShallowTestCaseResult>();
-
-            // Try an unauthenticated request which supports all client scenarios (AI agents, external contributors, etc.)
-            // The devops sdk doesn't seem to support unauthenticated requests
-            if (project == PUBLIC_PROJECT)
-            {
-                return await getFailedTestResultsHttp(project, buildId, ct);
-            }
 
             var testRuns = await testClient.GetTestResultsByPipelineAsync(project, buildId, cancellationToken: ct);
             results.AddRange(testRuns);

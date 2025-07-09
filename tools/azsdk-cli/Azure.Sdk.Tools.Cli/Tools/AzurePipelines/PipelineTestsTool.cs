@@ -157,7 +157,7 @@ public class PipelineTestsTool : MCPTool
     }
 
     [McpServerTool, Description("Downloads artifacts intended for LLM analysis from a pipeline run")]
-    public async Task<DefaultCommandResponse> GetPipelineLlmArtifacts(int buildId)
+    public async Task<ObjectCommandResponse> GetPipelineLlmArtifacts(int buildId)
     {
         string project = "";
         try
@@ -176,13 +176,13 @@ public class PipelineTestsTool : MCPTool
                 result = await GetLlmArtifactsAuthenticated(project, buildId);
             }
 
-            return new DefaultCommandResponse { Result = result };
+            return new ObjectCommandResponse { Result = result };
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get pipeline artifacts for build {buildId} in project {project}", buildId, project);
             SetFailure();
-            return new DefaultCommandResponse
+            return new ObjectCommandResponse
             {
                 ResponseError = $"Failed to get pipeline artifacts for build {buildId} in project {project}",
             };
@@ -191,7 +191,7 @@ public class PipelineTestsTool : MCPTool
 
     private async Task<Build> GetPipelineRun(int buildId, string? project = null)
     {
-        if (string.IsNullOrEmpty(project))
+        if (!string.IsNullOrEmpty(project))
         {
             return await buildClient.GetBuildAsync(project, buildId);
         }
