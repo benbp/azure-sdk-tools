@@ -66,7 +66,6 @@ public class PipelineAnalysisTool : MCPTool
     private readonly Option<bool> analyzeWithAgentOpt = new(["--agent", "-a"], () => false, "Analyze logs with RAG via upstream ai agent");
     private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
-    private readonly Option<bool> testLatestCodeOpt = new(["--test-latest-code"], "Debug tool to see if my changes apply");
 
     public PipelineAnalysisTool(
         IAzureService azureService,
@@ -95,7 +94,7 @@ public class PipelineAnalysisTool : MCPTool
     public override Command GetCommand()
     {
         var analyzePipelineCommand = new Command("analyze", "Analyze a pipeline run") {
-            buildIdArg, projectOpt, logIdOpt, analyzeWithAgentOpt, projectEndpointOpt, aiModelOpt, testLatestCodeOpt
+            buildIdArg, projectOpt, logIdOpt, analyzeWithAgentOpt, projectEndpointOpt, aiModelOpt
         };
         analyzePipelineCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
 
