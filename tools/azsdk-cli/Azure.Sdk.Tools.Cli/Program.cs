@@ -22,8 +22,8 @@ public class Program
         return await parsedCommands.InvokeAsync(args);
     }
 
-    // todo: make this honor subcommands of `start` and the like, instead of simply looking presence of `start` verb
-    public static bool IsCLI(string[] args) => !args.Select(x => x.Trim().ToLowerInvariant()).Any(x => x == "start");
+    // todo: make this honor subcommands of `mcp` and the like, instead of simply looking presence of `mcp` verb
+    public static bool IsCLI(string[] args) => !args.Select(x => x.Trim().ToLowerInvariant()).Any(x => x == "mcp");
 
     public static WebApplication ServerApp;
 

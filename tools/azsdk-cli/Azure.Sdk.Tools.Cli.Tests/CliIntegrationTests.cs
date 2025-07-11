@@ -51,7 +51,7 @@ internal class CliIntegrationTests
 
         var expected = @"
 Message: RESPONDING TO 'HI. MY NAME IS' with SUCCESS: 0
-Result: nul
+Result: null
 Duration: 1ms".TrimStart();
 
         outputServiceMock

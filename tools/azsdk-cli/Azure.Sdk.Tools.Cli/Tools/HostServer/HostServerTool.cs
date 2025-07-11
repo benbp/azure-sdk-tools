@@ -19,7 +19,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
 
         public override Command GetCommand()
         {
-            Command command = new Command("start");
+            Command command = new Command("mcp", "Run in MCP (model context protocol) server mode");
 
             command.SetHandler(async ctx =>
             {
