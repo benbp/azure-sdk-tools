@@ -1,3 +1,7 @@
+# Tool Exception Handling Analyzer (MCP001)
+
+# Tool Service Registration Analyzer (MCP002)
+
 # Tool Return Type Analyzer (MCP003)
 
 ## Overview

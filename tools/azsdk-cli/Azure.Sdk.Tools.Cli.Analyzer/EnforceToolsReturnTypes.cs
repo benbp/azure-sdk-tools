@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -11,7 +12,7 @@ namespace Azure.Sdk.Tools.Cli.Analyzer
     public class EnforceToolsReturnTypesAnalyzer : DiagnosticAnalyzer
     {
         public const string Id = "MCP003";
-        private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
+        public static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
             Id,
             "Tool methods must return Response types, built-in value types, or string",
             "Method '{0}' in Tools namespace must return a class implementing Response, a built-in value type, or string. Current return type: '{1}'.",
@@ -70,10 +71,9 @@ namespace Azure.Sdk.Tools.Cli.Analyzer
                 return;
             }
 
-            // Get the return type
             var returnType = methodSymbol.ReturnType;
 
-            // Handle Task<T> and ValueTask<T> - get the inner type
+            // Handle Task<T> - get the inner type
             if (IsTaskType(returnType, out var innerType))
             {
                 returnType = innerType;
@@ -113,9 +113,32 @@ namespace Azure.Sdk.Tools.Cli.Analyzer
             return false;
         }
 
+        private static bool IsPrimitiveOrString(ITypeSymbol returnType)
+        {
+            switch (returnType.SpecialType)
+            {
+                case SpecialType.System_String:
+                case SpecialType.System_Boolean:
+                case SpecialType.System_Byte:
+                case SpecialType.System_Char:  // NOTE: this seems to be matching against 'string' for some reason
+                case SpecialType.System_Double:
+                case SpecialType.System_Int16:
+                case SpecialType.System_Int32:
+                case SpecialType.System_Int64:
+                case SpecialType.System_SByte:
+                case SpecialType.System_Single:
+                case SpecialType.System_UInt16:
+                case SpecialType.System_UInt32:
+                case SpecialType.System_UInt64:
+                    return true;
+            }
+
+            return false;
+        }
+
         private static bool IsValidReturnType(ITypeSymbol returnType, Compilation compilation)
         {
-            if (returnType.GetType().IsPrimitive || returnType.GetType() == typeof(string))
+            if (IsPrimitiveOrString(returnType))
             {
                 return true;
             }
@@ -176,7 +199,6 @@ namespace Azure.Sdk.Tools.Cli.Analyzer
 
         private static bool IsEnumerableOfAllowedType(ITypeSymbol returnType, Compilation compilation)
         {
-            
             var ienumerableInterface = returnType.AllInterfaces.FirstOrDefault(
                                             i => i.IsGenericType &&
                                             i.ConstructedFrom?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>");
@@ -185,7 +207,7 @@ namespace Azure.Sdk.Tools.Cli.Analyzer
             {
                 var elementType = ienumerableInterface.TypeArguments[0];
 
-                if (elementType.GetType().IsPrimitive || elementType.GetType() == typeof(string))
+                if (IsPrimitiveOrString(elementType))
                 {
                     return true;
                 }
