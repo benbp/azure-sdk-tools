@@ -14,7 +14,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
         private IGitHubService gitHubService;
         private ITypeSpecHelper typeSpecHelper;
         private IUserHelper userHelper;
-        private IOutputService outputService;
+        private IOutputHelper outputService;
         private ReleasePlanTool releasePlanTool;
 
         [SetUp]
@@ -33,8 +33,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
             userHelperMock.Setup(x => x.GetUserEmail()).ReturnsAsync("test@example.com");
             userHelper = userHelperMock.Object;
 
-            var outputServiceMock = new Mock<IOutputService>();
-            outputServiceMock.Setup(x => x.Format(It.IsAny<object>())).Returns<object>(obj  => obj?.ToString() ?? "");
+            var outputServiceMock = new Mock<IOutputHelper>();
+            outputServiceMock.Setup(x => x.Format(It.IsAny<object>())).Returns<object>(obj => obj?.ToString() ?? "");
             outputService = outputServiceMock.Object;
 
             releasePlanTool = new ReleasePlanTool(

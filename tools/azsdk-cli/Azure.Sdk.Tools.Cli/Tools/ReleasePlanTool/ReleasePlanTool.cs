@@ -17,7 +17,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
 {
     [Description("Release Plan Tool type that contains tools to connect to Azure DevOps to get release plan work item")]
     [McpServerToolType]
-    public partial class ReleasePlanTool(IDevOpsService devOpsService, ITypeSpecHelper typeSpecHelper, ILogger<ReleasePlanTool> logger, IOutputService output, IUserHelper userHelper, IGitHubService githubService) : MCPTool
+    public partial class ReleasePlanTool(IDevOpsService devOpsService, ITypeSpecHelper typeSpecHelper, ILogger<ReleasePlanTool> logger, IOutputHelper output, IUserHelper userHelper, IGitHubService githubService) : MCPTool
     {
         //Namespace approval repo details
         private const string namespaceApprovalRepoName = "azure-sdk";
@@ -205,7 +205,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
                 await ValidateCreateReleasePlanInputAsync(typeSpecProjectPath, serviceTreeId, productTreeId, specPullRequestUrl, sdkReleaseType);
 
                 var specType = typeSpecHelper.IsValidTypeSpecProjectPath(typeSpecProjectPath) ? "TypeSpec" : "OpenAPI";
-                var isMgmt = typeSpecHelper.IsTypeSpecProjectForMgmtPlane(typeSpecProjectPath); 
+                var isMgmt = typeSpecHelper.IsTypeSpecProjectForMgmtPlane(typeSpecProjectPath);
 
                 logger.LogInformation("Attempting to retrieve current user email.");
 
@@ -339,7 +339,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
                 // Get issue number from the match
                 var issueNumber = int.Parse(match.Groups[1].Value);
                 var issue = await githubService.GetIssueAsync(namespaceApprovalRepoOwner, namespaceApprovalRepoName, issueNumber);
-                if(issue == null)
+                if (issue == null)
                 {
                     return $"Failed to verify approval status. Namespace approval issue #{namespaceApprovalIssue} not found in {namespaceApprovalRepoOwner}/{namespaceApprovalRepoName}.";
                 }
@@ -351,7 +351,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
                 }
 
                 // Verify if issue is closed
-                StringBuilder response = new ();
+                StringBuilder response = new();
                 if (issue.State == ItemState.Open)
                 {
                     response.Append($"Namespace approval is still pending. Please check {issue.HtmlUrl} for more details.");

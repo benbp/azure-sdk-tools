@@ -6,10 +6,10 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Azure.AI.OpenAI;
+using OpenAI.Chat;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Contract;
-using Azure.Sdk.Tools.Cli.Services;
-using OpenAI.Chat;
+using Azure.Sdk.Tools.Cli.Helpers;
 
 namespace Azure.Sdk.Tools.Cli.Tools
 {
@@ -18,7 +18,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
     public partial class ReadMeGeneratorTool : MCPTool
     {
         private readonly ILogger<ReadMeGeneratorTool> logger;
-        private readonly IOutputService output;
+        private readonly IOutputHelper output;
         private readonly AzureOpenAIClient openAiClient;
 
         private Option<string> packagePathOption = new(
@@ -56,7 +56,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
             IsRequired = true,
         };
 
-        public ReadMeGeneratorTool(ILogger<ReadMeGeneratorTool> logger, IOutputService output, AzureOpenAIClient openAiClient)
+        public ReadMeGeneratorTool(ILogger<ReadMeGeneratorTool> logger, IOutputHelper output, AzureOpenAIClient openAiClient)
         {
             this.logger = logger;
             this.output = output;
@@ -135,7 +135,7 @@ namespace Azure.Sdk.Tools.Cli.Tools
         /// <param name="repoPath">The root path of the repository containing the package.</param>
         /// <param name="ct">Cancellation token for the operation.</param>
         /// <returns>
-        /// True if a valid README was generated and passed validation checks; 
+        /// True if a valid README was generated and passed validation checks;
         /// false if the README did not pass validation (e.g., due to dead or invalid links).
         /// </returns>
         /// <returns>true if a valid readme was generated, false is the readme did not pass validation checks. For instance, dead/invalid links.</returns>

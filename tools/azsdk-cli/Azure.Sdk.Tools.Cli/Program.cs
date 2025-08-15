@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
 using Azure.Sdk.Tools.Cli.Commands;
+using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 
@@ -46,6 +47,14 @@ public class Program
             consoleLogOptions.LogToStandardErrorThreshold = logErrorThreshold;
         });
 
+        var outputMode = !isCLI ? OutputModes.Mcp : outputFormat switch
+        {
+            "plain" => OutputModes.Plain,
+            "json" => OutputModes.Json,
+            _ => throw new ArgumentException($"Invalid output format '{outputFormat}'. Supported formats are: plain, json")
+        };
+        builder.Services.AddSingleton<IOutputHelper>(new OutputHelper(outputMode));
+
         // register common services
         ServiceRegistrations.RegisterCommonServices(builder.Services);
 
@@ -58,23 +67,6 @@ public class Program
             l.SetMinimumLevel(logLevel);
         });
 
-        if (!isCLI)
-        {
-            builder.Services.AddSingleton<IOutputService>(new OutputService(OutputModes.Mcp));
-        }
-        else if (outputFormat == "plain")
-        {
-            builder.Services.AddSingleton<IOutputService>(new OutputService(OutputModes.Plain));
-        }
-        else if (outputFormat == "json")
-        {
-            builder.Services.AddSingleton<IOutputService>(new OutputService(OutputModes.Json));
-        }
-        else
-        {
-            throw new ArgumentException($"Invalid output format '{outputFormat}'. Supported formats are: plain, json");
-        }
-
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Listen(System.Net.IPAddress.Loopback, 0); // 0 = dynamic port
@@ -84,8 +76,8 @@ public class Program
 
         builder.Services
             .AddMcpServer()
-                    .WithStdioServerTransport()
-                    .WithTools(toolTypes);
+            .WithStdioServerTransport()
+            .WithTools(toolTypes);
 
         return builder;
     }
