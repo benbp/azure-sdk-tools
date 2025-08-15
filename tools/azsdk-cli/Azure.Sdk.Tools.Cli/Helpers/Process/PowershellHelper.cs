@@ -4,75 +4,60 @@ namespace Azure.Sdk.Tools.Cli.Helpers
 {
     public interface IPowershellHelper
     {
-        public Task<ProcessResult> Run(List<string> args, string workingDirectory, CancellationToken ct);
-        public IPowershellCommand CreateCommand();
-        public IPowershellCommand CreateCommand(string scriptPath);
+        public Task<ProcessResult> RunInline(List<string> args, string workingDirectory, CancellationToken ct);
+        public Task<ProcessResult> RunScript(string scriptPath, List<string> args, string workingDirectory, CancellationToken ct);
+        public Task<ProcessResult> Run(PowershellCommandOptions options, CancellationToken ct);
+        public PowershellCommandOptions CreateCommandOptions(string? scriptPath = null, string cwd = default);
     }
 
-    public interface IPowershellCommand
+    public sealed class PowershellCommandOptions
     {
-        string? ScriptPath { get; set; }
-        string Cwd { get; set; }
-        IPowershellCommand AddArgs(params string[] args);
-        IPowershellCommand AddArgs(IEnumerable<string> args);
-        Task<ProcessResult> Run(CancellationToken ct);
-    }
-
-    public class PowershellCommand : IPowershellCommand
-    {
-        private readonly IPowershellHelper powershellHelper;
-        private readonly List<string> args = [];
-
         public string? ScriptPath { get; set; }
         public string Cwd { get; set; } = Environment.CurrentDirectory;
+        public List<string> Args { get; } = [];
 
-        internal PowershellCommand(IPowershellHelper powershellHelper)
+        public PowershellCommandOptions AddArgs(params string[] args)
         {
-            this.powershellHelper = powershellHelper;
-        }
-
-        public IPowershellCommand AddArgs(params string[] args)
-        {
-            this.args.AddRange(args);
+            this.Args.AddRange(args);
             return this;
         }
 
-        public IPowershellCommand AddArgs(IEnumerable<string> args)
+        public PowershellCommandOptions AddArgs(IEnumerable<string> args)
         {
-            this.args.AddRange(args);
+            this.Args.AddRange(args);
             return this;
-        }
-
-        public async Task<ProcessResult> Run(CancellationToken ct)
-        {
-            var finalArgs = new List<string>();
-
-            if (!string.IsNullOrEmpty(ScriptPath))
-            {
-                finalArgs.Add($"-File {ScriptPath}");
-            }
-
-            finalArgs.AddRange(args);
-
-            return await powershellHelper.Run(finalArgs, Cwd, ct);
         }
     }
 
     public class PowershellHelper(IProcessHelper processHelper) : IPowershellHelper
     {
-        public async Task<ProcessResult> Run(List<string> args, string workingDirectory, CancellationToken ct)
+        public async Task<ProcessResult> RunInline(List<string> args, string workingDirectory, CancellationToken ct)
         {
-            return await processHelper.RunProcess("pwsh", [.. args], workingDirectory, ct);
+            return await processHelper.RunProcess("pwsh", ["-Command", .. args], workingDirectory, ct);
         }
 
-        public IPowershellCommand CreateCommand()
+        public async Task<ProcessResult> RunScript(string scriptPath, List<string> args, string workingDirectory, CancellationToken ct)
         {
-            return new PowershellCommand(this);
+            return await processHelper.RunProcess("pwsh", ["-File", scriptPath, .. args], workingDirectory, ct);
         }
 
-        public IPowershellCommand CreateCommand(string scriptPath)
+        public async Task<ProcessResult> Run(PowershellCommandOptions options, CancellationToken ct)
         {
-            return new PowershellCommand(this) { ScriptPath = scriptPath };
+            if (!string.IsNullOrEmpty(options.ScriptPath))
+            {
+                return await RunScript(options.ScriptPath, options.Args, options.Cwd, ct);
+            }
+
+            return await RunInline(options.Args, options.Cwd, ct);
+        }
+
+        public PowershellCommandOptions CreateCommandOptions(string? scriptPath = null, string cwd = default)
+        {
+            return new PowershellCommandOptions
+            {
+                ScriptPath = scriptPath,
+                Cwd = string.IsNullOrEmpty(cwd) ? Environment.CurrentDirectory : cwd
+            };
         }
     }
 }
