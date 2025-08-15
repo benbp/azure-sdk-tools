@@ -414,8 +414,18 @@ public class ExampleTool : MCPTool
         try
         {
             // Create a temporary PowerShell script that echoes a parameter via Write-Host
-            tempFile = Path.Combine(Path.GetTempPath(), $"azsdk_example_{Guid.NewGuid():N}.ps1");
-            var script = "param([string]$Message)\nWrite-Host $Message\n";
+            var script = $"""
+                param([string]$Message)
+                Write-Host "1: $Message"
+                Start-Sleep -Seconds 1
+                Write-Host "2: $Message"
+                Start-Sleep -Seconds 1
+                Write-Error "Test error message, no failure"
+                Start-Sleep -Seconds 1
+                Write-Host "3: $Message"
+            """;
+            var guid = Guid.NewGuid().ToString()[..6];
+            tempFile = Path.Combine(Path.GetTempPath(), $"azsdk_example_{guid}.ps1");
             await File.WriteAllTextAsync(tempFile, script, ct);
 
             var options = new PowershellOptions(tempFile, [message]);
