@@ -25,20 +25,20 @@ public class NpxOptions : ProcessOptions, IProcessOptions
     public NpxOptions(
         string? package,
         string[] args,
-        string? workingDirectory = null,
         bool logOutputStream = true,
+        string? workingDirectory = null,
         TimeSpan? timeout = null
-    ) : this(BuildArgs(package, args), workingDirectory, logOutputStream, timeout)
+    ) : this(BuildArgs(package, args), logOutputStream, workingDirectory, timeout)
     {
         Package = package;
     }
 
     private NpxOptions(
         string[] args,
-        string? workingDirectory,
         bool logOutputStream,
+        string? workingDirectory,
         TimeSpan? timeout
-    ) : base("npx", args, workingDirectory, logOutputStream, timeout) {}
+    ) : base("npx", args, logOutputStream, workingDirectory, timeout) {}
 
     private static string[] BuildArgs(string? package, string[] args)
     {

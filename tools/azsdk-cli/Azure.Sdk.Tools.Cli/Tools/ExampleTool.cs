@@ -62,15 +62,16 @@ public class ExampleTool : MCPTool
     )
     { Arity = ArgumentArity.ExactlyOne };
 
+    private readonly Argument<string> powershellMessageArg = new(
+        name: "message",
+        description: "Message to pass to the PowerShell script via parameter")
+    { Arity = ArgumentArity.ExactlyOne };
+
     private readonly Option<string> tenantOption = new(["--tenant", "-t"], "Tenant ID");
     private readonly Option<string> languageOption = new(["--language", "-l"], "Programming language of the repository");
     private readonly Option<string> promptOption = new(["--prompt", "-p"], "AI prompt text");
     private readonly Option<bool> forceFailureOption = new(["--force-failure", "-f"], () => false, "Force an error for demonstration");
     private readonly Option<bool> verboseOption = new(["--verbose", "-v"], () => false, "Enable verbose logging");
-    private readonly Argument<string> powershellMessageArg = new(
-        name: "message",
-        description: "Message to pass to the PowerShell script via parameter")
-    { Arity = ArgumentArity.ExactlyOne };
 
     public ExampleTool(
         ILogger<ExampleTool> logger,
@@ -79,7 +80,7 @@ public class ExampleTool : MCPTool
         IDevOpsService devOpsService,
         IGitHubService gitHubService,
         IProcessHelper processHelper,
-    IPowershellHelper powershellHelper,
+        IPowershellHelper powershellHelper,
         AzureOpenAIClient openAIClient
     ) : base()
     {
@@ -167,75 +168,6 @@ public class ExampleTool : MCPTool
 
         ctx.ExitCode = ExitCode;
         output.Output(result);
-    }
-
-    [McpServerTool(Name = "example_powershell_helper"), Description("Demonstrates using the PowerShell helper to run a temp script with a parameter")]
-    public async Task<ExampleServiceResponse> DemonstratePowershellHelper(string message, CancellationToken ct = default)
-    {
-        string? tempFile = null;
-        try
-        {
-            // Create a temporary PowerShell script that echoes a parameter via Write-Host
-            tempFile = Path.Combine(Path.GetTempPath(), $"azsdk_example_{Guid.NewGuid():N}.ps1");
-            var script = "param([string]$Message)\nWrite-Host $Message\n";
-            await File.WriteAllTextAsync(tempFile, script, ct);
-
-            // Build options and run
-            var options = powershellHelper.CreateCommandOptions(tempFile);
-            options.AddArgs(message);
-
-            var result = await powershellHelper.Run(options, ct);
-            var output = (result.Output ?? string.Empty).Trim();
-
-            if (result.ExitCode != 0)
-            {
-                SetFailure(result.ExitCode);
-                return new ExampleServiceResponse
-                {
-                    ServiceName = "PowerShell",
-                    Operation = "RunTempScript",
-                    ResponseErrors = [
-                        $"PowerShell script exited with code {result.ExitCode}",
-                        result.Output ?? string.Empty
-                    ]
-                };
-            }
-
-            return new ExampleServiceResponse
-            {
-                ServiceName = "PowerShell",
-                Operation = "RunTempScript",
-                Result = string.IsNullOrEmpty(output) ? "(no output)" : output,
-                Details = new Dictionary<string, string>
-                {
-                    ["script_path"] = tempFile,
-                    ["exit_code"] = result.ExitCode.ToString()
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error demonstrating PowerShell helper with message: {Message}", message);
-            SetFailure();
-            return new ExampleServiceResponse
-            {
-                ResponseError = $"Failed to run PowerShell script: {ex.Message}"
-            };
-        }
-        finally
-        {
-            if (!string.IsNullOrEmpty(tempFile))
-            {
-                try
-                {
-                    if (File.Exists(tempFile))
-                    {
-                        File.Delete(tempFile);
-                    }
-                }
-                catch { /* ignore cleanup errors */ }
-            }
-        }
     }
 
     [McpServerTool(Name = "example_azure_service"), Description("Demonstrates Azure service integration")]
@@ -431,9 +363,13 @@ public class ExampleTool : MCPTool
         try
         {
             // Trigger process timeout or normal sleep depending on whether value > 2
-            var timespan = TimeSpan.FromSeconds(2);
-            var process = processHelper.CreateForCrossPlatform("sleep", [time], "timeout", ["/t", time], Environment.CurrentDirectory);
-            var result = await process.RunProcess(timespan, ct);
+            var options = new ProcessOptions(
+                "sleep", [time],  // Run on unix
+                "timeout", ["/t", time],  // Run on windows
+                logOutputStream: true,
+                timeout: TimeSpan.FromSeconds(2)
+            );
+            var result = await processHelper.Run(options, ct);
             var trimmed = (result.Output ?? string.Empty).Trim();
 
             if (result.ExitCode != 0)
@@ -470,5 +406,72 @@ public class ExampleTool : MCPTool
             };
         }
     }
+
+    [McpServerTool(Name = "example_powershell_helper"), Description("Demonstrates using the PowerShell helper to run a temp script with a parameter")]
+    public async Task<ExampleServiceResponse> DemonstratePowershellHelper(string message, CancellationToken ct = default)
+    {
+        string? tempFile = null;
+        try
+        {
+            // Create a temporary PowerShell script that echoes a parameter via Write-Host
+            tempFile = Path.Combine(Path.GetTempPath(), $"azsdk_example_{Guid.NewGuid():N}.ps1");
+            var script = "param([string]$Message)\nWrite-Host $Message\n";
+            await File.WriteAllTextAsync(tempFile, script, ct);
+
+            var options = new PowershellOptions(tempFile, [message]);
+            var result = await powershellHelper.Run(options, ct);
+            var output = (result.Output ?? string.Empty).Trim();
+
+            if (result.ExitCode != 0)
+            {
+                SetFailure(result.ExitCode);
+                return new ExampleServiceResponse
+                {
+                    ServiceName = "PowerShell",
+                    Operation = "RunTempScript",
+                    ResponseErrors = [
+                        $"PowerShell script exited with code {result.ExitCode}",
+                        result.Output ?? string.Empty
+                    ]
+                };
+            }
+
+            return new ExampleServiceResponse
+            {
+                ServiceName = "PowerShell",
+                Operation = "RunTempScript",
+                Result = string.IsNullOrEmpty(output) ? "(no output)" : output,
+                Details = new Dictionary<string, string>
+                {
+                    ["script_path"] = tempFile,
+                    ["exit_code"] = result.ExitCode.ToString()
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error demonstrating PowerShell helper with message: {Message}", message);
+            SetFailure();
+            return new ExampleServiceResponse
+            {
+                ResponseError = $"Failed to run PowerShell script: {ex.Message}"
+            };
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempFile))
+            {
+                try
+                {
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+                catch { /* ignore cleanup errors */ }
+            }
+        }
+    }
+
 }
 #endif

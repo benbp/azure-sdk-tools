@@ -23,18 +23,18 @@ public class PowershellOptions : ProcessOptions, IProcessOptions
 
     public PowershellOptions(
         string[] args,
-        string? workingDirectory = null,
         bool logOutputStream = true,
+        string? workingDirectory = null,
         TimeSpan? timeout = null
-    ) : base("pwsh", ["-Command", ..args], workingDirectory, logOutputStream, timeout) {}
+    ) : base("pwsh", ["-Command", ..args], logOutputStream, workingDirectory, timeout) {}
 
     public PowershellOptions(
         string scriptPath,
         string[] args,
-        string? workingDirectory = null,
         bool logOutputStream = true,
+        string? workingDirectory = null,
         TimeSpan? timeout = null
-    ) : base("pwsh", ["-File", scriptPath, ..args], workingDirectory, logOutputStream, timeout)
+    ) : base("pwsh", ["-File", scriptPath, ..args], logOutputStream, workingDirectory, timeout)
     {
         ScriptPath = scriptPath;
     }

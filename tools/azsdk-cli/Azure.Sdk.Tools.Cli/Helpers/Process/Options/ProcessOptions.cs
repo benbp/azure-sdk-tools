@@ -41,18 +41,18 @@ public class ProcessOptions : IProcessOptions
     public ProcessOptions(
         string command,
         string[] args,
-        string? workingDirectory = null,
         bool logOutputStream = true,
+        string? workingDirectory = null,
         TimeSpan? timeout = null
-    ) : this(command, args, command, args, workingDirectory, logOutputStream, timeout) { }
+    ) : this(command, args, command, args, logOutputStream, workingDirectory, timeout) { }
 
     public ProcessOptions(
         string unixCommand,
         string[] unixArgs,
         string windowsCommand,
         string[] windowsArgs,
-        string? workingDirectory = null,
         bool logOutputStream = true,
+        string? workingDirectory = null,
         TimeSpan? timeout = null
     )
     {

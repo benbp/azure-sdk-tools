@@ -4,12 +4,7 @@ using System.Diagnostics;
 
 namespace Azure.Sdk.Tools.Cli.Helpers;
 
-public interface IProcessHelper<T> where T : IProcessOptions
-{
-    public Task<ProcessResult> Run(T options, CancellationToken ct);
-}
-
-public abstract class ProcessHelperBase<T, TOptions>(ILogger<T> logger) where T : IProcessHelper<TOptions> where TOptions : IProcessOptions
+public abstract class ProcessHelperBase<T>(ILogger<T> logger)
 {
     /// <summary>
     /// Runs a process with the specified command and arguments in the given working directory.
@@ -20,7 +15,7 @@ public abstract class ProcessHelperBase<T, TOptions>(ILogger<T> logger) where T 
     /// <remarks>
     /// If the process does not complete within the specified timeout, it will be terminated.
     /// </remarks>
-    protected async Task<ProcessResult> Run(TOptions options, CancellationToken ct)
+    protected async Task<ProcessResult> Run(IProcessOptions options, CancellationToken ct)
     {
         using var timeoutCts = new CancellationTokenSource(options.Timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
