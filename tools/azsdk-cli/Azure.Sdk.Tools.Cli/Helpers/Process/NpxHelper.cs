@@ -4,7 +4,7 @@ namespace Azure.Sdk.Tools.Cli.Helpers
 {
     public interface INpxHelper
     {
-        public Task<ProcessResult> RunNpx(List<string> args, string workingDirectory, CancellationToken ct);
+        public Task<ProcessResult> Run(List<string> args, string workingDirectory, CancellationToken ct);
         public INpxCommand CreateCommand();
     }
 
@@ -58,13 +58,13 @@ namespace Azure.Sdk.Tools.Cli.Helpers
 
             finalArgs.AddRange(args);
 
-            return await npxHelper.RunNpx(finalArgs, Cwd, ct);
+            return await npxHelper.Run(finalArgs, Cwd, ct);
         }
     }
 
     public class NpxHelper(IProcessHelper processHelper) : INpxHelper
     {
-        public async Task<ProcessResult> RunNpx(List<string> args, string workingDirectory, CancellationToken ct)
+        public async Task<ProcessResult> Run(List<string> args, string workingDirectory, CancellationToken ct)
         {
             return await processHelper.RunProcess("npx", [.. args], workingDirectory, ct);
         }

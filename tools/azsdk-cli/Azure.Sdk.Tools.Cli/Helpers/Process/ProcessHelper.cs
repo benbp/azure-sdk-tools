@@ -86,7 +86,7 @@ namespace Azure.Sdk.Tools.Cli.Helpers
             var rootCommand = command;
 
             var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-            if (isWindows)
+            if (isWindows && rootCommand != "pwsh" && rootCommand != "powershell")
             {
                 args = ["/C", command, .. args];
                 rootCommand = "cmd.exe";
