@@ -391,8 +391,7 @@ public class ExampleTool : MCPTool
                 Result = trimmed,
                 Details = new Dictionary<string, string>
                 {
-                    ["exit_code"] = result.ExitCode.ToString(),
-                    ["raw_output"] = result.Output ?? string.Empty
+                    ["exit_code"] = result.ExitCode.ToString()
                 }
             };
         }
@@ -482,6 +481,5 @@ public class ExampleTool : MCPTool
             }
         }
     }
-
 }
 #endif
