@@ -162,7 +162,7 @@ public class ExampleTool : MCPTool
             AISubCommand => await DemonstrateAIService(ctx.ParseResult.GetValueForArgument(aiInputArg), ct),
             ErrorSubCommand => await DemonstrateErrorHandling(ctx.ParseResult.GetValueForArgument(errorInputArg), ctx.ParseResult.GetValueForOption(forceFailureOption), ct),
             ProcessSubCommand => await DemonstrateProcessExecution(ctx.ParseResult.GetValueForArgument(processSleepArg), ct),
-            PowershellSubCommand => await DemonstratePowershellHelper(ctx.ParseResult.GetValueForArgument(powershellMessageArg), ct),
+            PowershellSubCommand => await DemonstratePowershellExecution(ctx.ParseResult.GetValueForArgument(powershellMessageArg), ct),
             _ => new ExampleServiceResponse { ResponseError = $"Unknown command: {commandName}" }
         };
 
@@ -406,8 +406,8 @@ public class ExampleTool : MCPTool
         }
     }
 
-    [McpServerTool(Name = "example_powershell_helper"), Description("Demonstrates using the PowerShell helper to run a temp script with a parameter")]
-    public async Task<ExampleServiceResponse> DemonstratePowershellHelper(string message, CancellationToken ct = default)
+    [McpServerTool(Name = "example_powershell_execution"), Description("Demonstrates running a powershell script with a parameter")]
+    public async Task<ExampleServiceResponse> DemonstratePowershellExecution(string message, CancellationToken ct = default)
     {
         string? tempFile = null;
         try
@@ -449,7 +449,7 @@ public class ExampleTool : MCPTool
             {
                 ServiceName = "PowerShell",
                 Operation = "RunTempScript",
-                Result = string.IsNullOrEmpty(output) ? "(no output)" : output,
+                Result = output,
                 Details = new Dictionary<string, string>
                 {
                     ["script_path"] = tempFile,
