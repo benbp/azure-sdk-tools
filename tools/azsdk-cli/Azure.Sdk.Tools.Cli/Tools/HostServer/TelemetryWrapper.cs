@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Configuration;
 using System.Text.Json;
 
-namespace Azure.Sdk.Tools.Cli.Tools;
+namespace Azure.Sdk.Tools.Cli.Tools.HostServer;
 
 public class InstrumentedTool(ILogger logger, McpServerTool innerTool, string toolName) : DelegatingMcpServerTool(innerTool)
 {
