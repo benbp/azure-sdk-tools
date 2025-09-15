@@ -226,20 +226,13 @@ public class ComplexTool(
 
     public override List<Command> GetCommands()
     {
-        // Sub-command 1
-        var scmd1 = new Command(SubCommandName1, "Analyze something");
-        scmd1.AddOption(fooOption);
+        List<Commands> subCommands = [
+            new(SubCommandName1, "Analyze something", { fooOption })
+            new(SubCommandName2, "Process something", { fooOption, barOption })
+        ];
 
-        // Sub-command 2
-        var scmd2 = new Command(SubCommandName2, "Process something");
-        scmd2.AddOption(fooOption, barOption);
-
-        var commands = new List<Command> { scmd1, scmd2 };
-        foreach (var cmd in commands)
-        {
-            cmd.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-        }
-        return commands;
+        SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+        return subCommands;
     }
 
     public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)

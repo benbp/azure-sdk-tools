@@ -20,7 +20,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         IGitHubService githubService
     ) : MCPMultiCommandTool
     {
-        public override CommandGroup[] CommandHierarchy { get; set; } = [ new("github-labels", "GitHub service labels tools") ];
+        public override CommandGroup[] CommandHierarchy { get; set; } = [new("github-labels", "GitHub service labels tools")];
 
         //command names
         private const string checkServiceLabelCommandName = "check-service-label";
@@ -37,7 +37,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
                 new Command(createServiceLabelCommandName, "Creates a PR for a new label given a proposed label and brand documentation.") { serviceLabelOpt, documentationLinkOpt },
             ];
 
-            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
             return subCommands;
         }
 
@@ -165,7 +165,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
                     headBranch: $"add_service_label_{normalizedLabel}",
                     title: $"[Service Label] Add service label: {label}",
                     body: $"This PR adds the service label '{label}' to the repository. Documentation link: {link}",
-                    draft : true
+                    draft: true
                 );
 
                 // Extract the pull request URL from the result

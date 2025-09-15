@@ -68,7 +68,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
                 new(linkSdkPrCommandName, "Link SDK pull request to release plan.") {languageOpt, urlOpt, workItemOptionalIdOpt, releasePlanIdOpt }
             ];
 
-            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
             return subCommands;
         }
 

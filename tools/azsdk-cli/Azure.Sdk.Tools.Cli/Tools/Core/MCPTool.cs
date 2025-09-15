@@ -8,5 +8,10 @@ public abstract class MCPTool : MCPToolBase
 {
     public abstract Command GetCommand();
 
-    public override List<Command> GetCommandInstances() => [GetCommand()];
+    public override List<Command> GetCommandInstances()
+    {
+        var command = GetCommand();
+        command.SetHandler(async ctx => await InstrumentedCommandHandler(command, ctx));
+        return [command];
+    }
 }

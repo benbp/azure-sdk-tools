@@ -44,7 +44,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
                 new(getPullRequestCommandName, "Get pull request details") { pullRequestNumberOpt, repoPathOpt }
             ];
 
-            SetHandlers(subCommands, async ctx => { ctx.ExitCode = await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            SetHandler(subCommands, async ctx => { ctx.ExitCode = await HandleCommand(ctx, ctx.GetCancellationToken()); });
             return subCommands;
         }
 

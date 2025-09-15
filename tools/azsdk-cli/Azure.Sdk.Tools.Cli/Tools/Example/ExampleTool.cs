@@ -19,7 +19,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example;
 [McpServerToolType, Description("Example tool demonstrating various framework features and service integrations")]
 public class ExampleTool(
     ILogger<ExampleTool> logger,
-    IOutputHelper output,
     IAzureService azureService,
     IDevOpsService devOpsService,
     IGitHubService gitHubService,
@@ -87,49 +86,25 @@ public class ExampleTool(
 
     public override List<Command> GetCommands()
     {
-        // Azure service example sub-command
-        var azureCmd = new Command(AzureSubCommand, "Demonstrate Azure service integration");
-        azureCmd.AddOption(tenantOption);
+        List<Command> subCommands = [
+            new(AzureSubCommand, "Demonstrate Azure service integration") { tenantOption },
+            new(DevOpsSubCommand, "Demonstrate DevOps service integration") { packageArgument, languageOption },
+            new(GitHubSubCommand, "Demonstrate GitHub service integration"),
+            new(AISubCommand, "Demonstrate AI service integration") { aiInputArg },
+            new(ErrorSubCommand, "Demonstrate error handling patterns") { errorInputArg, forceFailureOption },
+            new(ProcessSubCommand, "Demonstrate spawning an external process (echo)") { processSleepArg },
+            new(PowershellSubCommand, "Demonstrate PowerShell helper running a temp script with a parameter") { powershellMessageArg },
+            new(MicroagentSubCommand, "Demonstrate micro-agent looping tool calls to compute Fibonacci") { fibonacciIndexOption }
+        ];
 
-        // DevOps service example sub-command
-        var devopsCmd = new Command(DevOpsSubCommand, "Demonstrate DevOps service integration");
-        devopsCmd.AddArgument(packageArgument);
-        devopsCmd.AddOption(languageOption);
-
-        // GitHub service example sub-command
-        var githubCmd = new Command(GitHubSubCommand, "Demonstrate GitHub service integration");
-
-        // AI service example sub-command
-        var aiCmd = new Command(AISubCommand, "Demonstrate AI service integration");
-        aiCmd.AddArgument(aiInputArg);
-
-        // Error handling example sub-command
-        var errorCmd = new Command(ErrorSubCommand, "Demonstrate error handling patterns");
-        errorCmd.AddArgument(errorInputArg);
-        errorCmd.AddOption(forceFailureOption);
-
-        // Process execution example sub-command
-        var processCmd = new Command(ProcessSubCommand, "Demonstrate spawning an external process (echo)");
-        processCmd.AddArgument(processSleepArg);
-
-        // PowerShell helper example sub-command
-        var powershellCmd = new Command(PowershellSubCommand, "Demonstrate PowerShell helper running a temp script with a parameter");
-        powershellCmd.AddArgument(powershellMessageArg);
-
-        // Microagent Fibonacci demo sub-command
-        var microagentCmd = new Command(MicroagentSubCommand, "Demonstrate micro-agent looping tool calls to compute Fibonacci");
-        microagentCmd.AddOption(fibonacciIndexOption);
-
-        var subCommands = new List<Command> { azureCmd, devopsCmd, githubCmd, aiCmd, errorCmd, processCmd, powershellCmd, microagentCmd };
-        SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
         return subCommands;
     }
 
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<Models.Response> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var commandName = ctx.ParseResult.CommandResult.Command.Name;
 
-        object result = commandName switch
+        Models.Response result = commandName switch
         {
             AzureSubCommand => await DemonstrateAzureService(ctx.ParseResult.GetValueForOption(tenantOption), ct),
             DevOpsSubCommand => await DemonstrateDevOpsService(ctx.ParseResult.GetValueForArgument(packageArgument), ctx.ParseResult.GetValueForOption(languageOption), ct),
@@ -142,8 +117,7 @@ public class ExampleTool(
             _ => new ExampleServiceResponse { ResponseError = $"Unknown command: {commandName}" }
         };
 
-        ctx.ExitCode = ExitCode;
-        output.Output(result);
+        return result;
     }
 
     [McpServerTool(Name = "azsdk_example_azure_service"), Description("Demonstrates Azure service integration")]

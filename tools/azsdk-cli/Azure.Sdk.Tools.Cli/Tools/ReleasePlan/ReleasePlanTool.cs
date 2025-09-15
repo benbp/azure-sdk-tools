@@ -75,7 +75,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
                 new(linkNamespaceApprovalIssueCommandName, "Link namespace approval issue to release plan") { workItemIdOpt, namespaceApprovalIssueOpt }
             ];
 
-            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
             return subCommands;
         }
 

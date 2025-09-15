@@ -15,11 +15,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
     // Will add after we decide which tools are exported via the MCP.
     //[McpServerToolType, Description("Generates a README file, using service documentation")]
-    public class ReadMeGeneratorTool : MCPTool
+    public class ReadMeGeneratorTool(
+        ILogger<ReadMeGeneratorTool> logger,
+        IOutputHelper output,
+        IMicroagentHostService microAgentHostService
+    ) : MCPTool
     {
-        private readonly ILogger<ReadMeGeneratorTool> logger;
-        private readonly IOutputHelper output;
-        private readonly IMicroagentHostService microAgentHostService;
+        public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.Generators];
 
         private readonly Option<string> packagePathOption = new(
             name: "--package-path",
@@ -55,15 +57,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         {
             IsRequired = true,
         };
-
-        public ReadMeGeneratorTool(ILogger<ReadMeGeneratorTool> logger, IOutputHelper output, IMicroagentHostService microAgentHostService)
-        {
-            this.CommandHierarchy = [SharedCommandGroups.Generators];
-
-            this.logger = logger;
-            this.output = output;
-            this.microAgentHostService = microAgentHostService;
-        }
 
         public override Command GetCommand()
         {
@@ -167,11 +160,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
             var prompt = $"""
                 We're going to create some READMEs.
-                    
+
                 The parameters are:
                 * A URL that contains service documentation, to be used when creating key concepts, an introduction blurb and any other places where conceptual docs are needed
                 * A package path that we can use to generate documentation links
-                    
+
                 Here are some more rules to follow:
                 - Do not touch the following sections, or its subsections: Contributing.
                 - Do not generate sample code.

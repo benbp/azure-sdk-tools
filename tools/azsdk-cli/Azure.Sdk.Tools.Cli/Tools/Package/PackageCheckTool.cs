@@ -18,19 +18,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
     /// </summary>
     [Description("Run validation checks for SDK packages")]
     [McpServerToolType]
-    public class PackageCheckTool : MCPTool
+    public class PackageCheckTool(
+        ILogger<PackageCheckTool> logger,
+        IOutputHelper output,
+        ILanguageChecks languageChecks
+    ) : MCPTool
     {
-        private readonly ILogger<PackageCheckTool> logger;
-        private readonly IOutputHelper output;
-        private readonly ILanguageChecks languageChecks;
-
-        public PackageCheckTool(ILogger<PackageCheckTool> logger, IOutputHelper output, ILanguageChecks languageChecks) : base()
-        {
-            this.logger = logger;
-            this.output = output;
-            this.languageChecks = languageChecks;
-            CommandHierarchy = [SharedCommandGroups.Package];
-        }
+        public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.Package];
 
         public override Command GetCommand()
         {
@@ -190,7 +184,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
             var message = overallSuccess ? "All checks completed successfully" : "Some checks failed";
             var combinedOutput = string.Join("\n", results.Select(r => r.CheckStatusDetails));
-            
+
             // Generate comprehensive next steps for all checks
             var nextSteps = new List<string>();
             if (overallSuccess)
@@ -203,7 +197,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                 nextSteps.Add($"The following checks failed: {string.Join(", ", failedChecks)}");
                 nextSteps.Add("Address the issues identified above before proceeding with package release.");
                 nextSteps.Add("Re-run the package checks after making corrections to verify all issues are resolved.");
-                
+
                 // Add specific guidance from individual check failures
                 foreach (var result in results.Where(r => r.ExitCode != 0 && r.NextSteps?.Any() == true))
                 {
@@ -250,7 +244,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             logger.LogInformation("Running dependency check");
 
             var result = await languageChecks.AnalyzeDependenciesAsync(packagePath, ct);
-            
+
             if (result.ExitCode != 0)
             {
                 result.NextSteps = new List<string>
@@ -268,7 +262,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                     "Dependency check passed - all dependencies are properly configured"
                 };
             }
-            
+
             return result;
         }
 
@@ -277,7 +271,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             logger.LogInformation("Running README validation");
 
             var result = await languageChecks.ValidateReadmeAsync(packagePath, ct);
-            
+
             if (result.ExitCode != 0)
             {
                 result.NextSteps = new List<string>
@@ -295,7 +289,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                     "README validation passed - documentation is properly formatted"
                 };
             }
-            
+
             return result;
         }
 
@@ -304,7 +298,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             logger.LogInformation("Running spelling validation");
 
             var result = await languageChecks.CheckSpellingAsync(packagePath, ct);
-            
+
             if (result.ExitCode != 0)
             {
                 result.NextSteps = new List<string>
@@ -322,7 +316,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                     "Spelling check passed - no spelling errors found"
                 };
             }
-            
+
             return result;
         }
 

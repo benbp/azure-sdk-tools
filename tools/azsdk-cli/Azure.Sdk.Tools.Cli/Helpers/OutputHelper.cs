@@ -33,6 +33,8 @@ public class OutputHelper : IOutputHelper
         WriteIndented = true,
     };
 
+    public List<string> Outputs { get; } = [];
+
     public string Format(object response)
     {
         if (OutputMode != OutputModes.Plain)
@@ -77,6 +79,7 @@ public class OutputHelper : IOutputHelper
 
     public virtual void Output(string output)
     {
+        Outputs.Add(output);
         Console.WriteLine(output);
     }
 
@@ -87,6 +90,7 @@ public class OutputHelper : IOutputHelper
 
     public virtual void OutputError(string output)
     {
+        Outputs.Add(output);
         Console.Error.WriteLine(output);
     }
 

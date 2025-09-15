@@ -86,7 +86,7 @@ public class Program
             "json" => OutputModes.Json,
             _ => throw new ArgumentException($"Invalid output format '{outputFormat}'. Supported formats are: plain, json")
         };
-        builder.Services.AddSingleton<IOutputHelper>(new OutputHelper(outputMode));
+        builder.Services.AddScoped<IOutputHelper>(_ => new OutputHelper(outputMode));
 
         // register common services
         ServiceRegistrations.RegisterCommonServices(builder.Services);
