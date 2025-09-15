@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace Azure.Sdk.Tools.Cli.Models;
 
 // Basic helper response class for when object types should always be output as JSON
-public class ObjectCommandResponse : Response
+public class ObjectCommandResponse : CommandResponse
 {
     private static readonly JsonSerializerOptions serializerOptions = new()
     {

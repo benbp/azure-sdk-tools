@@ -6,14 +6,14 @@ using System.Text.RegularExpressions;
 using ModelContextProtocol.Server;
 using Octokit;
 
+using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.CodeownersUtils.Editing;
 using Azure.Sdk.Tools.CodeownersUtils.Parsing;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Models.Responses;
-using Azure.Sdk.Tools.Cli.Commands;
 
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 {
@@ -21,7 +21,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
     [McpServerToolType]
     public class CodeownersTools : MCPMultiCommandTool
     {
-        public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.EngSys];
+        public override CommandGroup[] CommandHierarchy { get; set; } = [
+            SharedCommandGroups.EngSys,
+            new CommandGroup("codeowners", "A tool to validate and modify codeowners.")
+        ];
 
         // Core command options
         private readonly Option<string> repoOption = new(["--repo", "-r"], "The repository name") { IsRequired = true };
@@ -63,7 +66,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 
         public override List<Command> GetCommands()
         {
-            var command = new Command("codeowners", "A tool to validate and modify codeowners.");
             List<Command> subCommands = [
                 new(updateCodeownersCommandName, "Update codeowners in a repository")
                 {
@@ -84,11 +86,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                 }
             ];
 
-            SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
             return subCommands;
         }
 
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
@@ -113,11 +114,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                     sourceOwnersValue?.ToList() ?? new List<string>(),
                     isAddingValue,
                     workingBranchValue ?? "");
-                ctx.ExitCode = ExitCode;
-                output.Output(addResult);
-                return;
+
+                return addResult;
             }
-            else if (command == validateCodeownersEntryCommandName)
+
+            if (command == validateCodeownersEntryCommandName)
             {
                 var validateRepo = commandParser.GetValueForOption(repoOption);
                 var validateServiceLabel = commandParser.GetValueForOption(serviceLabelOption);
@@ -127,20 +128,15 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                     validateRepo ?? "",
                     validateServiceLabel,
                     validateRepoPath);
-                ctx.ExitCode = ExitCode;
-                output.Output(validateResult);
-                return;
+
+                return validateResult;
             }
-            else
-            {
-                SetFailure();
-                output.OutputError($"Unknown command: '{command}'");
-                return;
-            }
+
+            return new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" };
         }
 
         [McpServerTool(Name = "azsdk_engsys_codeowner_update"), Description("Adds or deletes codeowners for a given service label or path in a repo. When isAdding is false, the inputted users will be removed.")]
-        public async Task<string> UpdateCodeowners(
+        public async Task<DefaultCommandResponse> UpdateCodeowners(
             string repo,
             bool isMgmtPlane,
             string path = "",
@@ -231,13 +227,16 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                     identifier, // Identifier for the PR
                     workingBranch);
 
-                return string.Join("\n", resultMessages.Concat(new[] { codeownersValidationResultMessage }));
+                return new DefaultCommandResponse
+                {
+                    Message = string.Join("\n", resultMessages),
+                    Result = codeownersValidationResultMessage
+                };
             }
             catch (Exception ex)
             {
-                SetFailure();
-                logger.LogError($"Error: {ex}");
-                return $"Error: {ex.Message}";
+                logger.LogError(ex, "An error occurred while updating codeowners in repository '{RepoName}'.", repo);
+                return new DefaultCommandResponse { ResponseError = ex.Message };
             }
         }
 
@@ -380,7 +379,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
             }
             catch (Exception ex)
             {
-                SetFailure();
                 response.Message += $"Error processing repository: {ex.Message}";
                 return response;
             }

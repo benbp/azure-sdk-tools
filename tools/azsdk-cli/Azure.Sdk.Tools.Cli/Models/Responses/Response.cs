@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace Azure.Sdk.Tools.Cli.Models;
 
-public class Response
+public class CommandResponse
 {
     private int? exitCode = null;
     public int ExitCode

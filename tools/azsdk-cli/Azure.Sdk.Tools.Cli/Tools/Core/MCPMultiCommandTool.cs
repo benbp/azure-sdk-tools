@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 using System.CommandLine;
 
-namespace Azure.Sdk.Tools.Cli.Tools.Core;
+namespace Azure.Sdk.Tools.Cli.Tools;
 
 public abstract class MCPMultiCommandTool : MCPToolBase
 {

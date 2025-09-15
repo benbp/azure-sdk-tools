@@ -5,10 +5,11 @@ using System.CommandLine.Invocation;
 using System.Diagnostics;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
 
-namespace Azure.Sdk.Tools.Cli.Tools.Core;
+namespace Azure.Sdk.Tools.Cli.Tools;
 
 /// <summary>
 /// This is the base class defining how an MCP enabled tool will interface with the server.
@@ -33,11 +34,6 @@ public abstract class MCPToolBase
     {
         this.telemetryService = telemetryService;
         initialized = true;
-    }
-
-    public void SetFailure(int exitCode = 1)
-    {
-        ExitCode = exitCode;
     }
 
     public async Task InstrumentedCommandHandler(Command command, InvocationContext ctx)
@@ -85,5 +81,5 @@ public abstract class MCPToolBase
 
     public abstract List<Command> GetCommandInstances();
 
-    public abstract Task<Models.Response> HandleCommand(InvocationContext ctx, CancellationToken ct);
+    public abstract Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct);
 }

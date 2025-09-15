@@ -4,13 +4,12 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using Azure.AI.OpenAI;
+using ModelContextProtocol.Server;
+using OpenAI.Chat;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Helpers;
-using ModelContextProtocol.Server;
-using OpenAI.Chat;
 using Azure.Sdk.Tools.Cli.Microagents;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Example;
@@ -100,11 +99,11 @@ public class ExampleTool(
         return subCommands;
     }
 
-    public override async Task<Models.Response> HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var commandName = ctx.ParseResult.CommandResult.Command.Name;
 
-        Models.Response result = commandName switch
+        CommandResponse result = commandName switch
         {
             AzureSubCommand => await DemonstrateAzureService(ctx.ParseResult.GetValueForOption(tenantOption), ct),
             DevOpsSubCommand => await DemonstrateDevOpsService(ctx.ParseResult.GetValueForArgument(packageArgument), ctx.ParseResult.GetValueForOption(languageOption), ct),
@@ -148,7 +147,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating Azure service with input");
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to demonstrate Azure service: {ex.Message}"
@@ -180,7 +178,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating DevOps service with package: {PackageName}, language: {Language}", packageName, language);
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to demonstrate DevOps service: {ex.Message}"
@@ -214,7 +211,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating GitHub service");
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to demonstrate GitHub service: {ex.Message}"
@@ -258,7 +254,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating AI service using model {Model} with prompt: {UserPrompt}", model, userPrompt);
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to demonstrate AI service: {ex.Message}"
@@ -301,7 +296,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Demonstrating error handling for scenario: {Scenario}", scenario);
-            SetFailure();
             return new DefaultCommandResponse
             {
                 ResponseError = $"Demonstrated error handling: {ex.GetType().Name}: {ex.Message}"
@@ -326,9 +320,9 @@ public class ExampleTool(
 
             if (result.ExitCode != 0)
             {
-                SetFailure(result.ExitCode);
                 return new ExampleServiceResponse
                 {
+                    ExitCode = result.ExitCode,
                     ResponseErrors = [
                         $"Sleep example failed to run process",
                         result.Output
@@ -350,7 +344,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating process execution for sleep: {time}", time);
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to execute process: {ex.Message}"
@@ -385,11 +378,11 @@ public class ExampleTool(
 
             if (result.ExitCode != 0)
             {
-                SetFailure(result.ExitCode);
                 return new ExampleServiceResponse
                 {
                     ServiceName = "PowerShell",
                     Operation = "RunTempScript",
+                    ExitCode = result.ExitCode,
                     ResponseErrors = [
                         $"PowerShell script exited with code {result.ExitCode}",
                         result.Output ?? string.Empty
@@ -412,7 +405,6 @@ public class ExampleTool(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error demonstrating PowerShell helper with message: {Message}", message);
-            SetFailure();
             return new ExampleServiceResponse
             {
                 ResponseError = $"Failed to run PowerShell script: {ex.Message}"
@@ -448,7 +440,6 @@ public class ExampleTool(
         {
             if (n < 2)
             {
-                SetFailure();
                 return new DefaultCommandResponse { ResponseError = "--fibonacci must be >= 2 to run the micro-agent" };
             }
 
@@ -488,7 +479,6 @@ public class ExampleTool(
         {
             tokenUsageHelper.LogUsage();
             logger.LogError(ex, "Error demonstrating micro-agent Fibonacci for n={n}", n);
-            SetFailure();
             return new DefaultCommandResponse { ResponseError = $"Failed to compute Fibonacci({n}): {ex.Message}" };
         }
     }

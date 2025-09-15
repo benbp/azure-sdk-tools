@@ -4,9 +4,10 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
+using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Models.Responses;
 using Azure.Sdk.Tools.Cli.Services;
 
@@ -16,7 +17,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
     [McpServerToolType, Description("Tools for working with GitHub labels for services")]
     public class GitHubLabelsTool(
         ILogger<GitHubLabelsTool> logger,
-        IOutputHelper output,
         IGitHubService githubService
     ) : MCPMultiCommandTool
     {
@@ -30,18 +30,12 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         private readonly Option<string> serviceLabelOpt = new(["--service", "-s"], "Proposed Service name used to create a PR for a new label.") { IsRequired = true };
         private readonly Option<string> documentationLinkOpt = new(["--link", "-l"], "Brand documentation link used to create a PR for a new label.") { IsRequired = true };
 
-        public override List<Command> GetCommands()
-        {
-            List<Command> subCommands = [
-                new Command(checkServiceLabelCommandName, "Check if a service label exists in the common labels CSV") { serviceLabelOpt },
-                new Command(createServiceLabelCommandName, "Creates a PR for a new label given a proposed label and brand documentation.") { serviceLabelOpt, documentationLinkOpt },
-            ];
+        public override List<Command> GetCommands() => [
+            new Command(checkServiceLabelCommandName, "Check if a service label exists in the common labels CSV") { serviceLabelOpt },
+            new Command(createServiceLabelCommandName, "Creates a PR for a new label given a proposed label and brand documentation.") { serviceLabelOpt, documentationLinkOpt },
+        ];
 
-            SetHandler(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-            return subCommands;
-        }
-
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
@@ -50,21 +44,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
             {
                 case checkServiceLabelCommandName:
                     var serviceLabel = commandParser.GetValueForOption(serviceLabelOpt);
-                    var result = await CheckServiceLabel(serviceLabel);
-                    ctx.ExitCode = ExitCode;
-                    output.Output(result);
-                    return;
+                    return await CheckServiceLabel(serviceLabel);
                 case createServiceLabelCommandName:
                     var proposedServiceLabel = commandParser.GetValueForOption(serviceLabelOpt);
                     var documentationLink = commandParser.GetValueForOption(documentationLinkOpt);
-                    var createdPRResult = await CreateServiceLabel(proposedServiceLabel, documentationLink ?? "");
-                    ctx.ExitCode = ExitCode;
-                    output.Output(createdPRResult);
-                    return;
+                    return await CreateServiceLabel(proposedServiceLabel, documentationLink ?? "");
                 default:
-                    SetFailure();
-                    output.OutputError($"Unknown command: '{command}'");
-                    return;
+                    return new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" };
             }
         }
 
@@ -82,7 +68,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
             }
             catch (Exception ex)
             {
-                SetFailure();
                 logger.LogError(ex, "Error occurred while checking service label: {serviceLabel}", serviceLabel);
                 return new ServiceLabelResponse
                 {
@@ -180,8 +165,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
             }
             catch (Exception ex)
             {
-                SetFailure();
-                logger.LogError(ex, $"Failed to create pull request for service label '{label}': {ex.Message}");
+                logger.LogError(ex, "Failed to create pull request for service label '{label}': {error}", label, ex.Message);
 
                 return new ServiceLabelResponse
                 {

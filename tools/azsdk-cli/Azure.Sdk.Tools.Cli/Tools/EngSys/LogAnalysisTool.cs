@@ -4,10 +4,8 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Services;
 using ModelContextProtocol.Server;
 
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
@@ -58,7 +56,7 @@ public class LogAnalysisTool : MCPTool
         return analyzeCommand;
     }
 
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var command = ctx.ParseResult.CommandResult.Command.Name;
 
@@ -72,15 +70,10 @@ public class LogAnalysisTool : MCPTool
 
                 var keywords = ParseCustomKeywords(customKeywords);
                 var result = await AnalyzeLogFile(filePath, fullSearch, keywords, contextLines);
-
-                ctx.ExitCode = ExitCode;
-                output.Output(result);
-                break;
+                return result;
 
             default:
-                logger.LogError("Unknown command: {command}", command);
-                SetFailure();
-                break;
+                return new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" };
         }
     }
 
@@ -134,7 +127,6 @@ public class LogAnalysisTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError(ex, "Error analyzing file: {filePath}", filePath);
-            SetFailure();
             return new LogAnalysisResponse
             {
                 ResponseError = $"Error analyzing file: {ex.Message}"

@@ -30,7 +30,7 @@ public class TestAnalysisTool(ITestHelper testHelper, IOutputHelper output, ILog
         return analyzeTestCommand;
     }
 
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var cmd = ctx.ParseResult.CommandResult.Command.Name;
         var trxPath = ctx.ParseResult.GetValueForOption(trxPathOpt);
@@ -39,24 +39,15 @@ public class TestAnalysisTool(ITestHelper testHelper, IOutputHelper output, ILog
 
         if (titlesOnly)
         {
-            var testTitles = await GetFailedTestCases(trxPath);
-            ctx.ExitCode = ExitCode;
-            output.Output(testTitles);
-            return;
+            return await GetFailedTestCases(trxPath);
         }
 
         if (!string.IsNullOrEmpty(filterTitle))
         {
-            var testCase = await GetFailedTestCaseData(trxPath, filterTitle);
-            ctx.ExitCode = ExitCode;
-            output.Output(testCase);
-            return;
+            return await GetFailedTestCaseData(trxPath, filterTitle);
         }
 
-        var testResult = await GetFailedTestRunDataFromTrx(trxPath);
-        ctx.ExitCode = ExitCode;
-        output.Output(testResult);
-        return;
+        return await GetFailedTestRunDataFromTrx(trxPath);
     }
 
     [McpServerTool(Name = "azsdk_get_failed_test_cases"), Description("Get titles of failed test cases from a TRX file")]
@@ -70,7 +61,6 @@ public class TestAnalysisTool(ITestHelper testHelper, IOutputHelper output, ILog
         {
             logger.LogError("Failed to process TRX file {trxFilePath}: {exception}", trxFilePath, ex.Message);
             logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
-            SetFailure();
             return [];
         }
     }
@@ -95,7 +85,6 @@ public class TestAnalysisTool(ITestHelper testHelper, IOutputHelper output, ILog
         {
             logger.LogError("Failed to process TRX file {trxFilePath}: {exception}", trxFilePath, ex.Message);
             logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
-            SetFailure();
             return new FailedTestRunResponse
             {
                 ResponseError = $"Failed to process TRX file {trxFilePath}: {ex.Message}"
@@ -114,7 +103,6 @@ public class TestAnalysisTool(ITestHelper testHelper, IOutputHelper output, ILog
         {
             logger.LogError("Failed to process TRX file {trxFilePath}: {exception}", trxFilePath, ex.Message);
             logger.LogError("Stack Trace: {stackTrace}", ex.StackTrace);
-            SetFailure();
             return
             [
                 new FailedTestRunResponse

@@ -4,7 +4,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Reflection;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Contract;
+using Azure.Sdk.Tools.Cli.Models;
 
 // Just a lil easter egg :)
 
@@ -19,11 +19,11 @@ public class QuokkaTool(IOutputHelper output) : MCPTool
         return command;
     }
 
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var result = GetQuokkaAnsi();
         output.Output(result);
-        await Task.CompletedTask;
+        return await Task.FromResult<CommandResponse>(new DefaultCommandResponse());
     }
 
     public string GetQuokkaAnsi()
