@@ -79,7 +79,6 @@ public class OutputHelper : IOutputHelper
 
     public virtual void Output(string output)
     {
-        Outputs.Add(output);
         Console.WriteLine(output);
     }
 
@@ -90,7 +89,6 @@ public class OutputHelper : IOutputHelper
 
     public virtual void OutputError(string output)
     {
-        Outputs.Add(output);
         Console.Error.WriteLine(output);
     }
 

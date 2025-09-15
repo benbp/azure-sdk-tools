@@ -1,6 +1,7 @@
 using System.CommandLine;
-using Azure.Sdk.Tools.Cli.Contract;
+using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Telemetry;
+using Azure.Sdk.Tools.Cli.Tools.Core;
 
 namespace Azure.Sdk.Tools.Cli.Commands
 {
@@ -35,7 +36,9 @@ namespace Azure.Sdk.Tools.Cli.Commands
                 .Select(t =>
                 {
                     var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(serviceProvider, t);
-                    _tool.Initialize(serviceProvider.GetRequiredService<ITelemetryService>());
+                    _tool.Initialize(
+                        serviceProvider.GetRequiredService<IOutputHelper>(),
+                        serviceProvider.GetRequiredService<ITelemetryService>());
                     return _tool;
                 })
                 .ToList();
