@@ -120,12 +120,9 @@ public class ExampleTool(
         var microagentCmd = new Command(MicroagentSubCommand, "Demonstrate micro-agent looping tool calls to compute Fibonacci");
         microagentCmd.AddOption(fibonacciIndexOption);
 
-        var commands = new List<Command> { azureCmd, devopsCmd, githubCmd, aiCmd, errorCmd, processCmd, powershellCmd, microagentCmd };
-        foreach (var cmd in commands)
-        {
-            cmd.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-        }
-        return commands;
+        var subCommands = new List<Command> { azureCmd, devopsCmd, githubCmd, aiCmd, errorCmd, processCmd, powershellCmd, microagentCmd };
+        SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+        return subCommands;
     }
 
     public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)

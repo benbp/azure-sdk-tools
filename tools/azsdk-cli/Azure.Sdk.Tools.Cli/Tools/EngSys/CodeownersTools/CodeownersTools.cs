@@ -19,8 +19,20 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 {
     [Description("Tool that validates and manipulates codeowners files.")]
     [McpServerToolType]
-    public class CodeownersTools : MCPTool
+    public class CodeownersTools : MCPMultiCommandTool
     {
+        public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.EngSys];
+
+        // Core command options
+        private readonly Option<string> repoOption = new(["--repo", "-r"], "The repository name") { IsRequired = true };
+        private readonly Option<bool> isMgmtPlaneOption = new(["--mgmt-plane"], "Indicates whether this service is a management-plane library") { IsRequired = true };
+        private readonly Option<string> pathOptionOptional = new(["--path", "-p"], "The repository path to check/validate") { IsRequired = false };
+        private readonly Option<string> serviceLabelOption = new(["--service-label"], "The service label") { IsRequired = false };
+        private readonly Option<string[]> serviceOwnersOption = new(["--service-owners"], "The service owners (space-separated)") { IsRequired = false };
+        private readonly Option<string[]> sourceOwnersOption = new(["--source-owners"], "The source owners (space-separated)") { IsRequired = false };
+        private readonly Option<bool> isAddingOption = new(["--is-adding"], "Whether to add (true) or remove (false) owners") { IsRequired = false };
+        private readonly Option<string> workingBranchOption = new(["--branch"], "Branch to make edits to, only if provided.") { IsRequired = false };
+
         private readonly IGitHubService githubService;
         private readonly IOutputHelper output;
         private readonly ILogger<CodeownersTools> logger;
@@ -33,22 +45,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
         private const string updateCodeownersCommandName = "update";
         private const string validateCodeownersEntryCommandName = "validate";
 
-        // Core command options
-        private readonly Option<string> repoOption = new(["--repo", "-r"], "The repository name") { IsRequired = true };
-        private readonly Option<bool> isMgmtPlaneOption = new(["--mgmt-plane"], "Indicates whether this service is a management-plane library") { IsRequired = true };
-        private readonly Option<string> pathOptionOptional = new(["--path", "-p"], "The repository path to check/validate") { IsRequired = false };
-        private readonly Option<string> serviceLabelOption = new(["--service-label"], "The service label") { IsRequired = false };
-        private readonly Option<string[]> serviceOwnersOption = new(["--service-owners"], "The service owners (space-separated)") { IsRequired = false };
-        private readonly Option<string[]> sourceOwnersOption = new(["--source-owners"], "The source owners (space-separated)") { IsRequired = false };
-        private readonly Option<bool> isAddingOption = new(["--is-adding"], "Whether to add (true) or remove (false) owners") { IsRequired = false };
-        private readonly Option<string> workingBranchOption = new(["--branch"], "Branch to make edits to, only if provided.") { IsRequired = false };
-
         public CodeownersTools(
             IGitHubService githubService,
             IOutputHelper output,
             ILogger<CodeownersTools> logger,
             ILoggerFactory? loggerFactory,
-            ICodeownersValidatorHelper codeownersValidator) : base()
+            ICodeownersValidatorHelper codeownersValidator
+        )
         {
             this.githubService = githubService;
             this.output = output;
@@ -56,19 +59,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
             this.codeownersValidator = codeownersValidator;
 
             CodeownersUtils.Utils.Log.Configure(loggerFactory);
-
-            CommandHierarchy =
-            [
-                SharedCommandGroups.EngSys
-            ];
         }
 
-        public override Command GetCommand()
+        public override List<Command> GetCommands()
         {
             var command = new Command("codeowners", "A tool to validate and modify codeowners.");
-            var subCommands = new[]
-            {
-                new Command(updateCodeownersCommandName, "Update codeowners in a repository")
+            List<Command> subCommands = [
+                new(updateCodeownersCommandName, "Update codeowners in a repository")
                 {
                     repoOption,
                     isMgmtPlaneOption,
@@ -79,20 +76,16 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                     isAddingOption,
                     workingBranchOption,
                 },
-                new Command(validateCodeownersEntryCommandName, "Validate codeowners for an existing service entry")
+                new(validateCodeownersEntryCommandName, "Validate codeowners for an existing service entry")
                 {
                     repoOption,
                     serviceLabelOption,
                     pathOptionOptional
                 }
-            };
+            ];
 
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
+            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return subCommands;
         }
 
         public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)

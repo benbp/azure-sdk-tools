@@ -18,8 +18,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         ILogger<GitHubLabelsTool> logger,
         IOutputHelper output,
         IGitHubService githubService
-    ) : MCPTool
+    ) : MCPMultiCommandTool
     {
+        public override CommandGroup[] CommandHierarchy { get; set; } = [ new("github-labels", "GitHub service labels tools") ];
+
         //command names
         private const string checkServiceLabelCommandName = "check-service-label";
         private const string createServiceLabelCommandName = "create-service-label";
@@ -28,21 +30,15 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         private readonly Option<string> serviceLabelOpt = new(["--service", "-s"], "Proposed Service name used to create a PR for a new label.") { IsRequired = true };
         private readonly Option<string> documentationLinkOpt = new(["--link", "-l"], "Brand documentation link used to create a PR for a new label.") { IsRequired = true };
 
-        public override Command GetCommand()
+        public override List<Command> GetCommands()
         {
-            var command = new Command("github-labels", "GitHub service labels tools");
-            var subCommands = new[]
-            {
+            List<Command> subCommands = [
                 new Command(checkServiceLabelCommandName, "Check if a service label exists in the common labels CSV") { serviceLabelOpt },
                 new Command(createServiceLabelCommandName, "Creates a PR for a new label given a proposed label and brand documentation.") { serviceLabelOpt, documentationLinkOpt },
-            };
+            ];
 
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
+            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return subCommands;
         }
 
         public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)

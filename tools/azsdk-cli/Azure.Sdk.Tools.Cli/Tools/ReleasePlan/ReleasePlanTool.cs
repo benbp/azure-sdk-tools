@@ -17,11 +17,17 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
 {
     [Description("Release Plan Tool type that contains tools to connect to Azure DevOps to get release plan work item")]
     [McpServerToolType]
-    public partial class ReleasePlanTool(IDevOpsService devOpsService, ITypeSpecHelper typeSpecHelper, ILogger<ReleasePlanTool> logger, IOutputHelper output, IUserHelper userHelper, IGitHubService githubService, IEnvironmentHelper environmentHelper) : MCPTool
+    public partial class ReleasePlanTool(  // partial class required due to source generated regex
+        IDevOpsService devOpsService,
+        ITypeSpecHelper typeSpecHelper,
+        ILogger<ReleasePlanTool> logger,
+        IOutputHelper output,
+        IUserHelper userHelper,
+        IGitHubService githubService,
+        IEnvironmentHelper environmentHelper
+    ) : MCPMultiCommandTool
     {
-        //Namespace approval repo details
-        private const string namespaceApprovalRepoName = "azure-sdk";
-        private const string namespaceApprovalRepoOwner = "Azure";
+        public override CommandGroup[] CommandHierarchy { get; set; } = [new("release-plan", "Manage release plans in AzureDevops")];
 
         // Commands
         private const string getReleasePlanDetailsCommandName = "get";
@@ -43,6 +49,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         private readonly Option<string> userEmailOpt = new(["--user-email"], "User email for release plan creation") { IsRequired = false };
         private readonly Option<string> namespaceApprovalIssueOpt = new Option<string>(["--namespace-approval-issue"], "Namespace approval issue URL") { IsRequired = true };
 
+        //Namespace approval repo details
+        private const string namespaceApprovalRepoName = "azure-sdk";
+        private const string namespaceApprovalRepoOwner = "Azure";
+
+
         private readonly HashSet<string> supportedLanguages = [
             ".NET","Java","Python","JavaScript","Go"
         ];
@@ -56,44 +67,16 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}(-preview)?$")]
         private static partial Regex ApiVersionRegex();
 
-        [McpServerTool(Name = "azsdk_get_release_plan_for_spec_pr"), Description("Get release plan for API spec pull request. This tool should be used only if work item Id is unknown.")]
-        public async Task<string> GetReleasePlanForPullRequest(string pullRequestLink)
+        public override List<Command> GetCommands()
         {
-            var response = new GenericResponse();
+            List<Command> subCommands = [
+                new(getReleasePlanDetailsCommandName, "Get release plan details") {workItemIdOpt, releasePlanNumberOpt},
+                new(createReleasePlanCommandName, "Create a release plan") { typeSpecProjectPathOpt, targetReleaseOpt, serviceTreeIdOpt, productTreeIdOpt, apiVersionOpt, pullRequestOpt, sdkReleaseTypeOpt, userEmailOpt, isTestReleasePlanOpt },
+                new(linkNamespaceApprovalIssueCommandName, "Link namespace approval issue to release plan") { workItemIdOpt, namespaceApprovalIssueOpt }
+            ];
 
-            try
-            {
-                ValidatePullRequestUrl(pullRequestLink);
-                var releasePlan = await devOpsService.GetReleasePlanAsync(pullRequestLink) ?? throw new Exception("No release plan associated with pull request link");
-                response.Status = "Success";
-                response.Details.Add($"Release Plan: {JsonSerializer.Serialize(releasePlan)}");
-                return output.Format(response);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError("Failed to get release plan details: {exception}", ex.Message);
-                response.Status = "Failed";
-                response.Details.Add($"Failed to get release plan details: {ex.Message}");
-                return output.Format(response);
-            }
-        }
-
-        public override Command GetCommand()
-        {
-            Command command = new("release-plan", "Manage release plans in AzureDevops");
-            var subCommands = new[]
-            {
-                new Command(getReleasePlanDetailsCommandName, "Get release plan details") {workItemIdOpt, releasePlanNumberOpt},
-                new Command(createReleasePlanCommandName, "Create a release plan") { typeSpecProjectPathOpt, targetReleaseOpt, serviceTreeIdOpt, productTreeIdOpt, apiVersionOpt, pullRequestOpt, sdkReleaseTypeOpt, userEmailOpt, isTestReleasePlanOpt },
-                new Command(linkNamespaceApprovalIssueCommandName, "Link namespace approval issue to release plan") { workItemIdOpt, namespaceApprovalIssueOpt }
-            };
-
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
+            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return subCommands;
         }
 
         public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
@@ -132,6 +115,29 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
                     logger.LogError("Unknown command: {command}", command);
                     SetFailure();
                     return;
+            }
+        }
+
+
+        [McpServerTool(Name = "azsdk_get_release_plan_for_spec_pr"), Description("Get release plan for API spec pull request. This tool should be used only if work item Id is unknown.")]
+        public async Task<string> GetReleasePlanForPullRequest(string pullRequestLink)
+        {
+            var response = new GenericResponse();
+
+            try
+            {
+                ValidatePullRequestUrl(pullRequestLink);
+                var releasePlan = await devOpsService.GetReleasePlanAsync(pullRequestLink) ?? throw new Exception("No release plan associated with pull request link");
+                response.Status = "Success";
+                response.Details.Add($"Release Plan: {JsonSerializer.Serialize(releasePlan)}");
+                return output.Format(response);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Failed to get release plan details: {exception}", ex.Message);
+                response.Status = "Failed";
+                response.Details.Add($"Failed to get release plan details: {ex.Message}");
+                return output.Format(response);
             }
         }
 

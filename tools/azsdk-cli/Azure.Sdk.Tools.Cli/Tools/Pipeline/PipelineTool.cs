@@ -3,7 +3,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
-using System.Text;
 using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
@@ -16,15 +15,40 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
     [McpServerToolType]
     public class PipelineTool(IDevOpsService devopsService,
         IOutputHelper output,
-        ILogger<PipelineTool> logger) : MCPTool
+        ILogger<PipelineTool> logger
+    ) : MCPTool
     {
+        public override CommandGroup[] CommandHierarchy { get; set; } = [new("pipeline", "Commands to help with DevOps pipeline")];
 
         // Commands
-        private const string getPipelineStatusCommandName = "get-status";
+        private const string getPipelineStatusCommandName = "status";
 
         // Options
         private readonly Option<int> pipelineRunIdOpt = new(["--pipeline-id"], "pipeline run id") { IsRequired = true };
 
+        public override Command GetCommand()
+        {
+            Command command = new(getPipelineStatusCommandName, "Get pipeline run status") { pipelineRunIdOpt };
+            command.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return command;
+        }
+
+        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        {
+            var command = ctx.ParseResult.CommandResult.Command.Name;
+            var commandParser = ctx.ParseResult;
+            switch (command)
+            {
+                case getPipelineStatusCommandName:
+                    var pipelineRunStatus = await GetPipelineRunStatus(commandParser.GetValueForOption(pipelineRunIdOpt));
+                    output.Output($"Pipeline run status: {pipelineRunStatus}");
+                    return;
+                default:
+                    SetFailure();
+                    output.OutputError($"Unknown command: '{command}'");
+                    return;
+            }
+        }
 
         /// <summary>
         /// Get pipeline run details and status for a given pipeline build ID
@@ -54,40 +78,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
                 logger.LogError(ex, "Failed to get pipeline run with id {buildId}", buildId);
                 errorResponse.Details.Add($"Failed to get pipeline run with id {buildId}. Error: {ex.Message}");
                 return output.Format(errorResponse);
-            }
-        }
-        
-
-        public override Command GetCommand()
-        {
-            var command = new Command("pipeline", "Commands to help with DevOps pipeline");
-            var subCommands = new[]
-            {
-                new Command(getPipelineStatusCommandName, "Get pipeline run status") { pipelineRunIdOpt }
-            };
-
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
-        }
-
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
-        {
-            var command = ctx.ParseResult.CommandResult.Command.Name;
-            var commandParser = ctx.ParseResult;
-            switch (command)
-            {
-                case getPipelineStatusCommandName:
-                    var pipelineRunStatus = await GetPipelineRunStatus(commandParser.GetValueForOption(pipelineRunIdOpt));
-                    output.Output($"Pipeline run status: {pipelineRunStatus}");
-                    return;
-                default:
-                    SetFailure();
-                    output.OutputError($"Unknown command: '{command}'");
-                    return;
             }
         }
     }

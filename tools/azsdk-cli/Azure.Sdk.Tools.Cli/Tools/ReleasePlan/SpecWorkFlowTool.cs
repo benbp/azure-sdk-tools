@@ -21,22 +21,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         ITypeSpecHelper typespecHelper,
         IOutputHelper output,
         ILogger<SpecWorkflowTool> logger,
-        IInputSanitizer inputSanitizer) : MCPTool
+        IInputSanitizer inputSanitizer
+    ) : MCPMultiCommandTool
     {
-        private static readonly string PUBLIC_SPECS_REPO = "azure-rest-api-specs";
-        private static readonly string REPO_OWNER = "Azure";
-        public static readonly string ARM_SIGN_OFF_LABEL = "ARMSignedOff";
-        public static readonly string API_STEWARDSHIP_APPROVAL = "APIStewardshipBoard-SignedOff";
-        private static readonly string DEFAULT_BRANCH = "main";
-
-        public static readonly HashSet<string> SUPPORTED_LANGUAGES = new()
-        {
-            "python",
-            ".net",
-            "javascript",
-            "java",
-            "go"
-        };
+        public override CommandGroup[] CommandHierarchy { get; set; } = [new("spec-workflow", "Tools to help with the TypeSpec SDK generation.")];
 
         // Commands
         private const string checkApiReadinessCommandName = "check-api-readiness";
@@ -55,6 +43,68 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         private readonly Option<string> urlOpt = new(["--url"], "Pull request url") { IsRequired = true };
         private readonly Option<int> releasePlanIdOpt = new(["--release-plan"], "SDK release plan id") { IsRequired = false };
         private readonly Option<int> workItemOptionalIdOpt = new(["--workitem-id"], "Release plan work item id") { IsRequired = false };
+
+        private static readonly string PUBLIC_SPECS_REPO = "azure-rest-api-specs";
+        private static readonly string REPO_OWNER = "Azure";
+        public static readonly string ARM_SIGN_OFF_LABEL = "ARMSignedOff";
+        public static readonly string API_STEWARDSHIP_APPROVAL = "APIStewardshipBoard-SignedOff";
+        private static readonly string DEFAULT_BRANCH = "main";
+
+        public static readonly HashSet<string> SUPPORTED_LANGUAGES = new()
+        {
+            "python",
+            ".net",
+            "javascript",
+            "java",
+            "go"
+        };
+
+        public override List<Command> GetCommands()
+        {
+            List<Command> subCommands = [
+                new(checkApiReadinessCommandName, "Check if API spec is ready to generate SDK") { typeSpecProjectPathOpt, pullRequestNumberOpt, workItemIdOpt },
+                new(generateSdkCommandName, "Generate SDK for a TypeSpec project") { typeSpecProjectPathOpt, apiVersionOpt, sdkReleaseTypeOpt, languageOpt, pullRequestNumberOpt, workItemIdOpt },
+                new(getSdkPullRequestCommandName, "Get SDK pull request link from SDK generation pipeline") { languageOpt, pipelineRunIdOpt, workItemIdOpt },
+                new(linkSdkPrCommandName, "Link SDK pull request to release plan.") {languageOpt, urlOpt, workItemOptionalIdOpt, releasePlanIdOpt }
+            ];
+
+            SetHandlers(subCommands, async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return subCommands;
+        }
+
+        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        {
+            var command = ctx.ParseResult.CommandResult.Command.Name;
+            var commandParser = ctx.ParseResult;
+            switch (command)
+            {
+                case checkApiReadinessCommandName:
+                    var isSpecReady = await CheckApiReadyForSDKGeneration(commandParser.GetValueForOption(typeSpecProjectPathOpt), pullRequestNumber: commandParser.GetValueForOption(pullRequestNumberOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt));
+                    output.Output($"Is API spec ready for SDK generation: {isSpecReady}");
+                    return;
+                case generateSdkCommandName:
+                    var sdkGenerationResponse = await RunGenerateSdkAsync(commandParser.GetValueForOption(typeSpecProjectPathOpt),
+                        commandParser.GetValueForOption(apiVersionOpt),
+                        commandParser.GetValueForOption(sdkReleaseTypeOpt),
+                        commandParser.GetValueForOption(languageOpt),
+                        commandParser.GetValueForOption(pullRequestNumberOpt),
+                        commandParser.GetValueForOption(workItemIdOpt));
+                    output.Output($"SDK generation response: {sdkGenerationResponse}");
+                    return;
+                case getSdkPullRequestCommandName:
+                    var sdkPullRequestDetails = await GetSDKPullRequestDetails(commandParser.GetValueForOption(languageOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt), buildId: commandParser.GetValueForOption(pipelineRunIdOpt));
+                    output.Output($"SDK pull request details: {sdkPullRequestDetails}");
+                    return;
+                case linkSdkPrCommandName:
+                    var linkStatus = await LinkSdkPullRequestToReleasePlan(commandParser.GetValueForOption(languageOpt), commandParser.GetValueForOption(urlOpt), workItemId: commandParser.GetValueForOption(workItemOptionalIdOpt), releasePlanId: commandParser.GetValueForOption(releasePlanIdOpt));
+                    output.Output($"Link status: {linkStatus}");
+                    return;
+                default:
+                    SetFailure();
+                    output.OutputError($"Unknown command: '{command}'");
+                    return;
+            }
+        }
 
         private async Task<GenericResponse> IsSdkDetailsPresentInReleasePlanAsync(int workItemId, string language)
         {
@@ -492,59 +542,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
                 // This should not be a hard error when context is not updated in PR description
                 logger.LogError($"Failed to update pull request description for {repoOwner}/{repoName}#{prNumber}, Error: {ex.Message}");
                 return;
-            }
-        }
-
-        public override Command GetCommand()
-        {
-            var command = new Command("spec-workflow", "Tools to help with the TypeSpec SDK generation.");
-            var subCommands = new[]
-            {
-                new Command(checkApiReadinessCommandName, "Check if API spec is ready to generate SDK") { typeSpecProjectPathOpt, pullRequestNumberOpt, workItemIdOpt },
-                new Command(generateSdkCommandName, "Generate SDK for a TypeSpec project") { typeSpecProjectPathOpt, apiVersionOpt, sdkReleaseTypeOpt, languageOpt, pullRequestNumberOpt, workItemIdOpt },
-                new Command(getSdkPullRequestCommandName, "Get SDK pull request link from SDK generation pipeline") { languageOpt, pipelineRunIdOpt, workItemIdOpt },
-                new Command(linkSdkPrCommandName, "Link SDK pull request to release plan.") {languageOpt, urlOpt, workItemOptionalIdOpt, releasePlanIdOpt }
-            };
-
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
-        }
-
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
-        {
-            var command = ctx.ParseResult.CommandResult.Command.Name;
-            var commandParser = ctx.ParseResult;
-            switch (command)
-            {
-                case checkApiReadinessCommandName:
-                    var isSpecReady = await CheckApiReadyForSDKGeneration(commandParser.GetValueForOption(typeSpecProjectPathOpt), pullRequestNumber: commandParser.GetValueForOption(pullRequestNumberOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt));
-                    output.Output($"Is API spec ready for SDK generation: {isSpecReady}");
-                    return;
-                case generateSdkCommandName:
-                    var sdkGenerationResponse = await RunGenerateSdkAsync(commandParser.GetValueForOption(typeSpecProjectPathOpt),
-                        commandParser.GetValueForOption(apiVersionOpt),
-                        commandParser.GetValueForOption(sdkReleaseTypeOpt),
-                        commandParser.GetValueForOption(languageOpt),
-                        commandParser.GetValueForOption(pullRequestNumberOpt),
-                        commandParser.GetValueForOption(workItemIdOpt));
-                    output.Output($"SDK generation response: {sdkGenerationResponse}");
-                    return;
-                case getSdkPullRequestCommandName:
-                    var sdkPullRequestDetails = await GetSDKPullRequestDetails(commandParser.GetValueForOption(languageOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt), buildId: commandParser.GetValueForOption(pipelineRunIdOpt));
-                    output.Output($"SDK pull request details: {sdkPullRequestDetails}");
-                    return;
-                case linkSdkPrCommandName:
-                    var linkStatus = await LinkSdkPullRequestToReleasePlan(commandParser.GetValueForOption(languageOpt), commandParser.GetValueForOption(urlOpt), workItemId: commandParser.GetValueForOption(workItemOptionalIdOpt), releasePlanId: commandParser.GetValueForOption(releasePlanIdOpt));
-                    output.Output($"Link status: {linkStatus}");
-                    return;
-                default:
-                    SetFailure();
-                    output.OutputError($"Unknown command: '{command}'");
-                    return;
             }
         }
     }

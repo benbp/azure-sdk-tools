@@ -19,8 +19,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         IGitHelper gitHelper,
         ISpecPullRequestHelper prHelper,
         ILogger<PullRequestTools> logger,
-        IOutputHelper output) : MCPTool
+        IOutputHelper output) : MCPMultiCommandTool
     {
+        public override CommandGroup[] CommandHierarchy { get; set; } = [new("spec-pr", "Pull request tools")];
+
         // Commands
         private const string getPullRequestForCurrentBranchCommandName = "get-pr-for-current-branch";
         private const string createPullRequestCommandName = "create-pr";
@@ -34,6 +36,50 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         private readonly Option<string> targetBranchOpt = new(["--target-branch"], () => "main", "Target branch for the pull request") { IsRequired = false };
         private readonly Option<int> pullRequestNumberOpt = new(["--pr"], "Pull request number") { IsRequired = true };
 
+        public override List<Command> GetCommands()
+        {
+            List<Command> subCommands = [
+                new(getPullRequestForCurrentBranchCommandName, "Get pull request for current branch") { repoPathOpt },
+                new(createPullRequestCommandName, "Create pull request") { titleOpt, descriptionOpt, repoPathOpt, targetBranchOpt, draftOpt },
+                new(getPullRequestCommandName, "Get pull request details") { pullRequestNumberOpt, repoPathOpt }
+            ];
+
+            SetHandlers(subCommands, async ctx => { ctx.ExitCode = await HandleCommand(ctx, ctx.GetCancellationToken()); });
+            return subCommands;
+        }
+
+        public override async Task<int> HandleCommand(InvocationContext ctx, CancellationToken ct)
+        {
+            var commandName = ctx.ParseResult.CommandResult.Command.Name;
+            var commandParser = ctx.ParseResult;
+            switch (commandName)
+            {
+                case getPullRequestForCurrentBranchCommandName:
+                    var repoPath = commandParser.GetValueForOption(repoPathOpt);
+                    var pullRequestLink = await GetPullRequestForCurrentBranch(repoPath);
+                    logger.LogInformation("Pull request link: {pullRequestLink}", pullRequestLink);
+                    return 0;
+                case createPullRequestCommandName:
+                    var title = commandParser.GetValueForOption(titleOpt);
+                    var description = commandParser.GetValueForOption(descriptionOpt);
+                    var createPrRepoPath = commandParser.GetValueForOption(repoPathOpt);
+                    var targetBranch = commandParser.GetValueForOption(targetBranchOpt);
+                    var draft = commandParser.GetValueForOption(draftOpt);
+                    var createPullRequestResponse = await CreatePullRequest(title, description, createPrRepoPath, targetBranch, draft);
+                    logger.LogInformation("Create pull request response: {createPullRequestResponse}", createPullRequestResponse);
+                    return 0;
+                case getPullRequestCommandName:
+                    var pullRequestNumber = commandParser.GetValueForOption(pullRequestNumberOpt);
+                    var getPRrepoPath = commandParser.GetValueForOption(repoPathOpt);
+                    var pullRequestDetails = await GetPullRequest(pullRequestNumber, getPRrepoPath);
+                    logger.LogInformation("Pull request details: {pullRequestDetails}", pullRequestDetails);
+                    return 0;
+                default:
+                    logger.LogError("Unknown command: {commandName}", commandName);
+                    return 1;
+            }
+        }
+
 
         [McpServerTool(Name = "azsdk_get_github_user_details"), Description("Connect to GitHub using personal access token.")]
         public async Task<string> GetGitHubUserDetails()
@@ -45,7 +91,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
                     ? output.Format($"Connected to GitHub as {user.Login}")
                     : output.Format("Failed to connect to GitHub. Please make sure to login to GitHub using gh auth login to connect to GitHub.");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 SetFailure();
                 return output.Format($"Failed to connect to GitHub. Unhandled error: {ex.Message}");
@@ -142,7 +188,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
             var repoRootPath = gitHelper.DiscoverRepoRoot(repoPath);
             var repoOwner = await gitHelper.GetRepoOwnerNameAsync(repoRootPath);
             var repoName = gitHelper.GetRepoName(repoRootPath);
-            
+
             var comments = await gitHubService.GetPullRequestCommentsAsync(repoOwner, repoName, pullRequestNumber);
             if (comments == null || comments.Count == 0)
             {
@@ -160,7 +206,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
                 var repoRootPath = gitHelper.DiscoverRepoRoot(repoPath);
                 var repoOwner = await gitHelper.GetRepoOwnerNameAsync(repoRootPath);
                 var repoName = gitHelper.GetRepoName(repoRootPath);
-                
+
                 logger.LogInformation($"Getting pull request details for {pullRequestNumber} in repo {repoOwner}/{repoName}");
                 var pullRequest = await gitHubService.GetPullRequestAsync(repoOwner, repoName, pullRequestNumber);
                 PullRequestDetails prDetails = new()
@@ -195,55 +241,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
             {
                 logger.LogError("{exception}", ex.Message);
                 return output.Format($"Failed to get pull request summary. Error {ex.Message}");
-            }
-        }
-
-        public override Command GetCommand()
-        {
-            var command = new Command("spec-pr", "Pull request tools");
-            var subCommands = new[] {
-                new Command(getPullRequestForCurrentBranchCommandName, "Get pull request for current branch") { repoPathOpt },
-                new Command(createPullRequestCommandName, "Create pull request") { titleOpt, descriptionOpt, repoPathOpt, targetBranchOpt, draftOpt },
-                new Command(getPullRequestCommandName, "Get pull request details") { pullRequestNumberOpt, repoPathOpt }
-            };
-
-            foreach (var subCommand in subCommands)
-            {
-                subCommand.SetHandler(async ctx => { ctx.ExitCode = await HandleCommand(ctx, ctx.GetCancellationToken()); });
-                command.AddCommand(subCommand);
-            }
-            return command;
-        }
-
-        public override async Task<int> HandleCommand(InvocationContext ctx, CancellationToken ct)
-        {
-            var commandName = ctx.ParseResult.CommandResult.Command.Name;
-            var commandParser = ctx.ParseResult;
-            switch (commandName)
-            {
-                case getPullRequestForCurrentBranchCommandName:
-                    var repoPath = commandParser.GetValueForOption(repoPathOpt);
-                    var pullRequestLink = await GetPullRequestForCurrentBranch(repoPath);
-                    logger.LogInformation("Pull request link: {pullRequestLink}", pullRequestLink);
-                    return 0;
-                case createPullRequestCommandName:
-                    var title = commandParser.GetValueForOption(titleOpt);
-                    var description = commandParser.GetValueForOption(descriptionOpt);
-                    var createPrRepoPath = commandParser.GetValueForOption(repoPathOpt);
-                    var targetBranch = commandParser.GetValueForOption(targetBranchOpt);
-                    var draft = commandParser.GetValueForOption(draftOpt);
-                    var createPullRequestResponse = await CreatePullRequest(title, description, createPrRepoPath, targetBranch, draft);
-                    logger.LogInformation("Create pull request response: {createPullRequestResponse}", createPullRequestResponse);
-                    return 0;
-                case getPullRequestCommandName:
-                    var pullRequestNumber = commandParser.GetValueForOption(pullRequestNumberOpt);
-                    var getPRrepoPath = commandParser.GetValueForOption(repoPathOpt);
-                    var pullRequestDetails = await GetPullRequest(pullRequestNumber, getPRrepoPath);
-                    logger.LogInformation("Pull request details: {pullRequestDetails}", pullRequestDetails);
-                    return 0;
-                default:
-                    logger.LogError("Unknown command: {commandName}", commandName);
-                    return 1;
             }
         }
     }

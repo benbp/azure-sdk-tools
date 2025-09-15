@@ -4,7 +4,6 @@ using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Tests.Mocks.Services;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.ReleasePlan;
-using Azure.Sdk.Tools.Cli.Tools.Example;
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Models;
 
