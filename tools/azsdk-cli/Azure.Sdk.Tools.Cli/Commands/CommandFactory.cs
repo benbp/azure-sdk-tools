@@ -1,13 +1,12 @@
 using System.CommandLine;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Telemetry;
-using Azure.Sdk.Tools.Cli.Tools.Core;
+using Azure.Sdk.Tools.Cli.Tools;
 
 namespace Azure.Sdk.Tools.Cli.Commands
 {
     public static class CommandFactory
     {
-
         /// <summary>
         /// Creates the primary parsing entry point for the application. Uses the registered service providers
         /// to initialize whichever MCP tools we need to add to the configuration and pass on to HostTool.
