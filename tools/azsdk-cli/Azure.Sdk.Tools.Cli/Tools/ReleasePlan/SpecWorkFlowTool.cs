@@ -70,28 +70,19 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         {
             var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
-            switch (command)
+            return command switch
             {
-                case checkApiReadinessCommandName:
-                    var isSpecReady = await CheckApiReadyForSDKGeneration(commandParser.GetValueForOption(typeSpecProjectPathOpt), pullRequestNumber: commandParser.GetValueForOption(pullRequestNumberOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt));
-                    return new DefaultCommandResponse { Message = $"Is API spec ready for SDK generation: {isSpecReady}" };
-                case generateSdkCommandName:
-                    var sdkGenerationResponse = await RunGenerateSdkAsync(commandParser.GetValueForOption(typeSpecProjectPathOpt),
-                        commandParser.GetValueForOption(apiVersionOpt),
-                        commandParser.GetValueForOption(sdkReleaseTypeOpt),
-                        commandParser.GetValueForOption(languageOpt),
-                        commandParser.GetValueForOption(pullRequestNumberOpt),
-                        commandParser.GetValueForOption(workItemIdOpt));
-                    return new DefaultCommandResponse { Message = $"SDK generation response: {sdkGenerationResponse}" };
-                case getSdkPullRequestCommandName:
-                    var sdkPullRequestDetails = await GetSDKPullRequestDetails(commandParser.GetValueForOption(languageOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt), buildId: commandParser.GetValueForOption(pipelineRunIdOpt));
-                    return new DefaultCommandResponse { Message = $"SDK pull request details: {sdkPullRequestDetails}" };
-                case linkSdkPrCommandName:
-                    var linkStatus = await LinkSdkPullRequestToReleasePlan(commandParser.GetValueForOption(languageOpt), commandParser.GetValueForOption(urlOpt), workItemId: commandParser.GetValueForOption(workItemOptionalIdOpt), releasePlanId: commandParser.GetValueForOption(releasePlanIdOpt));
-                    return new DefaultCommandResponse { Message = $"Link status: {linkStatus}" };
-                default:
-                    return new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" };
-            }
+                checkApiReadinessCommandName => await CheckApiReadyForSDKGeneration(commandParser.GetValueForOption(typeSpecProjectPathOpt), pullRequestNumber: commandParser.GetValueForOption(pullRequestNumberOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt)),
+                generateSdkCommandName => await RunGenerateSdkAsync(commandParser.GetValueForOption(typeSpecProjectPathOpt),
+                                        commandParser.GetValueForOption(apiVersionOpt),
+                                        commandParser.GetValueForOption(sdkReleaseTypeOpt),
+                                        commandParser.GetValueForOption(languageOpt),
+                                        commandParser.GetValueForOption(pullRequestNumberOpt),
+                                        commandParser.GetValueForOption(workItemIdOpt)),
+                getSdkPullRequestCommandName => await GetSDKPullRequestDetails(commandParser.GetValueForOption(languageOpt), workItemId: commandParser.GetValueForOption(workItemIdOpt), buildId: commandParser.GetValueForOption(pipelineRunIdOpt)),
+                linkSdkPrCommandName => await LinkSdkPullRequestToReleasePlan(commandParser.GetValueForOption(languageOpt), commandParser.GetValueForOption(urlOpt), workItemId: commandParser.GetValueForOption(workItemOptionalIdOpt), releasePlanId: commandParser.GetValueForOption(releasePlanIdOpt)),
+                _ => new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" },
+            };
         }
 
         private async Task<SDKWorkflowResponse> IsSdkDetailsPresentInReleasePlanAsync(int workItemId, string language)
