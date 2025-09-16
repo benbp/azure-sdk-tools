@@ -58,7 +58,7 @@ internal class ExampleToolTests
             mockMicroagentHostService.Object,
             mockProcessHelper.Object,
             mockPowershellHelper.Object,
-            tokenUsageHelper: new Mock<TokenUsageHelper>().Object,
+            tokenUsageHelper: new TokenUsageHelper(new OutputHelper()),
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
             null
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.

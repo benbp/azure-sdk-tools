@@ -11,7 +11,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 {
     internal class ReadMeGeneratorToolTests
     {
-        private readonly OutputHelper outputHelper = new();
+        private OutputHelper outputHelper { get; set; }
 
         private ReadMeGeneratorTool tool;
         private Mock<IMicroagentHostService>? mockMicroAgentService;
@@ -20,6 +20,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
         [SetUp]
         public void Setup()
         {
+            outputHelper = new();
             mockMicroAgentService = new Mock<IMicroagentHostService>();
             telemetryServiceMock = new Mock<ITelemetryService>();
 
@@ -53,7 +54,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 {
                     Assert.That(exitCode, Is.EqualTo(0), "Command should execute successfully");
                     Assert.That(outputHelper.Outputs.First().Stream, Is.EqualTo(OutputHelper.StreamType.Stdout));
-                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"Readme written to {readmeOutputPath}"));
+                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"Readme written to {readmeOutputPath}{Environment.NewLine}"));
                 });
 
                 Assert.That(File.Exists(readmeOutputPath), Is.True, "Readme output file should be created");
@@ -133,7 +134,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 {
                     Assert.That(exitCode, Is.EqualTo(1), "Command should fail, as the final readme doesn't pass validation");
                     Assert.That(outputHelper.Outputs.First().Stream, Is.EqualTo(OutputHelper.StreamType.Stderr));
-                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"ReadmeGenerator failed with validation errors: {expectedFeedback}"));
+                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"[ERROR] ReadmeGenerator failed with validation errors: {expectedFeedback}"));
                 });
 
                 Assert.That(File.Exists(readmeOutputPath), Is.True, "Readme output file should be created");
