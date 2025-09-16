@@ -8,6 +8,7 @@ namespace Azure.Sdk.Tools.Cli.Models;
 public class CommandResponse
 {
     private int? exitCode = null;
+    [JsonIgnore]
     public int ExitCode
     {
         get
