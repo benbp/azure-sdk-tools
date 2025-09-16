@@ -7,9 +7,8 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Contract;
-using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Microagents;
+using Azure.Sdk.Tools.Cli.Models;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
@@ -17,7 +16,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
     //[McpServerToolType, Description("Generates a README file, using service documentation")]
     public class ReadMeGeneratorTool(
         ILogger<ReadMeGeneratorTool> logger,
-        IOutputHelper output,
         IMicroagentHostService microAgentHostService
     ) : MCPTool
     {
@@ -58,9 +56,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             IsRequired = true,
         };
 
-        public override Command GetCommand()
-        {
-            var command = new Command("readme", "README generator tool") {
+        public override Command GetCommand() =>
+            new("readme", "README generator tool") {
                 modelOption,
                 outputPathOption,
                 packagePathOption,
@@ -68,12 +65,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                 templatePathOption,
             };
 
-            command.SetHandler(async (ic) => await HandleCommand(ic, ic.GetCancellationToken()));
-
-            return command;
-        }
-
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             try
             {
@@ -86,7 +78,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
                 var generator = new ReadmeGenerator(
                     logger: logger,
-                    output: output,
                     microAgentHostService: microAgentHostService,
                     templatePath: templatePath,
                     serviceDocumentation: new Uri(serviceDocumentation),
@@ -95,19 +86,17 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                     model: model);
 
                 await generator.Generate(ct);
-                output.Output($"Readme written to {outputPath}");
+                return new DefaultCommandResponse() { Message = $"Readme written to {outputPath}" };
             }
             catch (ReadmeValidationException ex)
             {
                 logger.LogError(ex, "ReadmeGeneratorTool failed");
-                output.OutputError($"ReadmeGenerator failed with validation errors: {ex.Message}");
-                ctx.ExitCode = 1;
+                return new DefaultCommandResponse() { ResponseError = $"ReadmeGenerator failed with validation errors: {ex.Message}" };
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "ReadmeGeneratorTool failed");
-                output.OutputError($"ReadmeGenerator threw an exception: {ex.Message}");
-                ctx.ExitCode = 1;
+                return new DefaultCommandResponse() { ResponseError = $"ReadmeGenerator threw an exception: {ex.Message}" };
             }
         }
     }
@@ -115,7 +104,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
     public partial class ReadmeGenerator
     {
         private readonly ILogger<ReadMeGeneratorTool> logger;
-        private readonly IOutputHelper output;
         private readonly IMicroagentHostService microAgentHostService;
         private readonly string templatePath;
         private readonly Uri serviceDocumentation;
@@ -125,12 +113,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         private readonly string model;
 
         public ReadmeGenerator(
-            ILogger<ReadMeGeneratorTool> logger, IOutputHelper output, IMicroagentHostService microAgentHostService,
+            ILogger<ReadMeGeneratorTool> logger, IMicroagentHostService microAgentHostService,
             string templatePath, Uri serviceDocumentation, string packagePath, string outputPath,
             string model)
         {
             this.logger = logger;
-            this.output = output;
             this.microAgentHostService = microAgentHostService;
 
             this.templatePath = templatePath;

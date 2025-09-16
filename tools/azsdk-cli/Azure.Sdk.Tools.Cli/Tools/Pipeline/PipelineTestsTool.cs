@@ -10,7 +10,6 @@ using Microsoft.VisualStudio.Services.WebApi;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
@@ -48,23 +47,16 @@ public class PipelineTestsTool : MCPTool
         ];
     }
 
-    public override Command GetCommand()
-    {
-        var testResultsCommand = new Command("test-results", "Get test results for a pipeline run") { buildIdArg };
-        testResultsCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+    public override Command GetCommand() =>
+        new("test-results", "Get test results for a pipeline run") { buildIdArg };
 
-        return testResultsCommand;
-    }
-
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         Initialize();
         var buildId = ctx.ParseResult.GetValueForArgument(buildIdArg);
 
         logger.LogInformation("Getting test results for pipeline {buildId}...", buildId);
-        var result = await GetPipelineLlmArtifacts(buildId);
-        ctx.ExitCode = ExitCode;
-        output.Output(result);
+        return await GetPipelineLlmArtifacts(buildId);
     }
 
     private void Initialize()
@@ -95,7 +87,6 @@ public class PipelineTestsTool : MCPTool
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get pipeline artifacts for build {buildId} in project {project}", buildId, project);
-            SetFailure();
             return new ObjectCommandResponse
             {
                 ResponseError = $"Failed to get pipeline artifacts for build {buildId} in project {project}",

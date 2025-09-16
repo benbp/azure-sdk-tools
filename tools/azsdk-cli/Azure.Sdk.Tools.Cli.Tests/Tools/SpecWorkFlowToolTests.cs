@@ -34,8 +34,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
             logger = new TestLogger<SpecWorkflowTool>();
             inputSanitizer = new InputSanitizer();
 
-            mockOutputService.Setup(x => x.Format(It.IsAny<GenericResponse>()))
-                           .Returns((GenericResponse r) => string.Join(", ", r.Details));
+            mockOutputService.Setup(x => x.Format(It.IsAny<SDKWorkflowResponse>()))
+                           .Returns((SDKWorkflowResponse r) => string.Join(", ", r.Details));
             mockGitHelper.Setup(x => x.GetBranchName(It.IsAny<string>()))
                 .Returns("testBranch");
             mockTypeSpecHelper.Setup(x => x.IsRepoPathForPublicSpecRepo(It.IsAny<string>()))

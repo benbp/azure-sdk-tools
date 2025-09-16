@@ -1,17 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
-using System.Text;
-using System.Text.Json;
-using System.Text.RegularExpressions;
+using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Services;
-using Microsoft.AspNetCore.Mvc;
-using ModelContextProtocol.Server;
-using LibGit2Sharp;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
@@ -48,14 +41,12 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             return command;
         }
 
-        public async override Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public async override Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
             var packagePath = commandParser.GetValueForOption(SharedOptions.PackagePath);
-            var buildResult = await BuildSdkAsync(packagePath, ct);
-            ctx.ExitCode = ExitCode;
-            _output.Output(buildResult);
+            return await BuildSdkAsync(packagePath, ct);
         }
 
         [McpServerTool(Name = "azsdk_package_build_code"), Description("Build/compile SDK code for a specified project locally.")]
@@ -131,7 +122,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         // Helper method to create failure responses along with setting the failure state
         private DefaultCommandResponse CreateFailureResponse(string message)
         {
-            SetFailure();
             return new DefaultCommandResponse
             {
                 ResponseErrors = [message]
@@ -185,7 +175,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                 var fullBuildScriptPath = Path.IsPathRooted(configValue)
                     ? configValue
                     : Path.Combine(sdkRepoRoot, configValue);
-                
+
                 // Normalize the final path
                 fullBuildScriptPath = Path.GetFullPath(fullBuildScriptPath);
 

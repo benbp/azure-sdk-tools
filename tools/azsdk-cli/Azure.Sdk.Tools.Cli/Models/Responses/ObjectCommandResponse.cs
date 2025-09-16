@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -11,13 +12,25 @@ public class ObjectCommandResponse : CommandResponse
         WriteIndented = true
     };
 
+    [JsonPropertyName("message")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Message { get; set; }
+
     [JsonPropertyName("result")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Result { get; set; }
 
     public override string ToString()
     {
-        var output = JsonSerializer.Serialize(Result, serializerOptions);
-        return ToString(output);
+        var result = new StringBuilder();
+        if (!string.IsNullOrEmpty(Message))
+        {
+            result.AppendLine(Message);
+        }
+        if (Result != null)
+        {
+            result.AppendLine(JsonSerializer.Serialize(Result, serializerOptions));
+        }
+        return ToString(result);
     }
 }

@@ -1,17 +1,11 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
-using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Services;
-using Microsoft.AspNetCore.Mvc;
-using ModelContextProtocol.Server;
-using LibGit2Sharp;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
@@ -44,25 +38,20 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             CommandHierarchy = [ SharedCommandGroups.Package, SharedCommandGroups.SourceCode ];
         }
 
-        public override Command GetCommand()
-        {
-            var command = new Command(GenerateSdkCommandName, "Generates SDK code for a specified language based on the provided 'tspconfig.yaml' or 'tsp-location.yaml'.") { localSdkRepoPathOpt, tspConfigPathOpt, tspLocationPathOpt, emitterOpt };
-            command.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
+        public override Command GetCommand() =>
+            new(GenerateSdkCommandName, "Generates SDK code for a specified language based on the provided 'tspconfig.yaml' or 'tsp-location.yaml'.")
+            {
+                localSdkRepoPathOpt, tspConfigPathOpt, tspLocationPathOpt, emitterOpt
+            };
 
-            return command;
-        }
-
-        public async override Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
-            var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
             var localSdkRepoPath = commandParser.GetValueForOption(localSdkRepoPathOpt);
             var tspConfigPath = commandParser.GetValueForOption(tspConfigPathOpt);
             var tspLocationPath = commandParser.GetValueForOption(tspLocationPathOpt);
             var emitterOptions = commandParser.GetValueForOption(emitterOpt);
-            var generateResult = await GenerateSdkAsync(localSdkRepoPath, tspConfigPath, tspLocationPath, emitterOptions, ct);
-            ctx.ExitCode = ExitCode;
-            _output.Output(generateResult);
+            return await GenerateSdkAsync(localSdkRepoPath, tspConfigPath, tspLocationPath, emitterOptions, ct);
         }
 
         [McpServerTool(Name = "azsdk_package_generate_code"), Description("Generates SDK code for a specified language using either 'tspconfig.yaml' or 'tsp-location.yaml'. Runs locally.")]
@@ -112,7 +101,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
             // white spaces will be added by agent when it's a URL
             tspConfigPath = tspConfigPath.Trim();
-            
+
             // Validate inputs
             _logger.LogInformation($"Generating SDK at repo: {localSdkRepoPath}");
             if (string.IsNullOrEmpty(localSdkRepoPath) || !Directory.Exists(localSdkRepoPath))
@@ -185,7 +174,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
             // Build arguments list dynamically
             var arguments = new List<string> { "tsp-client", "init", "--update-if-exists", "--tsp-config", tspConfigPath };
-            
+
             if (!string.IsNullOrEmpty(specRepoFullName))
             {
                 arguments.Add("--repo");
@@ -236,7 +225,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             }
 
             var commitOrBranch = afterBlob.Substring(0, nextSlashIndex);
-            
+
             // Validate that it's a 40-character commit SHA, not a branch name
             return IsValidSha(commitOrBranch);
         }
@@ -256,7 +245,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         // Helper method to create failure responses along with setting the failure state
         private DefaultCommandResponse CreateFailureResponse(string message)
         {
-            SetFailure();
             return new DefaultCommandResponse
             {
                 ResponseErrors = [message]

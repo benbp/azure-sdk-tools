@@ -24,11 +24,11 @@ public class DefaultCommandResponse : CommandResponse
         var output = new StringBuilder();
         if (!string.IsNullOrEmpty(Message))
         {
-            output.AppendLine($"Message: {Message}");
+            output.AppendLine(Message);
         }
         if (Result != null)
         {
-            output.AppendLine($"Result: {Result?.ToString() ?? "null"}");
+            output.AppendLine(Result?.ToString() ?? string.Empty);
         }
         if (Duration > 0)
         {
@@ -37,4 +37,6 @@ public class DefaultCommandResponse : CommandResponse
 
         return ToString(output);
     }
+
+    public static implicit operator DefaultCommandResponse(string s) => new() { Message = s };
 }

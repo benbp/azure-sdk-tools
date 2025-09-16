@@ -8,7 +8,6 @@ using System.Web;
 using Azure.Core;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Contract;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
@@ -90,17 +89,13 @@ public class PipelineAnalysisTool : MCPTool
         ];
     }
 
-    public override Command GetCommand()
-    {
-        var analyzePipelineCommand = new Command("analyze", "Analyze a pipeline run") {
+    public override Command GetCommand() =>
+        new("analyze", "Analyze a pipeline run")
+        {
             pipelineArg, projectOpt, logIdOpt, analyzeWithAgentOpt, projectEndpointOpt, aiModelOpt
         };
-        analyzePipelineCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
 
-        return analyzePipelineCommand;
-    }
-
-    public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+    public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {
         var pipelineIdentifier = ctx.ParseResult.GetValueForArgument(pipelineArg);
         var project = ctx.ParseResult.GetValueForOption(projectOpt);
@@ -117,16 +112,14 @@ public class PipelineAnalysisTool : MCPTool
         if (logId != 0)
         {
             var result = await AnalyzePipelineFailureLogs(project ?? projectFromLink, buildId, [logId], analyzeWithAgent, ct);
-            ctx.ExitCode = ExitCode;
             tokenUsageHelper.LogUsage();
-            output.Output(result);
+            return result;
         }
         else
         {
             var result = await AnalyzePipeline(project ?? projectFromLink, buildId, analyzeWithAgent, ct);
-            ctx.ExitCode = ExitCode;
             tokenUsageHelper.LogUsage();
-            output.Output(result);
+            return result;
         }
     }
 

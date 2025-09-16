@@ -3,7 +3,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
-using Azure.Sdk.Tools.Cli.Contract;
+using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
@@ -26,14 +26,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
         // Options
         private readonly Option<int> pipelineRunIdOpt = new(["--pipeline-id"], "pipeline run id") { IsRequired = true };
 
-        public override Command GetCommand()
-        {
-            Command command = new(getPipelineStatusCommandName, "Get pipeline run status") { pipelineRunIdOpt };
-            command.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-            return command;
-        }
+        public override Command GetCommand() =>
+            new(getPipelineStatusCommandName, "Get pipeline run status") { pipelineRunIdOpt };
 
-        public override async Task HandleCommand(InvocationContext ctx, CancellationToken ct)
+        public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {
             var command = ctx.ParseResult.CommandResult.Command.Name;
             var commandParser = ctx.ParseResult;
@@ -41,12 +37,9 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
             {
                 case getPipelineStatusCommandName:
                     var pipelineRunStatus = await GetPipelineRunStatus(commandParser.GetValueForOption(pipelineRunIdOpt));
-                    output.Output($"Pipeline run status: {pipelineRunStatus}");
-                    return;
+                    return new DefaultCommandResponse { Message = $"Pipeline run status: {pipelineRunStatus}" };
                 default:
-                    SetFailure();
-                    output.OutputError($"Unknown command: '{command}'");
-                    return;
+                    return new DefaultCommandResponse { ResponseError = $"Unknown command: '{command}'" };
             }
         }
 
@@ -60,7 +53,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
         {
             try
             {
-                var response = new GenericResponse();
+                var response = new SDKWorkflowResponse();
                 var pipeline = await devopsService.GetPipelineRunAsync(buildId);
                 if (pipeline != null)
                 {
@@ -71,7 +64,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
             }
             catch (Exception ex)
             {
-                var errorResponse = new GenericResponse
+                var errorResponse = new SDKWorkflowResponse
                 {
                     Status = "Failed"
                 };

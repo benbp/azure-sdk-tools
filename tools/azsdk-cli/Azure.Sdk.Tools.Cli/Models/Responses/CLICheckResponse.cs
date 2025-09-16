@@ -8,8 +8,9 @@ namespace Azure.Sdk.Tools.Cli.Models;
 /// </summary>
 public class CLICheckResponse : CommandResponse
 {
+    // Map ExitCode to CliExitCode for JSON serialization
     [JsonPropertyName("exit_code")]
-    public int ExitCode { get; set; }
+    public int CliExitCode => ExitCode;
 
     [JsonPropertyName("check_status_details")]
     public string CheckStatusDetails { get; set; }

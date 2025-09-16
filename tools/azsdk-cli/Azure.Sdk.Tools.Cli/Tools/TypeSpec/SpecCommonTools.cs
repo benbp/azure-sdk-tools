@@ -4,9 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Contract;
 using System.CommandLine;
-using Azure.Sdk.Tools.Cli.Services;
 
 namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
 {
