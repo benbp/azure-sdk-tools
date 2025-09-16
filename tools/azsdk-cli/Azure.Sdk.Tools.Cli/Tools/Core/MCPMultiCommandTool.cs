@@ -6,7 +6,7 @@ namespace Azure.Sdk.Tools.Cli.Tools;
 
 public abstract class MCPMultiCommandTool : MCPToolBase
 {
-    public abstract List<Command> GetCommands();
+    protected abstract List<Command> GetCommands();
 
     public override List<Command> GetCommandInstances()
     {

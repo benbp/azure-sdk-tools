@@ -5,26 +5,27 @@ using Azure.Sdk.Tools.Cli.Microagents;
 using Azure.Sdk.Tools.Cli.Tests.Mocks.Helpers;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Package;
+using Azure.Sdk.Tools.Cli.Telemetry;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 {
     internal class ReadMeGeneratorToolTests
     {
         private ReadMeGeneratorTool tool;
-        private TestOutputHelper outputHelper;
         private Mock<IMicroagentHostService>? mockMicroAgentService;
+        private Mock<ITelemetryService>? telemetryServiceMock;
 
         [SetUp]
         public void Setup()
         {
-            outputHelper = new TestOutputHelper();
             mockMicroAgentService = new Mock<IMicroagentHostService>();
+            telemetryServiceMock = new Mock<ITelemetryService>();
 
             tool = new ReadMeGeneratorTool(
                 new TestLogger<ReadMeGeneratorTool>(),
-                outputHelper,
                 mockMicroAgentService.Object
             );
+            tool.Initialize(new TestOutputHelper(), telemetryServiceMock.Object);
         }
 
         [Test]

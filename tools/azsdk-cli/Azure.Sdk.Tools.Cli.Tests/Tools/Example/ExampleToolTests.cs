@@ -55,7 +55,6 @@ internal class ExampleToolTests
         // Create the tool instance
         tool = new ExampleTool(
             new TestLogger<ExampleTool>(),
-            mockOutput.Object,
             mockAzureService.Object,
             mockDevOpsService.Object,
             mockGitHubService,

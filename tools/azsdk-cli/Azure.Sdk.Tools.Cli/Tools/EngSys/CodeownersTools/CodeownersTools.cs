@@ -64,7 +64,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
             CodeownersUtils.Utils.Log.Configure(loggerFactory);
         }
 
-        public override List<Command> GetCommands()
+        protected override List<Command> GetCommands()
         {
             List<Command> subCommands = [
                 new(updateCodeownersCommandName, "Update codeowners in a repository")

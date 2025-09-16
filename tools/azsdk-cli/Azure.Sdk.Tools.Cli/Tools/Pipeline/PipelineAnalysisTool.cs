@@ -272,7 +272,7 @@ public class PipelineAnalysisTool : MCPTool
         return logIds;
     }
 
-    public async Task<List<FailedTestRunResponse>> GetPipelineFailedTestResults(string project, int buildId, CancellationToken ct = default)
+    public async Task<FailedTestRunListResponse> GetPipelineFailedTestResults(string project, int buildId, CancellationToken ct = default)
     {
         try
         {
@@ -297,7 +297,7 @@ public class PipelineAnalysisTool : MCPTool
 
             logger.LogDebug("Getting test results for {count} failed test runs", failedRuns.Count);
 
-            var failedRunData = new List<FailedTestRunResponse>();
+            var failedRunData = new FailedTestRunListResponse();
 
             foreach (var runId in failedRuns)
             {
@@ -309,7 +309,7 @@ public class PipelineAnalysisTool : MCPTool
 
                 foreach (var tc in testCases)
                 {
-                    failedRunData.Add(new FailedTestRunResponse
+                    failedRunData.Items.Add(new FailedTestRunResponse
                     {
                         RunId = runId,
                         TestCaseTitle = tc.TestCaseTitle,
@@ -325,17 +325,8 @@ public class PipelineAnalysisTool : MCPTool
         }
         catch (Exception ex)
         {
-            logger.LogError("Failed to get pipeline failed test results {buildId}: {exception}", buildId, ex.Message);
-            logger.LogError("Stack Trace:");
-            logger.LogError("{stackTrace}", ex.StackTrace);
-            SetFailure();
-            return
-            [
-                new FailedTestRunResponse()
-                {
-                    ResponseError = $"Failed to get pipeline failed test results {buildId}: {ex.Message}",
-                }
-            ];
+            logger.LogError(ex, "Failed to get pipeline failed test results {buildId}", buildId);
+            return new() { ResponseError = $"Failed to get pipeline failed test results {buildId}: {ex.Message}" };
         }
     }
 
@@ -417,10 +408,8 @@ public class PipelineAnalysisTool : MCPTool
             }
             catch (JsonException ex)
             {
-                logger.LogError("Failed to deserialize log analysis response: {exception}", ex.Message);
+                logger.LogError(ex, "Failed to deserialize log analysis response");
                 logger.LogError("Response:\n{result}", result);
-
-                SetFailure();
 
                 return new LogAnalysisResponse()
                 {
@@ -430,10 +419,7 @@ public class PipelineAnalysisTool : MCPTool
         }
         catch (Exception ex)
         {
-            logger.LogError("Failed to analyze pipeline {buildId}: {error}", buildId, ex.Message);
-            logger.LogError("Stack Trace:");
-            logger.LogError("{stackTrace}", ex.StackTrace);
-            SetFailure();
+            logger.LogError(ex, "Failed to analyze pipeline {buildId}", buildId);
             return new LogAnalysisResponse()
             {
                 ResponseError = $"Failed to analyze pipeline {buildId}: {ex.Message}",
@@ -450,10 +436,7 @@ public class PipelineAnalysisTool : MCPTool
         }
         catch (Exception ex)
         {
-            logger.LogError("Failed to analyze pipeline {buildId}: {exception}", buildId, ex.Message);
-            logger.LogError("Stack Trace:");
-            logger.LogError("{stackTrace}", ex.StackTrace);
-            SetFailure();
+            logger.LogError(ex, "Failed to analyze pipeline {buildId}", buildId);
             return new AnalyzePipelineResponse()
             {
                 ResponseError = $"Failed to analyze pipeline {buildId}: {ex.Message}",
@@ -473,7 +456,7 @@ public class PipelineAnalysisTool : MCPTool
             var failureLogIds = await GetPipelineFailureLogIds(project, buildId, ct);
             var analysis = await AnalyzePipelineFailureLogs(project, buildId, failureLogIds, analyzeWithAgent, ct);
 
-            List<FailedTestRunResponse> failedTests = [];
+            var failedTests = new FailedTestRunListResponse();
             var failedTestArtifacts = await devopsService.GetPipelineLlmArtifacts(project, buildId);
 
             foreach (var testFiles in failedTestArtifacts)
@@ -481,11 +464,11 @@ public class PipelineAnalysisTool : MCPTool
                 foreach (var file in testFiles.Value)
                 {
                     var failed = await testHelper.GetFailedTestCases(file);
-                    failedTests.AddRange(failed);
+                    failedTests.Items.AddRange(failed.Items);
                 }
             }
 
-            var failedTestsByUri = failedTests
+            var failedTestsByUri = failedTests.Items
                 .GroupBy(ft => ft.Uri)
                 .ToDictionary(
                     g => g.Key,
@@ -500,10 +483,7 @@ public class PipelineAnalysisTool : MCPTool
         }
         catch (Exception ex)
         {
-            logger.LogError("Failed to analyze pipeline {buildId}: {exception}", buildId, ex.Message);
-            logger.LogError("Stack Trace:");
-            logger.LogError("{stackTrace}", ex.StackTrace);
-            SetFailure();
+            logger.LogError(ex, "Failed to analyze pipeline {buildId}", buildId);
             return new AnalyzePipelineResponse()
             {
                 ResponseError = $"Failed to analyze pipeline {buildId}: {ex.Message}",

@@ -1,40 +1,15 @@
 using System.CommandLine;
 using Moq;
-using Azure.Sdk.Tools.Cli.Contract;
-using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Example;
 
-namespace Azure.Sdk.Tools.Cli.Tests;
+namespace Azure.Sdk.Tools.Cli.Tests.Tools;
 
-internal class CliIntegrationTests
+internal class HelloWorldToolTests
 {
-    private Mock<OutputHelper> outputHelperMock = new(MockBehavior.Strict);
-
-    private Tuple<Command, TestLogger<T>> GetTestInstanceWithLogger<T>() where T : MCPTool
-    {
-        var testLogger = new TestLogger<T>();
-        outputHelperMock = new(OutputModes.Plain) { CallBase = true };
-        outputHelperMock.Setup(s => s.Output(It.IsAny<string>())).Verifiable();
-
-        var tool = (T)Activator.CreateInstance(
-            typeof(T),
-            args: [testLogger, outputHelperMock.Object]
-        )!;
-        // Nothing needs to be added here. The parameter 'services' is already optional by using 'object[] services = null'.
-        // The assignment 'services ??= Array.Empty<object>();' ensures it defaults to an empty array if not provided.
-        var tuple = new Tuple<Command, TestLogger<T>>(
-            item1: tool.GetCommand(),
-            item2: testLogger
-        );
-        return tuple;
-    }
-
     [Test]
     public async Task TestHelloWorldCLIOptions()
     {
-        var (cmd, logger) = GetTestInstanceWithLogger<HelloWorldTool>();
+        var (commands, logger) = GetTestInstanceWithLogger<HelloWorldTool>();
 
         var output = "";
         outputHelperMock
