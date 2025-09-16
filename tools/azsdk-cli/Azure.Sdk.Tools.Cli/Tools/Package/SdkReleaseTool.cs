@@ -17,7 +17,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         private readonly Option<string> branchOpt = new(["--branch"], () => "main", "Branch to release the package from") { IsRequired = false };
         public static readonly string[] ValidLanguages = [".NET", "Go", "Java", "JavaScript", "Python"];
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new(commandName, "Run the release pipeline for the package") { packageNameOpt, languageOpt, branchOpt };
 
         public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)

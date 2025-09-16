@@ -9,7 +9,7 @@ using Azure.Sdk.Tools.Cli.Models;
 namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
     [McpServerToolType, Description("This type contains the tools to build/compile SDK code locally.")]
-    public class SdkBuildTool: MCPTool
+    public class SdkBuildTool : MCPTool
     {
         // Command names
         private const string BuildSdkCommandName = "build";
@@ -22,17 +22,17 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         private readonly ISpecGenSdkConfigHelper _specGenSdkConfigHelper;
         private readonly ILogger<SdkBuildTool> _logger;
 
-        public SdkBuildTool(IGitHelper gitHelper, ILogger<SdkBuildTool> logger, IOutputHelper output, IProcessHelper processHelper, ISpecGenSdkConfigHelper specGenSdkConfigHelper): base()
+        public SdkBuildTool(IGitHelper gitHelper, ILogger<SdkBuildTool> logger, IOutputHelper output, IProcessHelper processHelper, ISpecGenSdkConfigHelper specGenSdkConfigHelper) : base()
         {
             _gitHelper = gitHelper;
             _logger = logger;
             _output = output;
             _processHelper = processHelper;
             _specGenSdkConfigHelper = specGenSdkConfigHelper;
-            CommandHierarchy = [ SharedCommandGroups.Package, SharedCommandGroups.SourceCode ];
+            CommandHierarchy = [SharedCommandGroups.Package, SharedCommandGroups.SourceCode];
         }
 
-        public override Command GetCommand()
+        protected override Command GetCommand()
         {
             var command = new Command(BuildSdkCommandName, "Builds SDK source code for a specified language and project.");
             command.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });

@@ -58,7 +58,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
             "go"
         };
 
-        public override List<Command> GetCommands() =>
+        protected override List<Command> GetCommands() =>
         [
             new(checkApiReadinessCommandName, "Check if API spec is ready to generate SDK") { typeSpecProjectPathOpt, pullRequestNumberOpt, workItemIdOpt },
             new(generateSdkCommandName, "Generate SDK for a TypeSpec project") { typeSpecProjectPathOpt, apiVersionOpt, sdkReleaseTypeOpt, languageOpt, pullRequestNumberOpt, workItemIdOpt },

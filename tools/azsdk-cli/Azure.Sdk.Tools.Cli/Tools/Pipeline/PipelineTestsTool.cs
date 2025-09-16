@@ -47,7 +47,7 @@ public class PipelineTestsTool : MCPTool
         ];
     }
 
-    public override Command GetCommand() =>
+    protected override Command GetCommand() =>
         new("test-results", "Get test results for a pipeline run") { buildIdArg };
 
     public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)

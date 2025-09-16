@@ -18,7 +18,7 @@ public class TestAnalysisTool(ITestHelper testHelper, ILogger<PipelineAnalysisTo
     private readonly Option<string> filterOpt = new(["--filter-title"], "Test case title to filter results");
     private readonly Option<bool> titlesOpt = new(["--titles"], "Only return test case titles, not full details");
 
-    public override Command GetCommand()
+    protected override Command GetCommand()
     {
         var analyzeTestCommand = new Command("test-results", "Analyze test results") {
             trxPathOpt, filterOpt, titlesOpt

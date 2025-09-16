@@ -22,7 +22,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
         // Options
         private readonly Option<string> typeSpecProjectPathOpt = new(["--typespec-project"], "Path to typespec project") { IsRequired = true };
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new(checkPublicRepoCommandName, "Check if TypeSpec project is in public spec repo") { typeSpecProjectPathOpt };
 
         public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)

@@ -36,7 +36,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.GitHub
         private readonly Option<string> targetBranchOpt = new(["--target-branch"], () => "main", "Target branch for the pull request") { IsRequired = false };
         private readonly Option<int> pullRequestNumberOpt = new(["--pr"], "Pull request number") { IsRequired = true };
 
-        public override List<Command> GetCommands() => [
+        protected override List<Command> GetCommands() => [
             new(getPullRequestForCurrentBranchCommandName, "Get pull request for current branch") { repoPathOpt },
             new(createPullRequestCommandName, "Create pull request") { titleOpt, descriptionOpt, repoPathOpt, targetBranchOpt, draftOpt },
             new(getPullRequestCommandName, "Get pull request details") { pullRequestNumberOpt, repoPathOpt }

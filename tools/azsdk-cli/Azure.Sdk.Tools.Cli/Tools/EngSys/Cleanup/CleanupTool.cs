@@ -11,7 +11,7 @@ using Azure.Sdk.Tools.Cli.Models;
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 [McpServerToolType, Description("Cleans up various engsys resources")]
-public class CleanupTool: MCPTool
+public class CleanupTool : MCPTool
 {
     public const string CleanupAgentsCommandName = "agents";
     private readonly IAzureAgentServiceFactory agentServiceFactory;
@@ -33,7 +33,7 @@ public class CleanupTool: MCPTool
         ];
     }
 
-    public override Command GetCommand() => new(CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
+    protected override Command GetCommand() => new(CleanupAgentsCommandName, "Cleanup ai agents") { projectEndpointOpt };
 
     public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {

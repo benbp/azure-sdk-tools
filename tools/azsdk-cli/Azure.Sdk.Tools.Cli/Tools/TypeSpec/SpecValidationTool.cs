@@ -25,7 +25,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
         // Options
         private readonly Option<string> typeSpecProjectPathOpt = new(["--typespec-project"], "Path to typespec project") { IsRequired = true };
 
-        public override Command GetCommand() => new(TypespecValidationCommandName, "Run typespec validation") { typeSpecProjectPathOpt };
+        protected override Command GetCommand() => new(TypespecValidationCommandName, "Run typespec validation") { typeSpecProjectPathOpt };
 
         public override async Task<CommandResponse> HandleCommand(System.CommandLine.Invocation.InvocationContext ctx, CancellationToken ct)
         {

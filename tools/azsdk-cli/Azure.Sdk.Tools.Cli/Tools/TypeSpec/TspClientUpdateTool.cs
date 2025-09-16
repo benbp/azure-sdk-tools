@@ -23,7 +23,7 @@ public class TspClientUpdateTool(
     private readonly Argument<string> updateCommitSha = new(name: "update-commit-sha", description: "SHA of the commit to apply update changes for") { Arity = ArgumentArity.ExactlyOne };
     private readonly Option<string?> newGenOpt = new(["--new-gen"], () => "./tmpgen", "Directory for regenerated TypeSpec output (optional)");
 
-    public override Command GetCommand() =>
+    protected override Command GetCommand() =>
         new("customized-update", "Update customized TypeSpec-generated client code. Runs the full pipeline by default: regenerate -> diff -> map -> propose -> apply")
         {
             updateCommitSha,

@@ -25,7 +25,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
 
         private readonly Option<bool> failOpt = new(["--fail"], () => false, "Force failure");
 
-        public override Command GetCommand()
+        protected override Command GetCommand()
         {
             Command command = new("hello-world", "Simple echo tool for testing framework features");
             command.AddArgument(_inputArg);

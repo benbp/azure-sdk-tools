@@ -55,7 +55,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
             { "azure-core", ServiceType.DataPlane }
         };
 
-        public override Command GetCommand()
+        protected override Command GetCommand()
         {
             // Add validator to serviceNamespaceArg
             serviceNamespaceArg.AddValidator(result =>

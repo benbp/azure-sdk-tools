@@ -26,7 +26,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
         // Options
         private readonly Option<int> pipelineRunIdOpt = new(["--pipeline-id"], "pipeline run id") { IsRequired = true };
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new(getPipelineStatusCommandName, "Get pipeline run status") { pipelineRunIdOpt };
 
         public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)

@@ -56,7 +56,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             IsRequired = true,
         };
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new("readme", "README generator tool") {
                 modelOption,
                 outputPathOption,

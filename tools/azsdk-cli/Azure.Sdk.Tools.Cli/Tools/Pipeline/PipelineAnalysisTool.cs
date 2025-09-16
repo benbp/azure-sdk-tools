@@ -89,7 +89,7 @@ public class PipelineAnalysisTool : MCPTool
         ];
     }
 
-    public override Command GetCommand() =>
+    protected override Command GetCommand() =>
         new("analyze", "Analyze a pipeline run")
         {
             pipelineArg, projectOpt, logIdOpt, analyzeWithAgentOpt, projectEndpointOpt, aiModelOpt

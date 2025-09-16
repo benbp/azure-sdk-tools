@@ -83,7 +83,7 @@ public class ExampleTool(
     private readonly Option<string> languageOption = new(["--language", "-l"], "Programming language of the repository");
     private readonly Option<bool> forceFailureOption = new(["--force-failure", "-f"], () => false, "Force an error for demonstration");
 
-    public override List<Command> GetCommands()
+    protected override List<Command> GetCommands()
     {
         List<Command> subCommands = [
             new(AzureSubCommand, "Demonstrate Azure service integration") { tenantOption },

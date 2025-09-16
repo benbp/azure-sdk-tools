@@ -24,7 +24,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
         private const string RunChecksCommandName = "run-checks";
 
-        public override List<Command> GetCommands()
+        protected override List<Command> GetCommands()
         {
             var parentCommand = new Command(RunChecksCommandName, "Run validation checks for SDK packages");
             // Add the package path option to the parent command so it can be used without subcommands

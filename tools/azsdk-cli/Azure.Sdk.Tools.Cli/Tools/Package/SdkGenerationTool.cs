@@ -10,7 +10,7 @@ using Azure.Sdk.Tools.Cli.Models;
 namespace Azure.Sdk.Tools.Cli.Tools.Package
 {
     [McpServerToolType, Description("This type contains the tools to generate SDK code locally.")]
-    public class SdkGenerationTool: MCPTool
+    public class SdkGenerationTool : MCPTool
     {
         // Command names
         private const string GenerateSdkCommandName = "generate";
@@ -28,17 +28,17 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         private readonly ILogger<SdkGenerationTool> _logger;
         private readonly INpxHelper _npxHelper;
 
-        public SdkGenerationTool(IGitHelper gitHelper, ILogger<SdkGenerationTool> logger, INpxHelper npxHelper, IOutputHelper output, IProcessHelper processHelper): base()
+        public SdkGenerationTool(IGitHelper gitHelper, ILogger<SdkGenerationTool> logger, INpxHelper npxHelper, IOutputHelper output, IProcessHelper processHelper) : base()
         {
             _gitHelper = gitHelper;
             _logger = logger;
             _npxHelper = npxHelper;
             _output = output;
             _processHelper = processHelper;
-            CommandHierarchy = [ SharedCommandGroups.Package, SharedCommandGroups.SourceCode ];
+            CommandHierarchy = [SharedCommandGroups.Package, SharedCommandGroups.SourceCode];
         }
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new(GenerateSdkCommandName, "Generates SDK code for a specified language based on the provided 'tspconfig.yaml' or 'tsp-location.yaml'.")
             {
                 localSdkRepoPathOpt, tspConfigPathOpt, tspLocationPathOpt, emitterOpt

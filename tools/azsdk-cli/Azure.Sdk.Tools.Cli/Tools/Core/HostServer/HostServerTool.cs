@@ -15,7 +15,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.HostServer
             _logger = logger;
         }
 
-        public override Command GetCommand() => new("start", "Starts the MCP server (stdio mode)");
+        protected override Command GetCommand() => new("start", "Starts the MCP server (stdio mode)");
 
         public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
         {

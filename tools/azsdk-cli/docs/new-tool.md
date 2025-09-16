@@ -153,7 +153,7 @@ public class YourTool(
     private readonly Option<bool> flagOption = new(["--flag", "-f"], () => false, "Boolean flag description");
 
     // CLI Command Configuration
-    public override Command GetCommand()
+    protected override Command GetCommand()
     {
         var command = new Command("your-command", "Description for CLI help");
 
@@ -224,7 +224,7 @@ public class ComplexTool(
     private readonly Option<string> fooOption = new(["--foo"], "Foo") { IsRequired = true };
     private readonly Option<string> barOption = new(["--bar"], "Bar");
 
-    public override List<Command> GetCommands()
+    protected override List<Command> GetCommands()
     {
         List<Commands> subCommands = [
             new(SubCommandName1, "Analyze something", { fooOption })

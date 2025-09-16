@@ -12,7 +12,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example;
 
 public class QuokkaTool(IOutputHelper output) : MCPTool
 {
-    public override Command GetCommand()
+    protected override Command GetCommand()
     {
         Command command = new("quokka") { IsHidden = true };
         command.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });

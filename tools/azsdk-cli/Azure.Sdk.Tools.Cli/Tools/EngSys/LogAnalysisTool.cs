@@ -44,7 +44,7 @@ public class LogAnalysisTool : MCPTool
         ];
     }
 
-    public override Command GetCommand()
+    protected override Command GetCommand()
     {
         var analyzeCommand = new Command(AnalyzeCommandName, "Analyze a log file for errors and issues")
         {

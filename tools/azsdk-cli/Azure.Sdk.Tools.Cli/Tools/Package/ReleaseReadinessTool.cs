@@ -24,7 +24,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
         private readonly Option<string> languageOpt = new(["--language"], "SDK language from one of the following ['.NET', 'Python', 'Java', 'JavaScript', Go]") { IsRequired = true };
         private static readonly string Pipeline_Success_Status = "Succeeded";
 
-        public override Command GetCommand() =>
+        protected override Command GetCommand() =>
             new("release-readiness", "Checks release readiness of a SDK package.") { packageNameOpt, languageOpt };
 
         public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)

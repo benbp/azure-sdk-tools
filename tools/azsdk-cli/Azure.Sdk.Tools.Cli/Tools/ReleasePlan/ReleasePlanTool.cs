@@ -66,7 +66,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}(-preview)?$")]
         private static partial Regex ApiVersionRegex();
 
-        public override List<Command> GetCommands() =>
+        protected override List<Command> GetCommands() =>
         [
             new(getReleasePlanDetailsCommandName, "Get release plan details") {workItemIdOpt, releasePlanNumberOpt},
             new(createReleasePlanCommandName, "Create a release plan") { typeSpecProjectPathOpt, targetReleaseOpt, serviceTreeIdOpt, productTreeIdOpt, apiVersionOpt, pullRequestOpt, sdkReleaseTypeOpt, userEmailOpt, isTestReleasePlanOpt },
@@ -440,7 +440,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to verify package namespace approval");
-                return new DefaultCommandResponse {
+                return new DefaultCommandResponse
+                {
                     ResponseError = $"Failed to verify package namespace approval: {ex.Message}"
                 };
             }
