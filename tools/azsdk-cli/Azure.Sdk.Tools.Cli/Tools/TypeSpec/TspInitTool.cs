@@ -16,21 +16,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
     /// Use this tool to onboard new services to TypeSpec.
     /// </summary>
     [McpServerToolType, Description("Tools for initializing TypeSpec projects.")]
-    public class TypeSpecInitTool : MCPTool
+    public class TypeSpecInitTool(
+        INpxHelper npxHelper,
+        ITypeSpecHelper typespecHelper,
+        ILogger<TypeSpecInitTool> logger
+    ) : MCPTool
     {
-        private readonly INpxHelper npxHelper;
-        private readonly ITypeSpecHelper typespecHelper;
-        private readonly ILogger<TypeSpecInitTool> logger;
-        private readonly IOutputHelper output;
-
-        public TypeSpecInitTool(INpxHelper npxHelper, ITypeSpecHelper typespecHelper, ILogger<TypeSpecInitTool> logger, IOutputHelper output)
-        {
-            this.npxHelper = npxHelper;
-            this.typespecHelper = typespecHelper;
-            this.logger = logger;
-            this.output = output;
-            CommandHierarchy = [SharedCommandGroups.TypeSpec];
-        }
+        public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.TypeSpec];
 
         // This is the template registry URL used by the TypeSpec compiler's init command.
         private const string AzureTemplatesUrl = "https://aka.ms/typespec/azure-init";

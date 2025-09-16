@@ -14,6 +14,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
         private ReadMeGeneratorTool tool;
         private Mock<IMicroagentHostService>? mockMicroAgentService;
         private Mock<ITelemetryService>? telemetryServiceMock;
+        private readonly TestOutputHelper outputHelper = new();
 
         [SetUp]
         public void Setup()
@@ -25,7 +26,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 new TestLogger<ReadMeGeneratorTool>(),
                 mockMicroAgentService.Object
             );
-            tool.Initialize(new TestOutputHelper(), telemetryServiceMock.Object);
+            tool.Initialize(outputHelper, telemetryServiceMock.Object);
         }
 
         [Test]
@@ -43,7 +44,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 
             try
             {
-                var command = tool.GetCommand();
+                var command = tool.GetCommandInstances().First();
 
                 int exitCode = command.Invoke($"--output-path \"{readmeOutputPath}\" --service-url \"https://learn.microsoft.com/azure/service-bus-messaging\" --template-path {readmeTemplatePath} --package-path {packagePath}");
 
@@ -79,7 +80,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 Assert.Ignore("Skipping test as AZURE_SDK_FOR_GO_PATH is not set");
             }
 
-            var command = tool.GetCommand();
+            var command = tool.GetCommandInstances().First();
             var readmeOutputPath = Path.GetTempFileName();
             var readmeTemplatePath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "README-template.go.md");
 
@@ -123,7 +124,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 
             try
             {
-                var command = tool.GetCommand();
+                var command = tool.GetCommandInstances().First();
 
                 int exitCode = command.Invoke($"--output-path \"{readmeOutputPath}\" --service-url \"https://learn.microsoft.com/azure/service-bus-messaging\" --template-path {readmeTemplatePath} --package-path {packagePath}");
 

@@ -37,7 +37,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
         private readonly Option<string> workingBranchOption = new(["--branch"], "Branch to make edits to, only if provided.") { IsRequired = false };
 
         private readonly IGitHubService githubService;
-        private readonly IOutputHelper output;
         private readonly ILogger<CodeownersTools> logger;
         private readonly ICodeownersValidatorHelper codeownersValidator;
 
@@ -50,14 +49,12 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 
         public CodeownersTools(
             IGitHubService githubService,
-            IOutputHelper output,
             ILogger<CodeownersTools> logger,
             ILoggerFactory? loggerFactory,
             ICodeownersValidatorHelper codeownersValidator
         )
         {
             this.githubService = githubService;
-            this.output = output;
             this.logger = logger;
             this.codeownersValidator = codeownersValidator;
 
@@ -229,8 +226,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 
                 return new DefaultCommandResponse
                 {
-                    Message = string.Join("\n", resultMessages),
-                    Result = codeownersValidationResultMessage
+                    Message = codeownersValidationResultMessage,
+                    Result = resultMessages
                 };
             }
             catch (Exception ex)

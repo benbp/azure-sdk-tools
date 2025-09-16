@@ -6,55 +6,31 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Web;
 using Azure.Core;
-using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Services;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.OAuth;
 using Microsoft.VisualStudio.Services.TestResults.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using ModelContextProtocol.Server;
+using Azure.Sdk.Tools.Cli.Commands;
+using Azure.Sdk.Tools.Cli.Configuration;
+using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Models;
+using Azure.Sdk.Tools.Cli.Services;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Pipeline;
 
 [McpServerToolType, Description("Fetches data from an Azure Pipelines run.")]
-public class PipelineAnalysisTool : MCPTool
+public class PipelineAnalysisTool(
+    IAzureService azureService,
+    IDevOpsService devopsService,
+    IAzureAgentServiceFactory azureAgentServiceFactory,
+    ILogAnalysisHelper logAnalysisHelper,
+    ITestHelper testHelper,
+    ILogger<PipelineAnalysisTool> logger,
+    TokenUsageHelper tokenUsageHelper
+) : MCPTool
 {
-    private readonly IAzureService azureService;
-    private readonly IDevOpsService devopsService;
-    private readonly IAzureAgentServiceFactory azureAgentServiceFactory;
-    private readonly ILogAnalysisHelper logAnalysisHelper;
-    private readonly ITestHelper testHelper;
-    private readonly ILogger<PipelineAnalysisTool> logger;
-    private readonly IOutputHelper output;
-    private readonly TokenUsageHelper tokenUsageHelper;
-
-    private IAzureAgentService azureAgentService;
-    private bool initialized = false;
-
-    private readonly HttpClient httpClient = new();
-    private BuildHttpClient buildClientValue;
-    private BuildHttpClient buildClient
-    {
-        get
-        {
-            Initialize();
-            return buildClientValue;
-        }
-    }
-    private TestResultsHttpClient testClientValue;
-    private TestResultsHttpClient testClient
-    {
-        get
-        {
-            Initialize();
-            return testClientValue;
-        }
-    }
-
     // Options
     private readonly Argument<string> pipelineArg = new("Pipeline link or Build ID");
     private readonly Option<int> logIdOpt = new(["--log-id"], "ID of the pipeline task log");
@@ -63,31 +39,7 @@ public class PipelineAnalysisTool : MCPTool
     private readonly Option<string> projectEndpointOpt = new(["--ai-endpoint", "-e"], "The ai foundry project endpoint for the Azure AI Agent service");
     private readonly Option<string> aiModelOpt = new(["--ai-model"], "The model to use for the Azure AI Agent");
 
-    public PipelineAnalysisTool(
-        IAzureService azureService,
-        IDevOpsService devopsService,
-        IAzureAgentServiceFactory azureAgentServiceFactory,
-        ILogAnalysisHelper logAnalysisHelper,
-        ITestHelper testHelper,
-        ILogger<PipelineAnalysisTool> logger,
-        IOutputHelper output,
-        TokenUsageHelper tokenUsageHelper
-    ) : base()
-    {
-        this.azureService = azureService;
-        this.devopsService = devopsService;
-        this.azureAgentServiceFactory = azureAgentServiceFactory;
-        this.logAnalysisHelper = logAnalysisHelper;
-        this.testHelper = testHelper;
-        this.logger = logger;
-        this.output = output;
-        this.tokenUsageHelper = tokenUsageHelper;
-
-        CommandHierarchy =
-        [
-            SharedCommandGroups.AzurePipelines   // azsdk azp
-        ];
-    }
+    public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.AzurePipelines];
 
     protected override Command GetCommand() =>
         new("analyze", "Analyze a pipeline run")
@@ -120,6 +72,29 @@ public class PipelineAnalysisTool : MCPTool
             var result = await AnalyzePipeline(project ?? projectFromLink, buildId, analyzeWithAgent, ct);
             tokenUsageHelper.LogUsage();
             return result;
+        }
+    }
+
+    private IAzureAgentService azureAgentService;
+    private bool initialized = false;
+
+    private readonly HttpClient httpClient = new();
+    private BuildHttpClient buildClientValue;
+    private BuildHttpClient buildClient
+    {
+        get
+        {
+            Initialize();
+            return buildClientValue;
+        }
+    }
+    private TestResultsHttpClient testClientValue;
+    private TestResultsHttpClient testClient
+    {
+        get
+        {
+            Initialize();
+            return testClientValue;
         }
     }
 

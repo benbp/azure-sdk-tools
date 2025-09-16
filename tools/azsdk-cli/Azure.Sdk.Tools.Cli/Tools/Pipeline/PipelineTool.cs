@@ -4,7 +4,6 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 using ModelContextProtocol.Server;
@@ -13,10 +12,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
 {
     [Description("This type contains the MCP tool to get pipeline status.")]
     [McpServerToolType]
-    public class PipelineTool(IDevOpsService devopsService,
-        IOutputHelper output,
-        ILogger<PipelineTool> logger
-    ) : MCPTool
+    public class PipelineTool(IDevOpsService devopsService, ILogger<PipelineTool> logger) : MCPTool
     {
         public override CommandGroup[] CommandHierarchy { get; set; } = [new("pipeline", "Commands to help with DevOps pipeline")];
 
@@ -49,28 +45,26 @@ namespace Azure.Sdk.Tools.Cli.Tools.Pipeline
         /// <param name="buildId">Build ID for the pipeline run</param>
         /// <returns></returns>
         [McpServerTool(Name = "azsdk_get_pipeline_status"), Description("Get pipeline status for a given pipeline build ID")]
-        public async Task<string> GetPipelineRunStatus(int buildId)
+        public async Task<DefaultCommandResponse> GetPipelineRunStatus(int buildId)
         {
             try
             {
-                var response = new SDKWorkflowResponse();
+                var response = new DefaultCommandResponse();
                 var pipeline = await devopsService.GetPipelineRunAsync(buildId);
                 if (pipeline != null)
                 {
-                    response.Status = pipeline.Result?.ToString() ?? pipeline.Status?.ToString() ?? "Not available";
-                    response.Details.Add($"Pipeline run link: {DevOpsService.GetPipelineUrl(pipeline.Id)}");
+                    response.Result = pipeline.Result?.ToString() ?? pipeline.Status?.ToString() ?? "Not available";
+                    response.Message = $"Pipeline run link: {DevOpsService.GetPipelineUrl(pipeline.Id)}";
                 }
-                return output.Format(response);
+                return response;
             }
             catch (Exception ex)
             {
-                var errorResponse = new SDKWorkflowResponse
-                {
-                    Status = "Failed"
-                };
                 logger.LogError(ex, "Failed to get pipeline run with id {buildId}", buildId);
-                errorResponse.Details.Add($"Failed to get pipeline run with id {buildId}. Error: {ex.Message}");
-                return output.Format(errorResponse);
+                return new()
+                {
+                    ResponseError = $"Failed to get pipeline run with id {buildId}. Error: {ex.Message}"
+                };
             }
         }
     }

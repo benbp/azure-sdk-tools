@@ -11,7 +11,7 @@ internal class TestOutputHelper : IOutputHelper
 {
     /// <summary>
     /// All the collected outputs, in the order they were added.
-    /// The Method is the actual name of the method in the OutputService
+    /// The Method is the actual name of the method in the OutputHelper
     /// </summary>
     public IEnumerable<(string Method, object OutputValue)> Outputs => outputs;
     private readonly List<(string Method, object OutputValue)> outputs;

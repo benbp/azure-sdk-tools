@@ -11,13 +11,12 @@ using ModelContextProtocol.Server;
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 [McpServerToolType, Description("Analyzes log files for errors and issues")]
-public class LogAnalysisTool : MCPTool
+public class LogAnalysisTool(
+    ILogAnalysisHelper logHelper,
+    ILogger<LogAnalysisTool> logger
+) : MCPTool
 {
-    private readonly ILogAnalysisHelper logHelper;
-    private readonly IOutputHelper output;
-    private readonly ILogger<LogAnalysisTool> logger;
-
-    private const int DEFAULT_CONTEXT_LINES = 20;
+    public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.Log];
 
     // Command names
     private const string AnalyzeCommandName = "analyze";
@@ -28,33 +27,13 @@ public class LogAnalysisTool : MCPTool
     private readonly Option<bool> fullSearchOpt = new(["--full"], "Enable full keyword search from a catalog of terms");
     private readonly Option<int> contextLinesOpt = new(["--context", "-c"], () => -1, "Number of context lines to include around matches");
 
-    public LogAnalysisTool(
-        ILogAnalysisHelper logHelper,
-        IOutputHelper output,
-        ILogger<LogAnalysisTool> logger
-    ) : base()
-    {
-        this.logHelper = logHelper;
-        this.output = output;
-        this.logger = logger;
+    private const int DEFAULT_CONTEXT_LINES = 20;
 
-        CommandHierarchy =
-        [
-            SharedCommandGroups.Log
-        ];
-    }
-
-    protected override Command GetCommand()
-    {
-        var analyzeCommand = new Command(AnalyzeCommandName, "Analyze a log file for errors and issues")
+    protected override Command GetCommand() =>
+        new(AnalyzeCommandName, "Analyze a log file for errors and issues")
         {
             filePathOpt, keywordsOpt, fullSearchOpt, contextLinesOpt
         };
-
-        analyzeCommand.SetHandler(async ctx => { await HandleCommand(ctx, ctx.GetCancellationToken()); });
-
-        return analyzeCommand;
-    }
 
     public override async Task<CommandResponse> HandleCommand(InvocationContext ctx, CancellationToken ct)
     {

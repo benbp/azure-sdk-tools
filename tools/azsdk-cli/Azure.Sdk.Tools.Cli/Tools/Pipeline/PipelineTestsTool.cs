@@ -10,42 +10,21 @@ using Microsoft.VisualStudio.Services.WebApi;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Configuration;
-using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Pipeline;
 
 [McpServerToolType, Description("Fetches test data from Azure Pipelines")]
-public class PipelineTestsTool : MCPTool
+public class PipelineTestsTool(
+    IAzureService azureService,
+    IDevOpsService devopsService,
+    ILogger<PipelineTestsTool> logger
+) : MCPTool
 {
-    private BuildHttpClient buildClient;
-    private readonly bool initialized = false;
-
-    private IAzureService azureService;
-    private IDevOpsService devopsService;
-    private IOutputHelper output;
-    private ILogger<PipelineTestsTool> logger;
+    public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.AzurePipelines];
 
     private readonly Argument<int> buildIdArg = new("Pipeline/Build ID");
-
-    public PipelineTestsTool(
-        IAzureService azureService,
-        IDevOpsService devopsService,
-        IOutputHelper output,
-        ILogger<PipelineTestsTool> logger
-    ) : base()
-    {
-        this.azureService = azureService;
-        this.devopsService = devopsService;
-        this.output = output;
-        this.logger = logger;
-
-        CommandHierarchy =
-        [
-            SharedCommandGroups.AzurePipelines // azsdk azp
-        ];
-    }
 
     protected override Command GetCommand() =>
         new("test-results", "Get test results for a pipeline run") { buildIdArg };
@@ -58,6 +37,9 @@ public class PipelineTestsTool : MCPTool
         logger.LogInformation("Getting test results for pipeline {buildId}...", buildId);
         return await GetPipelineLlmArtifacts(buildId);
     }
+
+    private BuildHttpClient buildClient;
+    private readonly bool initialized = false;
 
     private void Initialize()
     {
