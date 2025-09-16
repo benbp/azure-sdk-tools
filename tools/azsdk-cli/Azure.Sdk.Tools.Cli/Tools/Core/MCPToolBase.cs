@@ -28,10 +28,9 @@ public abstract class MCPToolBase
 
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
 
-    public int ExitCode { get; set; } = 0;
-
     public void Initialize(IOutputHelper outputHelper, ITelemetryService telemetryService)
     {
+        this.output = outputHelper;
         this.telemetryService = telemetryService;
         initialized = true;
     }
@@ -54,7 +53,7 @@ public abstract class MCPToolBase
             activity?.AddTag(TagName.CommandName, fullCommandName);
             activity?.SetTag(TagName.CommandArgs, commandLine);
 
-            var response = await HandleCommand(ctx, ctx.GetCancellationToken());
+            CommandResponse response = await HandleCommand(ctx, ctx.GetCancellationToken());
             var result = output.Format(response);
             ctx.ExitCode = response.ExitCode;
 
@@ -69,7 +68,7 @@ public abstract class MCPToolBase
                 activity?.SetStatus(ActivityStatusCode.Error);
             }
 
-            output.Output(result);
+            output.OutputCommandResponse(response);
         }
         catch (Exception ex)
         {

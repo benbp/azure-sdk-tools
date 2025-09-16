@@ -203,19 +203,19 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
         public async Task Test_Get_Release_Plan_For_Pull_Request_with_valid_inputs()
         {
             var releaseplan = await releasePlanTool.GetReleasePlanForPullRequest("https://github.com/Azure/azure-rest-api-specs/pull/35446");
-            Assert.That(releaseplan.Details, Does.Contain("Status: Success"));
-            Assert.That(releaseplan.Details, Does.Contain("Release Plan"));
+            Assert.That(releaseplan.ToString(), Does.Contain("Status: Success"));
+            Assert.That(releaseplan.ToString(), Does.Contain("Release Plan"));
 
             releaseplan = await releasePlanTool.GetReleasePlanForPullRequest("https://github.com/Azure/azure-rest-api-specs-pr/pull/35446");
-            Assert.That(releaseplan.Details, Does.Contain("Status: Success"));
-            Assert.That(releaseplan.Details, Does.Contain("Release Plan"));
+            Assert.That(releaseplan.ToString(), Does.Contain("Status: Success"));
+            Assert.That(releaseplan.ToString(), Does.Contain("Release Plan"));
         }
 
         [Test]
         public async Task Test_Get_Release_Plan_For_Pull_Request_with_invalid_pr_link()
         {
             var releaseplan = await releasePlanTool.GetReleasePlanForPullRequest("invalid-pr-link");
-            Assert.That(releaseplan.Details, Does.Contain("Failed to get release plan details"));
+            Assert.That(releaseplan.ToString(), Does.Contain("Failed to get release plan details"));
         }
 
         [Test]

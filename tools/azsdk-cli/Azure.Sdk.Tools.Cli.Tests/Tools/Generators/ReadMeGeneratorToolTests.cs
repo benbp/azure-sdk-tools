@@ -2,19 +2,20 @@ using System.CommandLine;
 using System.CommandLine.Parsing;
 using Moq;
 using Azure.Sdk.Tools.Cli.Microagents;
-using Azure.Sdk.Tools.Cli.Tests.Mocks.Helpers;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Package;
 using Azure.Sdk.Tools.Cli.Telemetry;
+using Azure.Sdk.Tools.Cli.Helpers;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 {
     internal class ReadMeGeneratorToolTests
     {
+        private readonly OutputHelper outputHelper = new();
+
         private ReadMeGeneratorTool tool;
         private Mock<IMicroagentHostService>? mockMicroAgentService;
         private Mock<ITelemetryService>? telemetryServiceMock;
-        private readonly TestOutputHelper outputHelper = new();
 
         [SetUp]
         public void Setup()
@@ -51,8 +52,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 Assert.Multiple(() =>
                 {
                     Assert.That(exitCode, Is.EqualTo(0), "Command should execute successfully");
-                    Assert.That(outputHelper.Outputs.First().Method, Is.EqualTo("Output"));
-                    Assert.That(outputHelper.Outputs.First().OutputValue, Is.EqualTo($"Readme written to {readmeOutputPath}"));
+                    Assert.That(outputHelper.Outputs.First().Stream, Is.EqualTo(OutputHelper.StreamType.Stdout));
+                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"Readme written to {readmeOutputPath}"));
                 });
 
                 Assert.That(File.Exists(readmeOutputPath), Is.True, "Readme output file should be created");
@@ -91,8 +92,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
 
             Assert.Multiple(() =>
             {
-                Assert.That(outputHelper.Outputs.First().Method, Is.EqualTo("Output"));
-                Assert.That(outputHelper.Outputs.First().OutputValue, Is.EqualTo($"Readme written to {readmeOutputPath}"));
+                Assert.That(outputHelper.Outputs.First().Stream, Is.EqualTo(OutputHelper.StreamType.Stdout));
+                Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"Readme written to {readmeOutputPath}"));
             });
         }
 
@@ -131,8 +132,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 Assert.Multiple(() =>
                 {
                     Assert.That(exitCode, Is.EqualTo(1), "Command should fail, as the final readme doesn't pass validation");
-                    Assert.That(outputHelper.Outputs.First().Method, Is.EqualTo("OutputError"));
-                    Assert.That(outputHelper.Outputs.First().OutputValue, Is.EqualTo($"ReadmeGenerator failed with validation errors: {expectedFeedback}"));
+                    Assert.That(outputHelper.Outputs.First().Stream, Is.EqualTo(OutputHelper.StreamType.Stderr));
+                    Assert.That(outputHelper.Outputs.First().Output, Is.EqualTo($"ReadmeGenerator failed with validation errors: {expectedFeedback}"));
                 });
 
                 Assert.That(File.Exists(readmeOutputPath), Is.True, "Readme output file should be created");

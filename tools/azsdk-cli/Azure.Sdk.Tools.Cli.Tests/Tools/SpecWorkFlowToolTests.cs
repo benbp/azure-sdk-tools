@@ -75,7 +75,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 workItemId: 456
             );
 
-            Assert.That(result.Details, Does.Contain("does not have a package name specified for python"));
+            Assert.That(result.ToString(), Does.Contain("does not have a package name specified for python"));
         }
 
         [Test]
@@ -106,7 +106,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 workItemId: 456
             );
 
-            Assert.That(result.Details, Does.Contain("does not have a language specified"));
+            Assert.That(result.ToString(), Does.Contain("does not have a language specified"));
 
             // Test 2: Empty language
             var releasePlanWithEmptyLanguage = new ReleasePlanDetails
@@ -133,7 +133,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 workItemId: 456
             );
 
-            Assert.That(resultEmptyLanguage.Details, Does.Contain("does not have a language specified"));
+            Assert.That(resultEmptyLanguage.ToString(), Does.Contain("does not have a language specified"));
         }
 
         [Test]
@@ -156,7 +156,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 workItemId: 456
             );
 
-            Assert.That(result.Details, Does.Contain("SDK details are not present in the release plan"));
+            Assert.That(result.ToString(), Does.Contain("SDK details are not present in the release plan"));
         }
 
         [Test]
@@ -208,7 +208,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 pullRequestNumber: 123,
                 workItemId: 456
             );
-            Assert.That(result.Details, Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
+            Assert.That(result.ToString(), Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
         }
 
         [Test]
@@ -232,7 +232,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 sdkReleaseType: "beta",
                 language: "Java"
             );
-            Assert.That(result.Details, Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
+            Assert.That(result.ToString(), Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
         }
 
         [Test]
@@ -261,7 +261,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
                 language: "Java",
                 pullRequestNumber: 123
             );
-            Assert.That(result.Details, Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
+            Assert.That(result.ToString(), Does.Contain("Azure DevOps pipeline https://dev.azure.com/azure-sdk/internal/_build/results?buildId=100 has been initiated to generate the SDK. Build ID is 100"));
         }
     }
 }

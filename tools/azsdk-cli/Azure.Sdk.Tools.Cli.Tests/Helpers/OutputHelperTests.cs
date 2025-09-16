@@ -43,7 +43,7 @@ internal class OutputHelperTests
   ""suggested_fix"": ""a test suggested fix""
 }";
 
-    var output = new OutputHelper(OutputModes.Json);
+    var output = new OutputHelper(OutputHelper.OutputModes.Json);
     var formatted = output.ValidateAndFormat<LogAnalysisResponse>(json);
 
     Assert.That(formatted, Is.EqualTo(json));
@@ -74,7 +74,7 @@ message1
 message2
 ".TrimStart();
 
-    var output = new OutputHelper(OutputModes.Plain);
+    var output = new OutputHelper(OutputHelper.OutputModes.Plain);
     var formatted = output.Format(response);
 
     Assert.That(formatted, Is.EqualTo(expectedStr));

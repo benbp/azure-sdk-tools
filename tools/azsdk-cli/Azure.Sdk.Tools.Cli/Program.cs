@@ -80,10 +80,10 @@ public class Program
             l.SetMinimumLevel(logLevel);
         });
 
-        var outputMode = !isCLI ? OutputModes.Mcp : outputFormat switch
+        var outputMode = !isCLI ? OutputHelper.OutputModes.Mcp : outputFormat switch
         {
-            "plain" => OutputModes.Plain,
-            "json" => OutputModes.Json,
+            "plain" => OutputHelper.OutputModes.Plain,
+            "json" => OutputHelper.OutputModes.Json,
             _ => throw new ArgumentException($"Invalid output format '{outputFormat}'. Supported formats are: plain, json")
         };
         builder.Services.AddScoped<IOutputHelper>(_ => new OutputHelper(outputMode));

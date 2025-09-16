@@ -51,7 +51,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
 
                 return new()
                 {
-                    ResponseError = $"RESPONDING TO '{message}' with FAIL: {ExitCode}",
+                    ExitCode = 1,
+                    ResponseError = $"RESPONDING TO '{message}' with FAIL: 1",
                 };
             }
             catch (Exception ex)
@@ -73,7 +74,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
 
                 return new()
                 {
-                    Message = $"RESPONDING TO '{message}' with SUCCESS: {ExitCode}",
+                    Message = $"RESPONDING TO '{message}' with SUCCESS: 0",
                     Duration = 1
                 };
             }
