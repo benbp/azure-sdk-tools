@@ -1,12 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Azure.Sdk.Tools.Cli.Models;
 
 public class DefaultCommandResponse : CommandResponse
 {
+    private static readonly JsonSerializerOptions serializerOptions = new()
+    {
+        WriteIndented = true
+    };
+
     [JsonPropertyName("message")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string? Message { get; set; }
@@ -28,7 +34,18 @@ public class DefaultCommandResponse : CommandResponse
         }
         if (Result != null)
         {
-            output.AppendLine(Result?.ToString() ?? string.Empty);
+            if (Result is System.Collections.IEnumerable enumerable && Result is not string)
+            {
+                var outputs = enumerable.Cast<object>().Select(item => item?.ToString());
+                foreach (var item in outputs)
+                {
+                    output.AppendLine(item);
+                }
+            }
+            else
+            {
+                output.AppendLine(JsonSerializer.Serialize(Result, serializerOptions));
+            }
         }
         if (Duration > 0)
         {

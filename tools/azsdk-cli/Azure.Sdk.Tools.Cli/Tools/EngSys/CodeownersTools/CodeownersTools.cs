@@ -14,6 +14,7 @@ using Azure.Sdk.Tools.CodeownersUtils.Editing;
 using Azure.Sdk.Tools.CodeownersUtils.Parsing;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Models.Responses;
+using Azure.Sdk.Tools.CodeownersUtils.Utils;
 
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 {
@@ -226,8 +227,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
 
                 return new DefaultCommandResponse
                 {
-                    Message = codeownersValidationResultMessage,
-                    Result = resultMessages
+                    Result = resultMessages.Concat([codeownersValidationResultMessage])
                 };
             }
             catch (Exception ex)
@@ -276,16 +276,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
             await githubService.UpdateFileAsync(Constants.AZURE_OWNER_PATH, repo, Constants.AZURE_CODEOWNERS_PATH, description, modifiedContent, codeownersSha, branchName);
 
             var prInfoList = await githubService.CreatePullRequestAsync(repo, Constants.AZURE_OWNER_PATH, "main", branchName, "[CODEOWNERS] " + description, description);
-            if (prInfoList != null)
-            {
-                resultMessages.Add($"URL: {prInfoList.Url}");
-                resultMessages.AddRange(prInfoList.Messages);
-            }
-            else
-            {
-                resultMessages.Add("Error: Failed to create pull request. No PR info returned.");
-            }
-
+            resultMessages.Add($"URL: {prInfoList.Url}");
+            resultMessages.AddRange(prInfoList.Messages);
             return resultMessages;
         }
 
@@ -332,7 +324,8 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
                     var contents = await githubService.GetContentsSingleAsync("Azure", "azure-sdk-for-net", ".github/CODEOWNERS", workingBranch);
                     if (contents == null)
                     {
-                        throw new Exception("Could not retrieve upstream CODEOWNERS (azure-sdk-for-net) for the requested branch.");
+                        response.Message += "Could not retrieve upstream CODEOWNERS (azure-sdk-for-net) for the requested branch.";
+                        return response;
                     }
                     var codeownersContent = contents.Content;
                     var codeownersSha = contents.Sha;
@@ -376,6 +369,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys
             }
             catch (Exception ex)
             {
+                logger.LogError(ex, "Error processing repository");
                 response.Message += $"Error processing repository: {ex.Message}";
                 return response;
             }
