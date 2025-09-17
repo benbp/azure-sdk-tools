@@ -21,6 +21,7 @@ namespace Azure.Sdk.Tools.Cli.Tools;
 public abstract class MCPToolBase
 {
     private bool initialized = false;
+    private bool debug = false;
     private IOutputHelper output { get; set; }
     private ITelemetryService telemetryService { get; set; }
 
@@ -28,11 +29,13 @@ public abstract class MCPToolBase
 
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
 
-    public void Initialize(IOutputHelper outputHelper, ITelemetryService telemetryService)
+    public void Initialize(IOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
     {
+        this.debug = debug;
         this.output = outputHelper;
         this.telemetryService = telemetryService;
-        initialized = true;
+
+        this.initialized = true;
     }
 
     public async Task InstrumentedCommandHandler(Command command, InvocationContext ctx)
@@ -41,6 +44,8 @@ public abstract class MCPToolBase
         {
             throw new InvalidOperationException("Tool must be initialized with Initialize() before use");
         }
+
+        using var tracer = TelemetryService.RegisterCliTelemetry(debug);
 
         // TODO: add client info
         using var activity = await telemetryService.StartActivity(ActivityName.CommandExecuted);
@@ -75,6 +80,10 @@ public abstract class MCPToolBase
             activity?.AddException(ex);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             throw;
+        }
+        finally
+        {
+            tracer?.Dispose();
         }
     }
 

@@ -12,7 +12,7 @@ namespace Azure.Sdk.Tools.Cli.Commands
         /// to initialize whichever MCP tools we need to add to the configuration and pass on to HostTool.
         /// </summary>
         /// <returns></returns>
-        public static RootCommand CreateRootCommand(string[] args, IServiceProvider serviceProvider)
+        public static RootCommand CreateRootCommand(string[] args, IServiceProvider serviceProvider, bool debug = false)
         {
             var rootCommand = new RootCommand("azsdk cli - A Model Context Protocol (MCP) server that facilitates tasks for anyone working with the Azure SDK team.");
             rootCommand.AddOption(SharedOptions.ToolOption);
@@ -37,7 +37,8 @@ namespace Azure.Sdk.Tools.Cli.Commands
                     var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(serviceProvider, t);
                     _tool.Initialize(
                         serviceProvider.GetRequiredService<IOutputHelper>(),
-                        serviceProvider.GetRequiredService<ITelemetryService>());
+                        serviceProvider.GetRequiredService<ITelemetryService>(),
+                        debug);
                     return _tool;
                 })
                 .ToList();

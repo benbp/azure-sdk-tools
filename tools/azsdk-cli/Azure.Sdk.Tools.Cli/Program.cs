@@ -3,14 +3,10 @@
 using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
-using OpenTelemetry;
-using OpenTelemetry.Trace;
 using Azure.Sdk.Tools.Cli.Commands;
-using Azure.Sdk.Tools.Cli.Core;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
-using Azure.Sdk.Tools.Cli.Configuration;
+using Azure.Sdk.Tools.Cli.Telemetry;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -18,8 +14,10 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        ServerApp = CreateAppBuilder(args).Build();
-        var rootCommand = CommandFactory.CreateRootCommand(args, ServerApp.Services);
+        var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
+
+        ServerApp = CreateAppBuilder(args, outputFormat, debug).Build();
+        var rootCommand = CommandFactory.CreateRootCommand(args, ServerApp.Services, debug);
 
         var parsedCommands = new CommandLineBuilder(rootCommand)
                .UseDefaults()            // adds help, version, error reporting, suggestions…
@@ -34,27 +32,17 @@ public class Program
 
     public static WebApplication ServerApp;
 
-    public static WebApplicationBuilder CreateAppBuilder(string[] args)
+    public static WebApplicationBuilder CreateAppBuilder(string[] args, string outputFormat, bool debug = false)
     {
-        var isCLI = IsCLI(args);
-        var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
-        var logLevel = debug ? LogLevel.Debug : LogLevel.Information;
-
         // Any args that ASP.NET doesn't recognize will be _ignored_ by the CreateBuilder, so we don't need to ONLY
         // pass unmatched ASP.NET config values like --ASPNET_URLS to the builder. It'll just quietly ignore everything
         // it doesn't recognize.
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddOpenTelemetry()
-            .WithTracing(b =>
-            {
-                b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddProcessor(new TelemetryProcessor());
-                if (debug) { b.AddConsoleExporter(); }
-            })
-            .UseOtlpExporter();
+        TelemetryService.RegisterServerTelemetry(builder.Services, debug);
+
+        var isCLI = IsCLI(args);
+        var logLevel = debug ? LogLevel.Debug : LogLevel.Information;
 
         builder.Logging.AddConsole(consoleLogOptions =>
         {
