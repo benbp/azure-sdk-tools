@@ -15,7 +15,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
     {
         public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.Example];
 
-        private Argument<string> _inputArg = new Argument<string>(
+        private static Argument<string> _inputArg = new Argument<string>(
             name: "input",
             description: "The text to echo back"
         )
@@ -23,7 +23,13 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
             Arity = ArgumentArity.ExactlyOne
         };
 
-        private readonly Option<bool> failOpt = new(["--fail"], () => false, "Force failure");
+        private static readonly Option<bool> failOpt = new(["--fail"], () => false, "Force failure");
+
+        private Command Mytest { get; set; } =
+            new("hello-world", "Simple echo tool for testing framework features")
+            {
+                _inputArg, failOpt
+            };
 
         protected override Command GetCommand() =>
             new("hello-world", "Simple echo tool for testing framework features")

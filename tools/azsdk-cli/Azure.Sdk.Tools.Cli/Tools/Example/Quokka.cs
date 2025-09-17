@@ -11,7 +11,7 @@ using Azure.Sdk.Tools.Cli.Models;
 namespace Azure.Sdk.Tools.Cli.Tools.Example;
 
 // NOTE: Other tool classes should not inject output helper directly
-public class QuokkaTool(IOutputHelper output) : MCPTool
+public class QuokkaTool(IScopedOutputHelper output) : MCPTool
 {
     protected override Command GetCommand()
     {

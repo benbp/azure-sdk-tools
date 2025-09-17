@@ -77,10 +77,9 @@ public class Program
             "json" => OutputHelper.OutputModes.Json,
             _ => throw new ArgumentException($"Invalid output format '{outputFormat}'. Supported formats are: plain, json")
         };
-        builder.Services.AddScoped<IOutputHelper>(_ => new OutputHelper(outputMode));
 
         // register common services
-        ServiceRegistrations.RegisterCommonServices(builder.Services);
+        ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode);
         // register MCP tools
         ServiceRegistrations.RegisterInstrumentedMcpTools(builder.Services, args);
 

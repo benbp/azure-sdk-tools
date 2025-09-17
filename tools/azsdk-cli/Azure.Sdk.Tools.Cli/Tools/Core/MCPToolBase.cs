@@ -45,8 +45,6 @@ public abstract class MCPToolBase
             throw new InvalidOperationException("Tool must be initialized with Initialize() before use");
         }
 
-        output.OutputConsole($"Executing command: {command.Name}");
-
         using var tracer = TelemetryService.RegisterCliTelemetry(debug);
 
         // TODO: add client info

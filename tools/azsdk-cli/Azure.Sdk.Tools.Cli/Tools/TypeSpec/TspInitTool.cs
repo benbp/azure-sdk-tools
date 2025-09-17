@@ -31,9 +31,9 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
         private const string InitCommandName = "init";
 
         // command options
-        private readonly Option<string> outputDirectoryArg = new("--output-directory", "The output directory for the generated TypeSpec project. This directory must already exist and be empty.") { IsRequired = true };
-        private readonly Option<string> templateArg = new("--template", "The template to use for the TypeSpec project. Use azure-arm for resource management services, or azure-core for data plane services.") { IsRequired = true };
-        private readonly Option<string> serviceNamespaceArg = new("--service-namespace", "The namespace of the service you are creating. This should be in Pascal case and represent the service's namespace.") { IsRequired = true };
+        private static readonly Option<string> outputDirectoryArg = new("--output-directory", "The output directory for the generated TypeSpec project. This directory must already exist and be empty.") { IsRequired = true };
+        private static readonly Option<string> templateArg = new("--template", "The template to use for the TypeSpec project. Use azure-arm for resource management services, or azure-core for data plane services.") { IsRequired = true };
+        private static readonly Option<string> serviceNamespaceArg = new("--service-namespace", "The namespace of the service you are creating. This should be in Pascal case and represent the service's namespace.") { IsRequired = true };
 
         private enum ServiceType
         {

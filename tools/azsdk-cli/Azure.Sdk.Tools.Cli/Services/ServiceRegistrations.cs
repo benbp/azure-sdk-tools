@@ -23,7 +23,7 @@ namespace Azure.Sdk.Tools.Cli.Services
         /// </summary>
         /// <param name="services"></param>
         /// todo: make this use reflection to populate itself with all of our services and helpers
-        public static void RegisterCommonServices(IServiceCollection services)
+        public static void RegisterCommonServices(IServiceCollection services, OutputHelper.OutputModes outputMode)
         {
             // Services
             services.AddSingleton<IAzureService, AzureService>();
@@ -60,13 +60,15 @@ namespace Azure.Sdk.Tools.Cli.Services
             services.AddSingleton<ITspClientHelper, TspClientHelper>();
             // Add as scoped so we can track/update usage across tools and services per request for logging/telemetry
             services.AddScoped<TokenUsageHelper>();
+            services.AddSingleton<IOutputHelper>(_ => new OutputHelper(outputMode));
+            services.AddScoped<IScopedOutputHelper, OutputHelper>();
 
             // Process Helper Classes
             services.AddSingleton<INpxHelper, NpxHelper>();
             services.AddSingleton<IPowershellHelper, PowershellHelper>();
             services.AddSingleton<IProcessHelper, ProcessHelper>();
 
-            services.AddSingleton<IMicroagentHostService, MicroagentHostService>();
+            services.AddScoped<IMicroagentHostService, MicroagentHostService>();
 
             services.AddAzureClients(clientBuilder =>
             {
