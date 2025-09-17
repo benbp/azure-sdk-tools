@@ -51,7 +51,7 @@ internal class TelemetryService : ITelemetryService
 
         if (debug)
         {
-            builder.AddConsoleExporter().Build();
+            builder.AddConsoleExporter();
         }
 
         return builder.Build();

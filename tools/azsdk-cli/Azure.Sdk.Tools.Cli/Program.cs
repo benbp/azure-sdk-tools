@@ -12,6 +12,8 @@ namespace Azure.Sdk.Tools.Cli;
 
 public class Program
 {
+    public static WebApplication ServerApp { get; private set; }
+
     public static async Task<int> Main(string[] args)
     {
         var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
@@ -28,26 +30,27 @@ public class Program
     }
 
     // todo: make this honor subcommands of `start` and the like, instead of simply looking presence of `start` verb
-    public static bool IsCLI(string[] args) => !args.Select(x => x.Trim().ToLowerInvariant()).Any(x => x == "start");
-
-    public static WebApplication ServerApp;
+    public static bool IsCommandLine(string[] args) => !args.Select(x => x.Trim().ToLowerInvariant()).Any(x => x == "start" || x == "mcp");
 
     public static WebApplicationBuilder CreateAppBuilder(string[] args, string outputFormat, bool debug = false)
     {
+        var isCommandLine = IsCommandLine(args);
+        var logLevel = debug ? LogLevel.Debug : LogLevel.Information;
+
         // Any args that ASP.NET doesn't recognize will be _ignored_ by the CreateBuilder, so we don't need to ONLY
         // pass unmatched ASP.NET config values like --ASPNET_URLS to the builder. It'll just quietly ignore everything
         // it doesn't recognize.
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-        TelemetryService.RegisterServerTelemetry(builder.Services, debug);
-
-        var isCLI = IsCLI(args);
-        var logLevel = debug ? LogLevel.Debug : LogLevel.Information;
+        if (!isCommandLine)
+        {
+            TelemetryService.RegisterServerTelemetry(builder.Services, debug);
+        }
 
         builder.Logging.AddConsole(consoleLogOptions =>
         {
             // Log everything to stderr in mcp mode so the client doesn't try to interpret stdout messages that aren't json rpc
-            var logErrorThreshold = isCLI ? LogLevel.Error : LogLevel.Debug;
+            var logErrorThreshold = isCommandLine ? LogLevel.Error : LogLevel.Debug;
             consoleLogOptions.LogToStandardErrorThreshold = logErrorThreshold;
         });
 
@@ -68,7 +71,7 @@ public class Program
             l.SetMinimumLevel(logLevel);
         });
 
-        var outputMode = !isCLI ? OutputHelper.OutputModes.Mcp : outputFormat switch
+        var outputMode = !isCommandLine ? OutputHelper.OutputModes.Mcp : outputFormat switch
         {
             "plain" => OutputHelper.OutputModes.Plain,
             "json" => OutputHelper.OutputModes.Json,
