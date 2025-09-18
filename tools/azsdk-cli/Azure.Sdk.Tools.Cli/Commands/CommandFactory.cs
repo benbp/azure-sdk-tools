@@ -30,13 +30,21 @@ namespace Azure.Sdk.Tools.Cli.Commands
             });
             rootCommand.AddGlobalOption(SharedOptions.Format);
 
+            // Create the MCP server command at the root as the MCP SDK has injected
+            // singletons within WithStdioServerTransport() and will not run
+            // within the DI scope we create for CLI commands.
+            var hostServer = ActivatorUtilities.CreateInstance<HostServerTool>(serviceProvider);
+            rootCommand.AddCommand(hostServer.GetCommand());
+
             var toolTypes = SharedOptions
                                 .GetFilteredToolTypes(args)
                                 .Where(t => t.Name != nameof(HostServerTool));
 
-            // using var scope = serviceProvider.CreateScope();
-            // var scopedProvider = scope.ServiceProvider;
-            var scopedProvider = serviceProvider;
+            // Many services are injected as scoped so they will be unique
+            // per request when running in MCP server mode. Create a base scope
+            // here so we can resolve those services in CLI mode as well.
+            using var scope = serviceProvider.CreateScope();
+            var scopedProvider = scope.ServiceProvider;
             var toolInstances = toolTypes
                 .Select(t =>
                 {

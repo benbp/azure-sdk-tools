@@ -32,10 +32,6 @@ public class InstrumentedTool(
             return await base.InvokeAsync(request, ct);
         }
 
-        var tokenUsageHelper = request.Services.GetRequiredService<TokenUsageHelper>();
-        tokenUsageHelper.Add("gpt-4o", 10, 10);
-        tokenUsageHelper.LogUsage();
-
         try
         {
             // Add tool name and arg

@@ -20,16 +20,8 @@ public class Program
         var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
 
         ServerApp = CreateAppBuilder(args, outputFormat, debug).Build();
-        // var rootCommand = CommandFactory.CreateRootCommand(args, ServerApp.Services, debug);
-        var rootCommand = new RootCommand("azsdk cli - A Model Context Protocol (MCP) server that facilitates tasks for anyone working with the Azure SDK team.");
-        rootCommand.AddGlobalOption(SharedOptions.Debug);
 
-        // Create the MCP server command at the root as the MCP SDK has injected
-        // singletons within WithStdioServerTransport() and will not run
-        // within the DI scope we create for CLI commands
-        var hostServer = ActivatorUtilities.CreateInstance<HostServerTool>(ServerApp.Services);
-        rootCommand.AddCommand(hostServer.GetCommand());
-
+        var rootCommand = CommandFactory.CreateRootCommand(args, ServerApp.Services, debug);
         var parsedCommands = new CommandLineBuilder(rootCommand)
                .UseDefaults()            // adds help, version, error reporting, suggestions…
                .UseExceptionHandler()    // catches unhandled exceptions and writes them out
