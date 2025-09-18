@@ -1,8 +1,8 @@
 using System.CommandLine;
+using Azure.Sdk.Tools.Cli.Commands.HostServer;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using Azure.Sdk.Tools.Cli.Tools;
-using Azure.Sdk.Tools.Cli.Tools.HostServer;
 
 namespace Azure.Sdk.Tools.Cli.Commands
 {
@@ -33,12 +33,12 @@ namespace Azure.Sdk.Tools.Cli.Commands
             // Create the MCP server command at the root as the MCP SDK has injected
             // singletons within WithStdioServerTransport() and will not run
             // within the DI scope we create for CLI commands.
-            var hostServer = ActivatorUtilities.CreateInstance<HostServerTool>(serviceProvider);
+            var hostServer = ActivatorUtilities.CreateInstance<HostServerCommand>(serviceProvider);
             rootCommand.AddCommand(hostServer.GetCommand());
 
             var toolTypes = SharedOptions
                                 .GetFilteredToolTypes(args)
-                                .Where(t => t.Name != nameof(HostServerTool));
+                                .Where(t => t.Name != nameof(HostServerCommand));
 
             // Many services are injected as scoped so they will be unique
             // per request when running in MCP server mode. Create a base scope

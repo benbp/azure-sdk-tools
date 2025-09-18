@@ -9,17 +9,16 @@ using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Extensions;
 using Azure.Sdk.Tools.Cli.Microagents;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Tools.HostServer;
 using Azure.Sdk.Tools.Cli.Services.ClientUpdate;
 using Azure.Sdk.Tools.Cli.Telemetry;
+using Azure.Sdk.Tools.Cli.Tools;
 
 namespace Azure.Sdk.Tools.Cli.Services
 {
     public static class ServiceRegistrations
     {
         /// <summary>
-        /// This is the function that defines all of the services available to any of the MCPTool instantiations. This
-        /// same collection modification is run within the HostServerTool::CreateAppBuilder.
+        /// This is the function that defines all of the services available to any tool instantiations
         /// </summary>
         /// <param name="services"></param>
         /// todo: make this use reflection to populate itself with all of our services and helpers

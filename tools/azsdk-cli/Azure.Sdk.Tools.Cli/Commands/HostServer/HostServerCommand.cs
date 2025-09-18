@@ -4,9 +4,9 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using Azure.Sdk.Tools.Cli.Helpers;
 
-namespace Azure.Sdk.Tools.Cli.Tools.HostServer
+namespace Azure.Sdk.Tools.Cli.Commands.HostServer
 {
-    public class HostServerTool(ILogger<HostServerTool> logger, IRawOutputHelper outputHelper)
+    public class HostServerCommand(ILogger<HostServerCommand> logger, IRawOutputHelper outputHelper)
     {
         public Command GetCommand()
         {

@@ -7,7 +7,6 @@ using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
-using Azure.Sdk.Tools.Cli.Tools.HostServer;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -81,6 +80,12 @@ public class Program
 
         // register common services
         ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode);
+
+        if (isCommandLine)
+        {
+            return builder;
+        }
+
         // register MCP tools
         ServiceRegistrations.RegisterInstrumentedMcpTools(builder.Services, args);
 
