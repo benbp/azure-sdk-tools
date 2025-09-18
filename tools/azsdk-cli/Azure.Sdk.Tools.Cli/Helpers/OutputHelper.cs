@@ -3,13 +3,13 @@ using Azure.Sdk.Tools.Cli.Models;
 
 namespace Azure.Sdk.Tools.Cli.Helpers;
 
-public interface IOutputHelper
+public interface IRawOutputHelper
 {
     void OutputConsole(string output);
     void OutputConsoleError(string output);
 }
 
-public interface IScopedOutputHelper
+public interface IOutputHelper
 {
     string Format(object response);
     string ValidateAndFormat<T>(string response);
@@ -20,7 +20,7 @@ public interface IScopedOutputHelper
     void OutputCommandResponse(CommandResponse output);
 }
 
-public class OutputHelper : IScopedOutputHelper, IOutputHelper
+public class OutputHelper : IOutputHelper, IRawOutputHelper
 {
     private OutputModes OutputMode { get; set; }
 

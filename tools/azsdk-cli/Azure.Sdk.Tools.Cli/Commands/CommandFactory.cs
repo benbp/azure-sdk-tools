@@ -2,6 +2,7 @@ using System.CommandLine;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using Azure.Sdk.Tools.Cli.Tools;
+using Azure.Sdk.Tools.Cli.Tools.HostServer;
 
 namespace Azure.Sdk.Tools.Cli.Commands
 {
@@ -29,16 +30,19 @@ namespace Azure.Sdk.Tools.Cli.Commands
             });
             rootCommand.AddGlobalOption(SharedOptions.Format);
 
-            var toolTypes = SharedOptions.GetFilteredToolTypes(args);
+            var toolTypes = SharedOptions
+                                .GetFilteredToolTypes(args)
+                                .Where(t => t.Name != nameof(HostServerTool));
 
-            using var scope = serviceProvider.CreateScope();
-            var scopedProvider = scope.ServiceProvider;
+            // using var scope = serviceProvider.CreateScope();
+            // var scopedProvider = scope.ServiceProvider;
+            var scopedProvider = serviceProvider;
             var toolInstances = toolTypes
                 .Select(t =>
                 {
                     var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(scopedProvider, t);
                     _tool.Initialize(
-                        scopedProvider.GetRequiredService<IScopedOutputHelper>(),
+                        scopedProvider.GetRequiredService<IOutputHelper>(),
                         scopedProvider.GetRequiredService<ITelemetryService>(),
                         debug);
                     return _tool;

@@ -22,14 +22,12 @@ public abstract class MCPToolBase
 {
     private bool initialized = false;
     private bool debug = false;
-    private IScopedOutputHelper output { get; set; }
+    private IOutputHelper output { get; set; }
     private ITelemetryService telemetryService { get; set; }
-
-    public Command? Command;
 
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
 
-    public void Initialize(IScopedOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
+    public void Initialize(IOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
     {
         this.debug = debug;
         this.output = outputHelper;

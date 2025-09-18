@@ -60,8 +60,8 @@ namespace Azure.Sdk.Tools.Cli.Services
             services.AddSingleton<ITspClientHelper, TspClientHelper>();
             // Add as scoped so we can track/update usage across tools and services per request for logging/telemetry
             services.AddScoped<TokenUsageHelper>();
-            services.AddSingleton<IOutputHelper>(_ => new OutputHelper(outputMode));
-            services.AddScoped<IScopedOutputHelper, OutputHelper>();
+            services.AddSingleton<IRawOutputHelper>(_ => new OutputHelper(outputMode));
+            services.AddScoped<IOutputHelper, OutputHelper>();
 
             // Process Helper Classes
             services.AddSingleton<INpxHelper, NpxHelper>();
