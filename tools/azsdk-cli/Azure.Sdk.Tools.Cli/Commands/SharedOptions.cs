@@ -5,6 +5,7 @@ using System.IO.Enumeration;
 using Azure.Sdk.Tools.Cli.Tools;
 using Azure.Sdk.Tools.Cli.Tools.EngSys;
 using Azure.Sdk.Tools.Cli.Tools.GitHub;
+using Azure.Sdk.Tools.Cli.Tools.HostServer;
 using Azure.Sdk.Tools.Cli.Tools.Package;
 using Azure.Sdk.Tools.Cli.Tools.Pipeline;
 using Azure.Sdk.Tools.Cli.Tools.ReleasePlan;
@@ -20,6 +21,7 @@ namespace Azure.Sdk.Tools.Cli.Commands
             typeof(CleanupTool),
             typeof(CodeownersTools),
             typeof(GitHubLabelsTool),
+            typeof(HostServerTool),
             typeof(LogAnalysisTool),
             typeof(PipelineTool),
             typeof(PipelineAnalysisTool),
