@@ -52,7 +52,7 @@ public abstract class MCPToolBase
         try
         {
             var fullCommandName = string.Join('.', command.Parents.Reverse().Select(p => p.Name).Append(command.Name));
-            var commandLine = ctx.ParseResult.Tokens.ToString();
+            var commandLine = string.Join(" ", ctx.ParseResult.Tokens.Select(t => t.Value));
             activity?.AddTag(TagName.CommandName, fullCommandName);
             activity?.SetTag(TagName.CommandArgs, commandLine);
 
