@@ -31,13 +31,15 @@ namespace Azure.Sdk.Tools.Cli.Commands
 
             var toolTypes = SharedOptions.GetFilteredToolTypes(args);
 
+            using var scope = serviceProvider.CreateScope();
+            var scopedProvider = scope.ServiceProvider;
             var toolInstances = toolTypes
                 .Select(t =>
                 {
-                    var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(serviceProvider, t);
+                    var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(scopedProvider, t);
                     _tool.Initialize(
-                        serviceProvider.GetRequiredService<IOutputHelper>(),
-                        serviceProvider.GetRequiredService<ITelemetryService>(),
+                        scopedProvider.GetRequiredService<IScopedOutputHelper>(),
+                        scopedProvider.GetRequiredService<ITelemetryService>(),
                         debug);
                     return _tool;
                 })

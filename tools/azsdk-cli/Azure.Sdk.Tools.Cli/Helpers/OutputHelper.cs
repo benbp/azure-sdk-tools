@@ -3,7 +3,7 @@ using Azure.Sdk.Tools.Cli.Models;
 
 namespace Azure.Sdk.Tools.Cli.Helpers;
 
-public interface IOutputHelper : IScopedOutputHelper
+public interface IOutputHelper
 {
     void OutputConsole(string output);
     void OutputConsoleError(string output);
