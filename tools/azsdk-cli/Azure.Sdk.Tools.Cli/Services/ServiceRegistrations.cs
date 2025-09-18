@@ -30,7 +30,6 @@ namespace Azure.Sdk.Tools.Cli.Services
             services.AddSingleton<IDevOpsConnection, DevOpsConnection>();
             services.AddSingleton<IDevOpsService, DevOpsService>();
             services.AddSingleton<IGitHubService, GitHubService>();
-            services.AddScoped<IAzureAgentServiceFactory, AzureAgentServiceFactory>();
 
             // Language Check Services (Composition-based)
             services.AddSingleton<ILanguageChecks, LanguageChecks>();
@@ -55,20 +54,27 @@ namespace Azure.Sdk.Tools.Cli.Services
             services.AddSingleton<IUserHelper, UserHelper>();
             services.AddSingleton<ICodeownersValidatorHelper, CodeownersValidatorHelper>();
             services.AddSingleton<IEnvironmentHelper, EnvironmentHelper>();
+            services.AddSingleton<IRawOutputHelper>(_ => new OutputHelper(outputMode));
             services.AddSingleton<ISpecGenSdkConfigHelper, SpecGenSdkConfigHelper>();
             services.AddSingleton<IInputSanitizer, InputSanitizer>();
             services.AddSingleton<ITspClientHelper, TspClientHelper>();
-            // Add as scoped so we can track/update usage across tools and services per request for logging/telemetry
-            services.AddScoped<TokenUsageHelper>();
-            services.AddSingleton<IRawOutputHelper>(_ => new OutputHelper(outputMode));
-            services.AddScoped<IOutputHelper, OutputHelper>();
 
             // Process Helper Classes
             services.AddSingleton<INpxHelper, NpxHelper>();
             services.AddSingleton<IPowershellHelper, PowershellHelper>();
             services.AddSingleton<IProcessHelper, ProcessHelper>();
 
+            // Services that need to be scoped so we can track/update state across services per request
+            services.AddScoped<TokenUsageHelper>();
+            services.AddScoped<IOutputHelper, OutputHelper>();
+            // Services depending on other scoped services
             services.AddScoped<IMicroagentHostService, MicroagentHostService>();
+            services.AddScoped<IAzureAgentServiceFactory, AzureAgentServiceFactory>();
+
+
+            // Telemetry
+            services.AddSingleton<ITelemetryService, TelemetryService>();
+            services.ConfigureOpenTelemetry();
 
             services.AddAzureClients(clientBuilder =>
             {
@@ -89,12 +95,9 @@ namespace Azure.Sdk.Tools.Cli.Services
                         return new AzureOpenAIClient(new Uri(ep), credential, options);
                     });
             });
-
-            // Telemetry
-            services.AddSingleton<ITelemetryService, TelemetryService>();
-            services.ConfigureOpenTelemetry();
         }
 
+        // Once middleware support is added to the MCP SDK this should be replaced
         public static void RegisterInstrumentedMcpTools(IServiceCollection services, string[] args)
         {
             JsonSerializerOptions? serializerOptions = null;
@@ -111,7 +114,7 @@ namespace Azure.Sdk.Tools.Cli.Services
                 {
                     if (toolMethod.GetCustomAttribute<McpServerToolAttribute>() is not null)
                     {
-                        services.AddScoped((Func<IServiceProvider, McpServerTool>)(services =>
+                        services.AddSingleton((Func<IServiceProvider, McpServerTool>)(services =>
                         {
                             var options = new McpServerToolCreateOptions { Services = services, SerializerOptions = serializerOptions };
                             var innerTool = toolMethod.IsStatic

@@ -22,6 +22,7 @@ public class Program
         ServerApp = CreateAppBuilder(args, outputFormat, debug).Build();
         // var rootCommand = CommandFactory.CreateRootCommand(args, ServerApp.Services, debug);
         var rootCommand = new RootCommand("azsdk cli - A Model Context Protocol (MCP) server that facilitates tasks for anyone working with the Azure SDK team.");
+        rootCommand.AddGlobalOption(SharedOptions.Debug);
 
         // Create the MCP server command at the root as the MCP SDK has injected
         // singletons within WithStdioServerTransport() and will not run

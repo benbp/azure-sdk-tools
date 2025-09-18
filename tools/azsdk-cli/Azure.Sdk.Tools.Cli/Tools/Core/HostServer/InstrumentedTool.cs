@@ -6,10 +6,15 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
+using Azure.Sdk.Tools.Cli.Helpers;
 
 namespace Azure.Sdk.Tools.Cli.Tools.HostServer;
 
-public class InstrumentedTool(ITelemetryService telemetryService, ILogger logger, McpServerTool innerTool) : DelegatingMcpServerTool(innerTool)
+public class InstrumentedTool(
+    ITelemetryService telemetryService,
+    ILogger logger,
+    McpServerTool innerTool
+    ) : DelegatingMcpServerTool(innerTool)
 {
     private readonly JsonSerializerOptions serializerOptions = new()
     {
@@ -26,6 +31,10 @@ public class InstrumentedTool(ITelemetryService telemetryService, ILogger logger
             logger.LogWarning("Tool request or tool name is null or empty");
             return await base.InvokeAsync(request, ct);
         }
+
+        var tokenUsageHelper = request.Services.GetRequiredService<TokenUsageHelper>();
+        tokenUsageHelper.Add("gpt-4o", 10, 10);
+        tokenUsageHelper.LogUsage();
 
         try
         {
