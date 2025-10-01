@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Moq;
 using Octokit;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools
 {
@@ -31,10 +33,10 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
             logger = new TestLogger<SpecWorkflowTool>();
             inputSanitizer = new InputSanitizer();
 
-            mockGitHelper.Setup(x => x.GetBranchName(It.IsAny<string>()))
-                .Returns("testBranch");
-            mockTypeSpecHelper.Setup(x => x.IsRepoPathForPublicSpecRepo(It.IsAny<string>()))
-                .Returns(true);
+            mockGitHelper.Setup(x => x.GetBranchName(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync("testBranch");
+            mockTypeSpecHelper.Setup(x => x.IsRepoPathForPublicSpecRepo(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
             mockTypeSpecHelper.Setup(x => x.IsTypeSpecProjectForMgmtPlane(It.IsAny<string>()))
                 .Returns(true);
 

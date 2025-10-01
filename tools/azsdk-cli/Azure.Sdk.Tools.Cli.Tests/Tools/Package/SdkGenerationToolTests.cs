@@ -4,6 +4,8 @@ using Moq;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Package;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools.Package;
 
@@ -124,7 +126,7 @@ public class SdkGenerationToolTests
     {
         // Arrange
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         var expectedResult = new ProcessResult { ExitCode = 0 };
         expectedResult.AppendStdout(ProcessSuccessOutput);
@@ -149,8 +151,8 @@ public class SdkGenerationToolTests
         File.WriteAllText(tspConfigPath, TestTspConfigContent);
 
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoFullNameAsync(tspConfigPath, true)).ReturnsAsync(DefaultSpecRepo);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoFullName(tspConfigPath, true, It.IsAny<CancellationToken>())).ReturnsAsync(DefaultSpecRepo);
 
         var expectedResult = new ProcessResult { ExitCode = 0 };
         expectedResult.AppendStdout(ProcessSuccessOutput);
@@ -172,7 +174,7 @@ public class SdkGenerationToolTests
     {
         // Arrange
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         // Act - Use a non-existent file path
         var result = await _tool.GenerateSdkAsync(_tempDirectory, "/nonexistent/" + TspConfigFileName, null, null);
@@ -186,7 +188,7 @@ public class SdkGenerationToolTests
     {
         // Arrange
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         var failedResult = new ProcessResult { ExitCode = 1 };
         failedResult.AppendStderr(ProcessErrorOutput);
@@ -206,7 +208,7 @@ public class SdkGenerationToolTests
     {
         // Arrange
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         // Act - Use invalid remote URL that doesn't match GitHub blob pattern
         var result = await _tool.GenerateSdkAsync(_tempDirectory, InvalidRemoteTspConfigUrl, null, null);
@@ -220,7 +222,7 @@ public class SdkGenerationToolTests
     {
         // Arrange
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         _mockNpxHelper
             .Setup(x => x.Run(It.IsAny<NpxOptions>(), It.IsAny<CancellationToken>()))
@@ -252,8 +254,8 @@ public class SdkGenerationToolTests
         var emitterOptions = "package-version=1.0.0-beta.1";
 
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoFullNameAsync(tspConfigPath, false)).ReturnsAsync(DefaultSpecRepo);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoFullName(tspConfigPath, false, It.IsAny<CancellationToken>())).ReturnsAsync(DefaultSpecRepo);
 
         var expectedResult = new ProcessResult { ExitCode = 0 };
         expectedResult.AppendStdout(ProcessSuccessOutput);
@@ -289,7 +291,7 @@ public class SdkGenerationToolTests
         var emitterOptions = "package-version=1.0.0-beta.1";
 
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
 
         var expectedResult = new ProcessResult { ExitCode = 0 };
         expectedResult.AppendStdout(ProcessSuccessOutput);
@@ -318,8 +320,8 @@ public class SdkGenerationToolTests
         File.WriteAllText(tspConfigPath, TestTspConfigContent);
 
         // Mock GitHelper to return valid repo root
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoFullNameAsync(tspConfigPath, false)).ReturnsAsync(DefaultSpecRepo);
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoFullName(tspConfigPath, false, It.IsAny<CancellationToken>())).ReturnsAsync(DefaultSpecRepo);
 
         var expectedResult = new ProcessResult { ExitCode = 0 };
         expectedResult.AppendStdout(ProcessSuccessOutput);

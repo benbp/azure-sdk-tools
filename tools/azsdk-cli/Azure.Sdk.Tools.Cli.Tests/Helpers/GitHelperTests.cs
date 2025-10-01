@@ -3,6 +3,8 @@ using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Helpers
 {
@@ -87,7 +89,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Helpers
         public async Task GetRepoRemoteUri_WithHttpsOrigin_ReturnsHttpsUri()
         {
             testRepoPath = await CreateTestRepo("https://github.com/Azure/azure-rest-api-specs.git");
-            var result = gitHelper.GetRepoRemoteUri(testRepoPath, CancellationToken.None);
+            var result = await gitHelper.GetRepoRemoteUri(testRepoPath, CancellationToken.None);
             Assert.That(result.ToString(), Is.EqualTo("https://github.com/Azure/azure-rest-api-specs.git"));
         }
 

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Azure.Sdk.Tools.Cli.Tools.TypeSpec;
 using Moq;
 using Azure.Sdk.Tools.Cli.Helpers;
+using System.Threading;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools
 {
@@ -141,7 +142,8 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
         private static ITypeSpecHelper CreateTypeSpecHelper(bool isSpecRepo = false)
         {
             var mock = new Mock<ITypeSpecHelper>();
-            mock.Setup(m => m.IsRepoPathForSpecRepo(It.IsAny<string>())).Returns(isSpecRepo);
+            mock.Setup(m => m.IsRepoPathForSpecRepo(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(isSpecRepo);
             return mock.Object;
         }
     }

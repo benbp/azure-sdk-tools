@@ -6,6 +6,8 @@ using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.ReleasePlan;
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Models;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools
 {
@@ -28,7 +30,9 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools
             gitHubService = new Mock<IGitHubService>().Object;
 
             var typeSpecHelperMock = new Mock<ITypeSpecHelper>();
-            typeSpecHelperMock.Setup(x => x.IsRepoPathForPublicSpecRepo(It.IsAny<string>())).Returns(true);
+            typeSpecHelperMock
+                .Setup(x => x.IsRepoPathForPublicSpecRepo(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
             typeSpecHelper = typeSpecHelperMock.Object;
 
             var userHelperMock = new Mock<IUserHelper>();

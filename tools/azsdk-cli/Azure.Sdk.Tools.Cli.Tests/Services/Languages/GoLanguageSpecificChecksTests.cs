@@ -4,6 +4,8 @@ using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Services
 {
@@ -21,8 +23,9 @@ namespace Azure.Sdk.Tools.Cli.Tests.Services
             Directory.CreateDirectory(GoPackageDir);
 
             var mockGitHubService = new Mock<IGitHubService>();
-            var gitHelper = new GitHelper(mockGitHubService.Object, NullLogger<GitHelper>.Instance);
-            LangService = new GoLanguageSpecificChecks(new ProcessHelper(NullLogger<ProcessHelper>.Instance, Mock.Of<IRawOutputHelper>()), new NpxHelper(NullLogger<NpxHelper>.Instance, Mock.Of<IRawOutputHelper>()), gitHelper, NullLogger<GoLanguageSpecificChecks>.Instance);
+            var processHelper = new ProcessHelper(NullLogger<ProcessHelper>.Instance, Mock.Of<IRawOutputHelper>());
+            var gitHelper = new GitHelper(mockGitHubService.Object, NullLogger<GitHelper>.Instance, processHelper);
+            LangService = new GoLanguageSpecificChecks(processHelper, new NpxHelper(NullLogger<NpxHelper>.Instance, Mock.Of<IRawOutputHelper>()), gitHelper, NullLogger<GoLanguageSpecificChecks>.Instance);
 
             if (!await LangService.CheckDependencies(CancellationToken.None))
             {

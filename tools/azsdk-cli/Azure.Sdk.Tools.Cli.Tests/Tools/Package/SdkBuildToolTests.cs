@@ -4,6 +4,8 @@ using Moq;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Package;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools.Package;
 
@@ -85,11 +87,11 @@ public class SdkBuildToolTests
 
         // Mock GitHelper to return a Python SDK repo name
         _mockGitHelper
-            .Setup(x => x.DiscoverRepoRoot(pythonProjectPath))
+            .Setup(x => x.DiscoverRepoRoot(pythonProjectPath, It.IsAny<CancellationToken>()))
             .Returns(_tempDirectory);
         _mockGitHelper
-            .Setup(x => x.GetRepoName(_tempDirectory))
-            .Returns("azure-sdk-for-python");
+            .Setup(x => x.GetRepoName(_tempDirectory, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("azure-sdk-for-python");
 
         // Act
         var result = await _tool.BuildSdkAsync(pythonProjectPath);
@@ -105,7 +107,7 @@ public class SdkBuildToolTests
     {
         // Arrange
         _mockGitHelper
-            .Setup(x => x.DiscoverRepoRoot(_tempDirectory))
+            .Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>()))
             .Throws(new Exception(FailedToDiscoverRepoError));
 
         // Act
@@ -119,11 +121,11 @@ public class SdkBuildToolTests
     public async Task BuildSdkAsync_ConfigFileNotFound_ReturnsError()
     {
         // Arrange
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory)).Returns("azure-sdk-for-net");
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory, It.IsAny<CancellationToken>())).ReturnsAsync("azure-sdk-for-net");
         _mockGitHelper
-            .Setup(x => x.GetRepoRemoteUri(_tempDirectory))
-            .Returns(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
+            .Setup(x => x.GetRepoRemoteUri(_tempDirectory, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
 
         // Mock the SpecGenSdkConfigHelper to throw an exception for missing config
         _mockSpecGenSdkConfigHelper
@@ -141,11 +143,11 @@ public class SdkBuildToolTests
     public async Task BuildSdkAsync_InvalidJsonConfig_ReturnsError()
     {
         // Arrange
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory)).Returns("azure-sdk-for-net");
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory, It.IsAny<CancellationToken>())).ReturnsAsync("azure-sdk-for-net");
         _mockGitHelper
-            .Setup(x => x.GetRepoRemoteUri(_tempDirectory))
-            .Returns(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
+            .Setup(x => x.GetRepoRemoteUri(_tempDirectory, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
 
         // Mock the SpecGenSdkConfigHelper to throw a JSON parsing exception
         _mockSpecGenSdkConfigHelper
@@ -167,11 +169,11 @@ public class SdkBuildToolTests
     public async Task BuildSdkAsync_ConfigurationFileNotFound_ReturnsError()
     {
         // Arrange
-        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory)).Returns(_tempDirectory);
-        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory)).Returns("azure-sdk-for-net");
+        _mockGitHelper.Setup(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>())).Returns(_tempDirectory);
+        _mockGitHelper.Setup(x => x.GetRepoName(_tempDirectory, It.IsAny<CancellationToken>())).ReturnsAsync("azure-sdk-for-net");
         _mockGitHelper
-            .Setup(x => x.GetRepoRemoteUri(_tempDirectory))
-            .Returns(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
+            .Setup(x => x.GetRepoRemoteUri(_tempDirectory, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Uri("https://github.com/Azure/azure-sdk-for-net.git"));
 
         // Mock the SpecGenSdkConfigHelper to throw when config file is not found
         _mockSpecGenSdkConfigHelper
@@ -183,8 +185,8 @@ public class SdkBuildToolTests
 
         // Assert
         Assert.That(result.ResponseErrors?.First(), Does.Contain("Configuration file not found"));
-        _mockGitHelper.Verify(x => x.DiscoverRepoRoot(_tempDirectory), Times.Once);
-        _mockGitHelper.Verify(x => x.GetRepoName(_tempDirectory), Times.Once);
+        _mockGitHelper.Verify(x => x.DiscoverRepoRoot(_tempDirectory, It.IsAny<CancellationToken>()), Times.Once);
+        _mockGitHelper.Verify(x => x.GetRepoName(_tempDirectory, It.IsAny<CancellationToken>()), Times.Once);
         _mockSpecGenSdkConfigHelper.Verify(x => x.GetBuildConfigurationAsync(_tempDirectory), Times.Once);
     }
 
