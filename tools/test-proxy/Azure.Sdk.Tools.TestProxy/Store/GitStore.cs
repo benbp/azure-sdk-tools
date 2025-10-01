@@ -48,14 +48,14 @@ namespace Azure.Sdk.Tools.TestProxy.Store
         /// We need to lock repo inititialization behind a queue.
         /// This is due to the fact that Restore() can be called from multiple parallel
         /// requests, as multiple "startplayback" can be firing at the same time.
-        /// 
+        ///
         /// While the Restore() action itself is idempotent, the Initialization of the assets repo
         /// is NOT. We will use this queue to force ONE single initialization at a time.
-        /// 
-        /// We don't want to gate ALL initializations behind the same gate though. We can restore 
+        ///
+        /// We don't want to gate ALL initializations behind the same gate though. We can restore
         /// multiple DIFFERENT assets.jsons at the same time. It's specifically when two restores for the SAME
         /// assets.json are fired that we run into problems.
-        /// 
+        ///
         /// Everything else will still run in parallel.
         /// </summary>
         private ConcurrentDictionary<string, TaskQueue> InitTasks = new ConcurrentDictionary<string, TaskQueue>();
@@ -176,10 +176,10 @@ namespace Azure.Sdk.Tools.TestProxy.Store
 
                     /*
                      * This code works by generating a patch file for SPECIFICALLY the eng folder from main.
-                     * Given that these changes appear as "new" changes, they just look like normal file additions. 
-                     * This totally eliminates the possibility of weird historical merge if main has code that we don't expect. 
+                     * Given that these changes appear as "new" changes, they just look like normal file additions.
+                     * This totally eliminates the possibility of weird historical merge if main has code that we don't expect.
                      * Under azure-sdk-assets, we should never see this, but we have already seen it with specific integration
-                     * test tags under azure-sdk-assets-integration. By keeping it as "patch", the soft RESET on unsuccessful 
+                     * test tags under azure-sdk-assets-integration. By keeping it as "patch", the soft RESET on unsuccessful
                      * push action will properly put their repo into the expected "ready to push" state that a failed
                      * merge would NOT.
                      */
@@ -419,7 +419,7 @@ namespace Azure.Sdk.Tools.TestProxy.Store
         private void HideOrigin(GitAssetsConfiguration config)
         {
             var publicOrigin = GetCloneUrl(config.AssetsRepo, config.RepoRoot, honorToken: false);
-            
+
             if (config.IsAssetsRepoInitialized())
             {
                 GitHandler.Run($"remote set-url origin {publicOrigin}", config);

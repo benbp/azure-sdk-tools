@@ -15,16 +15,18 @@ namespace Azure.Sdk.Tools.Cli.Helpers
         /// This should also work for forks of these repos.
         /// </summary>
         /// <param name="path">Path within a repo</param>
+        /// <param name="ct">Cancellation token</param>
         /// <returns>true if within the azure-rest-api-specs repo, false otherwise</returns>
-        public bool IsRepoPathForPublicSpecRepo(string path);
+        public Task<bool> IsRepoPathForPublicSpecRepo(string path, CancellationToken ct);
 
         /// <summary>
         /// Checks if the path is within either the azure-rest-api-specs or azure-rest-api-specs-pr repo.
         /// This should also work for forks of these repos.
         /// </summary>
         /// <param name="path">Path within a repo</param>
+        /// <param name="ct">Cancellation token</param>
         /// <returns>true if one of our specs repos, false otherwise</returns>
-        public bool IsRepoPathForSpecRepo(string path);
+        public Task<bool> IsRepoPathForSpecRepo(string path, CancellationToken ct);
 
         public string GetSpecRepoRootPath(string path);
         public string GetTypeSpecProjectRelativePath(string typeSpecProjectPath);
@@ -55,18 +57,18 @@ namespace Azure.Sdk.Tools.Cli.Helpers
             return typeSpecObject?.IsManagementPlane ?? false;
         }
 
-        public bool IsRepoPathForPublicSpecRepo(string path)
+        public async Task<bool> IsRepoPathForPublicSpecRepo(string path, CancellationToken ct)
         {
-            var uri = _gitHelper.GetRepoRemoteUri(path);
+            var uri = await _gitHelper.GetRepoRemoteUri(path, ct);
             return RestApiSpecsPublicRegex().IsMatch(uri.ToString());
         }
 
-        public bool IsRepoPathForSpecRepo(string path)
+        public async Task<bool> IsRepoPathForSpecRepo(string path, CancellationToken ct)
         {
             // Docs say this method should work for paths within a repo,
             // so we need to find the repo root first.
-            var repoRootPath = _gitHelper.DiscoverRepoRoot(path);
-            var uri = _gitHelper.GetRepoRemoteUri(repoRootPath);
+            var repoRootPath = _gitHelper.DiscoverRepoRoot(path, ct);
+            var uri = await _gitHelper.GetRepoRemoteUri(repoRootPath, ct);
             return RestApiSpecsPublicOrPrivateRegex().IsMatch(uri.ToString());
         }
 
