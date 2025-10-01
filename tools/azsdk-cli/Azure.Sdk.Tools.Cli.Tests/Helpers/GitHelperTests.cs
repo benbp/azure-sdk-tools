@@ -98,7 +98,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Helpers
         {
             testRepoPath = await CreateTestRepo();
             var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await gitHelper.GetRepoRemoteUri(testRepoPath, CancellationToken.None));
-            Assert.That(ex.Message, Is.EqualTo("Unable to determine remote URL."));
+            Assert.That(ex.Message, Does.Contain("Failed to get remote origin URL"));
         }
 
         [Test]

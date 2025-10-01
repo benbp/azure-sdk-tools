@@ -65,7 +65,14 @@ namespace Azure.Sdk.Tools.Cli.Helpers
             {
                 throw new InvalidOperationException($"Failed to get remote origin URL: {result.Output}");
             }
-            var url = ConvertSshToHttpsUrl(result.Output) ?? throw new InvalidOperationException("Remote origin URL is null or empty.");
+
+            var remoteUrl = result.Output?.Trim();
+            if (string.IsNullOrEmpty(remoteUrl))
+            {
+                throw new InvalidOperationException("Unable to determine remote URL.");
+            }
+
+            var url = ConvertSshToHttpsUrl(remoteUrl);
             return new Uri(url);
         }
 
@@ -153,7 +160,7 @@ namespace Azure.Sdk.Tools.Cli.Helpers
             if (!string.IsNullOrEmpty(pathInRepo))
             {
                 var repoOwner = await GetRepoOwnerName(pathInRepo, findUpstreamParent, ct);
-                var repoName = GetRepoName(pathInRepo, ct);
+                var repoName = await GetRepoName(pathInRepo, ct);
                 return $"{repoOwner}/{repoName}";
             }
 
