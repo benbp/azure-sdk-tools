@@ -4,6 +4,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using System.Text;
+using System.Threading;
 using Microsoft.TeamFoundation.Build.WebApi;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
@@ -175,10 +176,10 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
 
                 // Get current branch name
                 var repoRootPath = typespecHelper.GetSpecRepoRootPath(typeSpecProjectRoot);
-                var branchName = gitHelper.GetBranchName(repoRootPath);
+                var branchName = await gitHelper.GetBranchName(repoRootPath, CancellationToken.None);
 
                 // Check if current repo is private or public repo
-                if (!typespecHelper.IsRepoPathForPublicSpecRepo(repoRootPath))
+                if (!await typespecHelper.IsRepoPathForPublicSpecRepo(repoRootPath, CancellationToken.None))
                 {
                     response.Details.AddRange([
                         $"Current repo root path '{repoRootPath}' is not a GitHub clone of 'Azure/azure-rest-api-specs' repo. SDK can be generated only if your TypeSpec changes are in public Azure/azure-rest-api-specs repo. ",

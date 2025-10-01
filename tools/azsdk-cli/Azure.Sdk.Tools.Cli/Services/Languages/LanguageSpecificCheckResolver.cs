@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
+using System.Threading;
 
 namespace Azure.Sdk.Tools.Cli.Services;
 
@@ -77,7 +78,7 @@ public class LanguageSpecificCheckResolver(
     {
         try
         {
-            var repositoryPath = _gitHelper.DiscoverRepoRoot(packagePath);
+            var repositoryPath = _gitHelper.DiscoverRepoRoot(packagePath, CancellationToken.None);
             if (string.IsNullOrEmpty(repositoryPath))
             {
                 return null;

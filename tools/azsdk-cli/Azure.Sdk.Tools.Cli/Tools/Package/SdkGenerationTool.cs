@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using System.Threading;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
@@ -100,7 +101,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
             }
 
             // Get the generate script path
-            string sdkRepoRoot = gitHelper.DiscoverRepoRoot(localSdkRepoPath);
+            string sdkRepoRoot = gitHelper.DiscoverRepoRoot(localSdkRepoPath, ct);
             if (string.IsNullOrEmpty(sdkRepoRoot))
             {
                 return CreateFailureResponse($"Failed to discover local sdk repo with path: {localSdkRepoPath}.");
@@ -113,7 +114,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                 {
                     return CreateFailureResponse($"The 'tspconfig.yaml' file does not exist at the specified path: {tspConfigPath}. Prompt user to clone the azure-rest-api-specs repository locally if it does not have a local copy.");
                 }
-                specRepoFullName = await gitHelper.GetRepoFullNameAsync(tspConfigPath, findUpstreamParent: false);
+                specRepoFullName = await gitHelper.GetRepoFullName(tspConfigPath, findUpstreamParent: false, ct);
             }
             else
             {

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
+using System.Threading;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
@@ -62,7 +63,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
                 }
 
                 // Get repository root path from project path
-                string sdkRepoRoot = gitHelper.DiscoverRepoRoot(packagePath);
+                string sdkRepoRoot = gitHelper.DiscoverRepoRoot(packagePath, ct);
                 if (string.IsNullOrEmpty(sdkRepoRoot))
                 {
                     return CreateFailureResponse($"Failed to discover local sdk repo with project-path: {packagePath}.");
@@ -70,7 +71,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Package
 
                 logger.LogInformation($"Repository root path: {sdkRepoRoot}");
 
-                string sdkRepoName = gitHelper.GetRepoName(sdkRepoRoot);
+                string sdkRepoName = await gitHelper.GetRepoName(sdkRepoRoot, ct);
                 logger.LogInformation($"Repository name: {sdkRepoName}");
 
                 // Return if the project is python project

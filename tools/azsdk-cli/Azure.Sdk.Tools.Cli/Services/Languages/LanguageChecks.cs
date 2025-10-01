@@ -82,7 +82,7 @@ public class LanguageChecks : ILanguageChecks
     /// </summary>
     /// <param name="packagePath">Absolute path to the package directory</param>
     /// <returns>Repository root path if successful, or CLICheckResponse with error if validation fails</returns>
-    private (string? repoRoot, CLICheckResponse? errorResponse) ValidatePackageAndDiscoverRepo(string packagePath)
+    private (string? repoRoot, CLICheckResponse? errorResponse) ValidatePackageAndDiscoverRepo(string packagePath, CancellationToken ct = default)
     {
         if (!Directory.Exists(packagePath))
         {
@@ -90,7 +90,7 @@ public class LanguageChecks : ILanguageChecks
         }
 
         // Find the SDK repository root by looking for common repository indicators
-        var packageRepoRoot = _gitHelper.DiscoverRepoRoot(packagePath);
+        var packageRepoRoot = _gitHelper.DiscoverRepoRoot(packagePath, ct);
         if (string.IsNullOrEmpty(packageRepoRoot))
         {
             return (null, new CLICheckResponse(1, "", $"Could not find repository root from package path: {packagePath}"));
@@ -161,7 +161,7 @@ public class LanguageChecks : ILanguageChecks
 
         try
         {
-            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath);
+            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath, ct);
             if (errorResponse != null)
             {
                 return errorResponse;
@@ -203,7 +203,7 @@ public class LanguageChecks : ILanguageChecks
     {
         try
         {
-            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath);
+            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath, ct);
             if (errorResponse != null)
             {
                 return errorResponse;
@@ -254,7 +254,7 @@ public class LanguageChecks : ILanguageChecks
     {
         try
         {
-            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath);
+            var (packageRepoRoot, errorResponse) = ValidatePackageAndDiscoverRepo(packagePath, ct);
             if (errorResponse != null)
             {
                 return errorResponse;

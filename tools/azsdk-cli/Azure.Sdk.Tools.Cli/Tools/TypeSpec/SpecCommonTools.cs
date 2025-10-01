@@ -4,6 +4,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Threading;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
@@ -39,7 +40,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
                 case getModifiedProjectsCommandName:
                     var repoRootPath = ctx.ParseResult.GetValueForOption(repoRootOpt);
                     var targetBranch = ctx.ParseResult.GetValueForOption(targetBranchOpt);
-                    var modifiedProjects = GetModifiedTypeSpecProjects(repoRootPath, targetBranch);
+                    var modifiedProjects = await GetModifiedTypeSpecProjects(repoRootPath, targetBranch, ct);
                     modifiedProjects.Message = "Modified TypeSpec projects:";
                     return modifiedProjects;
 
@@ -49,11 +50,11 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
         }
 
         [McpServerTool(Name = "azsdk_get_modified_typespec_projects"), Description("This tool returns list of TypeSpec projects modified in current branch")]
-        public ObjectCommandResponse GetModifiedTypeSpecProjects(string repoRootPath, string targetBranch = "main")
+        public async Task<ObjectCommandResponse> GetModifiedTypeSpecProjects(string repoRootPath, string targetBranch = "main", CancellationToken ct = default)
         {
             try
             {
-                var baseCommitSha = gitHelper.GetMergeBaseCommitSha(repoRootPath, targetBranch);
+                var baseCommitSha = await gitHelper.GetMergeBaseCommitSha(repoRootPath, targetBranch, ct);
                 if (string.IsNullOrEmpty(baseCommitSha))
                 {
                     List<string> _out = [$"Failed to get merge base commit SHA for {repoRootPath}"];

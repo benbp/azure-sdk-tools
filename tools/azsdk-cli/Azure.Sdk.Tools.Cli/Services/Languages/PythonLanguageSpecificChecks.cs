@@ -34,7 +34,7 @@ public class PythonLanguageSpecificChecks : ILanguageSpecificChecks
             _logger.LogInformation($"Starting dependency analysis for Python project at: {packagePath}");
 
             // Find the repository root from the package path using GitHelper
-            var repoRoot = _gitHelper.DiscoverRepoRoot(packagePath);
+            var repoRoot = _gitHelper.DiscoverRepoRoot(packagePath, ct);
             _logger.LogInformation("Found repository root at: {RepoRoot}", repoRoot);
 
             // Construct path to tox.ini from repository root
@@ -82,7 +82,7 @@ public class PythonLanguageSpecificChecks : ILanguageSpecificChecks
             _logger.LogInformation("Starting snippet update for Python project at: {PackagePath}", packagePath);
 
             // Find the repository root from the package path using GitHelper
-            var repoRoot = _gitHelper.DiscoverRepoRoot(packagePath);
+            var repoRoot = _gitHelper.DiscoverRepoRoot(packagePath, cancellationToken);
             _logger.LogInformation("Found repository root at: {RepoRoot}", repoRoot);
 
             // Construct path to the Python snippet updater script

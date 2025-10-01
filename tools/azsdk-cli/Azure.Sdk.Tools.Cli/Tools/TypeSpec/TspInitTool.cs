@@ -3,6 +3,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.ComponentModel;
+using System.Threading;
 using Azure.Sdk.Tools.Cli.Models.Responses;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Helpers;
@@ -128,7 +129,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
 
                 var fullOutputDir = Path.GetFullPath(outputDirectory.Trim());
 
-                if (CheckAndCreateDirectory(fullOutputDir) is TspToolResponse resp)
+                if (await CheckAndCreateDirectoryAsync(fullOutputDir, ct) is TspToolResponse resp)
                 {
                     return resp;
                 }
@@ -151,7 +152,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
         /// </summary>
         /// <param name="fullOutputDirectory">A full path to the output directory, as returned by <see cref="Path.GetFullPath"/></param>
         /// <returns>For invalid directories, or failures, an appropriate TspToolResponse, otherwise null</returns>
-        private TspToolResponse CheckAndCreateDirectory(string fullOutputDirectory)
+        private async Task<TspToolResponse?> CheckAndCreateDirectoryAsync(string fullOutputDirectory, CancellationToken ct)
         {
             if (!Directory.Exists(fullOutputDirectory))
             {
@@ -166,7 +167,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.TypeSpec
                 };
             }
 
-            if (!typespecHelper.IsRepoPathForSpecRepo(fullOutputDirectory))
+            if (!await typespecHelper.IsRepoPathForSpecRepo(fullOutputDirectory, ct))
             {
                 return new TspToolResponse
                 {

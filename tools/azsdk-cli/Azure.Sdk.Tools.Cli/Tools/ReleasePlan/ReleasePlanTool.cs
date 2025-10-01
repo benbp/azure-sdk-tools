@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
@@ -94,7 +95,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
                     var sdkReleaseType = commandParser.GetValueForOption(sdkReleaseTypeOpt);
                     var isTestReleasePlan = commandParser.GetValueForOption(isTestReleasePlanOpt);
                     var userEmail = commandParser.GetValueForOption(userEmailOpt);
-                    return await CreateReleasePlan(typeSpecProjectPath, targetReleaseMonthYear, serviceTreeId, productTreeId, specApiVersion, specPullRequestUrl, sdkReleaseType, userEmail: userEmail, isTestReleasePlan: isTestReleasePlan);
+                    return await CreateReleasePlan(typeSpecProjectPath, targetReleaseMonthYear, serviceTreeId, productTreeId, specApiVersion, specPullRequestUrl, sdkReleaseType, userEmail: userEmail, isTestReleasePlan: isTestReleasePlan, ct: ct);
 
                 case linkNamespaceApprovalIssueCommandName:
                     return await LinkNamespaceApprovalIssue(commandParser.GetValueForOption(workItemIdOpt), commandParser.GetValueForOption(namespaceApprovalIssueOpt));
@@ -171,7 +172,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
 
         }
 
-        private async Task ValidateCreateReleasePlanInputAsync(string typeSpecProjectPath, string serviceTreeId, string productTreeId, string specPullRequestUrl, string sdkReleaseType, string specApiVersion)
+        private async Task ValidateCreateReleasePlanInputAsync(string typeSpecProjectPath, string serviceTreeId, string productTreeId, string specPullRequestUrl, string sdkReleaseType, string specApiVersion, CancellationToken ct = default)
         {
             ValidatePullRequestUrl(specPullRequestUrl);
             // Check for existing release plan for the given pull request URL.
@@ -203,7 +204,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
             var repoRoot = typeSpecHelper.GetSpecRepoRootPath(typeSpecProjectPath);
 
             // Ensure a release plan is created only if the API specs pull request is in a public repository.
-            if (!typeSpecHelper.IsRepoPathForPublicSpecRepo(repoRoot))
+            if (!await typeSpecHelper.IsRepoPathForPublicSpecRepo(repoRoot, ct))
             {
                 throw new Exception("""
                     SDK generation and release require the API specs pull request to be in the public azure-rest-api-specs repository.
@@ -224,12 +225,12 @@ namespace Azure.Sdk.Tools.Cli.Tools.ReleasePlan
         }
 
         [McpServerTool(Name = "azsdk_create_release_plan"), Description("Create Release Plan")]
-        public async Task<ObjectCommandResponse> CreateReleasePlan(string typeSpecProjectPath, string targetReleaseMonthYear, string serviceTreeId, string productTreeId, string specApiVersion, string specPullRequestUrl, string sdkReleaseType, string userEmail = "", bool isTestReleasePlan = false)
+        public async Task<ObjectCommandResponse> CreateReleasePlan(string typeSpecProjectPath, string targetReleaseMonthYear, string serviceTreeId, string productTreeId, string specApiVersion, string specPullRequestUrl, string sdkReleaseType, string userEmail = "", bool isTestReleasePlan = false, CancellationToken ct = default)
         {
             try
             {
                 sdkReleaseType = sdkReleaseType?.ToLower() ?? "";
-                await ValidateCreateReleasePlanInputAsync(typeSpecProjectPath, serviceTreeId, productTreeId, specPullRequestUrl, sdkReleaseType, specApiVersion);
+                await ValidateCreateReleasePlanInputAsync(typeSpecProjectPath, serviceTreeId, productTreeId, specPullRequestUrl, sdkReleaseType, specApiVersion, ct);
 
                 // Check environment variable to determine if this should be a test release plan
                 var isAgentTesting = environmentHelper.GetBooleanVariable("AZSDKTOOLS_AGENT_TESTING", false);
