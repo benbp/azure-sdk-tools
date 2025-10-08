@@ -174,7 +174,7 @@ foreach ($instructionTool in $instructionTools) {
 }
 
 if ($missingTools.Count -gt 0) {
-    Write-Error "Missing MCP tool declarations for: $($missingTools -join ', ')"
+    Write-Host "Missing MCP tool declarations for: $($missingTools -join ', ')" -ForegroundColor Red
     foreach ($toolName in $missingTools) {
         $sources = $instructionReferenceMap[$toolName] -join ', '
         Write-Host "  $toolName referenced from: $sources" -ForegroundColor Yellow
