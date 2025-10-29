@@ -12,6 +12,7 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
     private readonly IProcessHelper _processHelper;
     private readonly IGitHelper _gitHelper;
     private readonly IPowershellHelper _powershellHelper;
+    private readonly IRepositoryService _repositoryService;
     private readonly ILogger<DotNetLanguageSpecificChecks> _logger;
     private const string DotNetCommand = "dotnet";
     private const string RequiredDotNetVersion = "9.0.102"; // TODO - centralize this as part of env setup tool
@@ -22,11 +23,13 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
         IProcessHelper processHelper,
         IPowershellHelper powershellHelper,
         IGitHelper gitHelper,
+        IRepositoryService repositoryService,
         ILogger<DotNetLanguageSpecificChecks> logger)
     {
         _processHelper = processHelper;
         _powershellHelper = powershellHelper;
         _gitHelper = gitHelper;
+        _repositoryService = repositoryService;
         _logger = logger;
     }
 
@@ -50,28 +53,39 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
                 return new CLICheckResponse(1, "", "Failed to determine service directory from the provided package path.");
             }
 
-            var repoRoot = _gitHelper.DiscoverRepoRoot(packagePath);
-            var scriptPath = Path.Combine(repoRoot, "eng", "scripts", "CodeChecks.ps1");
-            if (!File.Exists(scriptPath))
+            /*
+               The below works with the following contract config in the azure-sdk-for-net repository:
+
+                [
+                   {
+                       "tags": [ "CodeChecks" ],
+                       "command": "eng/scripts/CodeChecks.ps1"
+                   }
+                ]
+
+                With CodeChecks.ps1 parameters being aliased (a contrived example, the alias is not necessary in this case):
+
+                param (
+                    [Parameter(Position=0)]
+                    [Alias('servicedir')]
+                    [string] $ServiceDirectory,
+
+                    [Parameter()]
+                    [Alias('spellcheck')]
+                    [switch] $SpellCheckPublicApiSurface
+                )
+            */
+
+            if (await _repositoryService.HasImplementation("CodeChecks", packagePath, ct))
             {
-                _logger.LogError("Code checks script not found at: {ScriptPath}", scriptPath);
-                return new CLICheckResponse(1, "", $"Code checks script not found at: {scriptPath}");
+                return await _repositoryService.Invoke("CodeChecks", packagePath, new()
+                {
+                    { "servicedir", serviceDirectory },
+                    { "spellcheck", true }
+                }, ct);
             }
 
-            var args = new[] { scriptPath, "-ServiceDirectory", serviceDirectory, "-SpellCheckPublicApiSurface" };
-            var options = new PowershellOptions(scriptPath, args, workingDirectory: repoRoot, timeout: CodeChecksTimeout);
-            var result = await _powershellHelper.Run(options, ct);
-
-            if (result.ExitCode == 0)
-            {
-                _logger.LogInformation("Generated code checks completed successfully");
-                return new CLICheckResponse(result.ExitCode, result.Output);
-            }
-            else
-            {
-                _logger.LogWarning("Generated code checks for package at {PackagePath} failed with exit code {ExitCode}", packagePath, result.ExitCode);
-                return new CLICheckResponse(result.ExitCode, result.Output, "Generated code checks failed");
-            }
+            return new CLICheckResponse(1, "", "No implementation found for CodeChecks in repository.");
         }
         catch (Exception ex)
         {
@@ -224,10 +238,10 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
         try
         {
             var csprojFiles = Directory.GetFiles(packagePath, "*.csproj", SearchOption.AllDirectories);
-            var mainCsprojFile = csprojFiles.FirstOrDefault(f => 
+            var mainCsprojFile = csprojFiles.FirstOrDefault(f =>
                 Path.GetFileNameWithoutExtension(f).Equals(packageName, StringComparison.OrdinalIgnoreCase));
             var csprojFile = mainCsprojFile ?? csprojFiles.FirstOrDefault();
-            
+
             if (csprojFile == null)
             {
                 _logger.LogDebug("No .csproj file found in package path: {PackagePath}", packagePath);
@@ -235,15 +249,15 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
             }
 
             var projectContent = await File.ReadAllTextAsync(csprojFile, ct);
-            
+
             var hasAotOptOut = projectContent.Contains("<AotCompatOptOut>true</AotCompatOptOut>", StringComparison.OrdinalIgnoreCase);
-            
+
             if (hasAotOptOut)
             {
                 _logger.LogInformation("Found AotCompatOptOut=true in project file: {CsprojFile}", csprojFile);
                 return true;
             }
-            
+
             return false;
         }
         catch (Exception ex)
