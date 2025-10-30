@@ -5,7 +5,7 @@ using Azure.Sdk.Tools.Cli.Helpers;
 
 namespace Azure.Sdk.Tools.Cli.Services;
 
-public interface IRepositoryService
+public interface IRepositoryScriptService
 {
     Task<string> GetCommand(string commandName, string packagePath, CancellationToken ct);
     Task<bool> HasImplementation(string commandName, string packagePath, CancellationToken ct);
@@ -16,6 +16,7 @@ public interface IRepositoryService
         bool invokeFromRepoRoot = true,
         CancellationToken ct = default
     );
+    Task<(bool invoked, ProcessResult result)> TryInvoke(string commandName, string packagePath, OrderedDictionary args, CancellationToken ct = default);
 }
 
 public class RepoCommandContract
@@ -38,7 +39,7 @@ public class RepositoryScriptService(
     ILogger<RepositoryScriptService> logger,
     IGitHelper gitHelper,
     IPowershellHelper powershellHelper
-) : IRepositoryService
+) : IRepositoryScriptService
 {
     public string ScriptConfig = Path.Join("eng", "azsdk-cli-command-overrides.json");
 
@@ -84,12 +85,12 @@ public class RepositoryScriptService(
         }
     }
 
-    public async Task<string> GetCommand(string commandName, string packagePath, CancellationToken ct)
+    public async Task<string> GetCommand(string commandName, string repoRoot, CancellationToken ct)
     {
-        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
         await Load(repoRoot, ct);
 
-        if (!commandCache.TryGetValue(packagePath, out var commandMap) ||
+        if (string.IsNullOrEmpty(repoRoot) ||
+            !commandCache.TryGetValue(repoRoot, out var commandMap) ||
             !commandMap.TryGetValue(commandName, out string? value))
         {
             return null;
@@ -103,12 +104,13 @@ public class RepositoryScriptService(
         return value;
     }
 
-    public async Task<bool> HasImplementation(string commandName, string packagePath, CancellationToken ct)
+    public async Task<bool> HasImplementation(string commandName, string repoRoot, CancellationToken ct)
     {
-        await Load(packagePath, ct);
+        await Load(repoRoot, ct);
 
-        if (!commandCache.TryGetValue(packagePath, out var commandMap) ||
-            !commandMap.TryGetValue(commandName, out string? value))
+        if (string.IsNullOrEmpty(repoRoot) ||
+            !commandCache.TryGetValue(repoRoot, out var commandMap) ||
+            !commandMap.TryGetValue(commandName, out string? _))
         {
             return false;
         }
@@ -124,15 +126,15 @@ public class RepositoryScriptService(
         CancellationToken ct = default
     )
     {
-        var scriptPath = await GetCommand(commandName, packagePath, ct);
+        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
+        var scriptPath = await GetCommand(commandName, repoRoot, ct);
         if (scriptPath == null)
         {
             return (false, new());
         }
 
         string workingDirectory = "";
-        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
-        if (!invokeFromRepoRoot)
+        if (invokeFromRepoRoot)
         {
             scriptPath = Path.Join(repoRoot, scriptPath);
             workingDirectory = repoRoot;
@@ -153,7 +155,8 @@ public class RepositoryScriptService(
         return (true, result);
     }
 
-    public async Task<(bool invoked, ProcessResult result)> TryInvoke( string commandName, string packagePath, OrderedDictionary args, CancellationToken ct)
+
+    public async Task<(bool invoked, ProcessResult result)> TryInvoke(string commandName, string packagePath, OrderedDictionary args, CancellationToken ct)
     {
         return await TryInvoke(commandName, packagePath, args, true, ct);
     }

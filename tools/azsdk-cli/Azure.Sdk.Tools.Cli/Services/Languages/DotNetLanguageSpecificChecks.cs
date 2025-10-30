@@ -7,31 +7,23 @@ namespace Azure.Sdk.Tools.Cli.Services;
 /// .NET-specific implementation of language repository service.
 /// Uses tools like dotnet CLI, MSBuild, NuGet, etc. for .NET development workflows.
 /// </summary>
-public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
+public class DotNetLanguageSpecificChecks(
+    ILogger<DotNetLanguageSpecificChecks> logger,
+    IProcessHelper processHelper,
+    IPowershellHelper powershellHelper,
+    IGitHelper gitHelper,
+    IRepositoryScriptService repositoryScriptService
+) : ILanguageSpecificChecks
 {
-    private readonly IProcessHelper _processHelper;
-    private readonly IGitHelper _gitHelper;
-    private readonly IPowershellHelper _powershellHelper;
-    private readonly IRepositoryService _repositoryService;
-    private readonly ILogger<DotNetLanguageSpecificChecks> _logger;
+    private readonly IProcessHelper _processHelper = processHelper;
+    private readonly IGitHelper _gitHelper = gitHelper;
+    private readonly IPowershellHelper _powershellHelper = powershellHelper;
+    private readonly IRepositoryScriptService _repositoryScriptService = repositoryScriptService;
+    private readonly ILogger<DotNetLanguageSpecificChecks> _logger = logger;
     private const string DotNetCommand = "dotnet";
     private const string RequiredDotNetVersion = "9.0.102"; // TODO - centralize this as part of env setup tool
     private static readonly TimeSpan CodeChecksTimeout = TimeSpan.FromMinutes(6);
     private static readonly TimeSpan AotCompatTimeout = TimeSpan.FromMinutes(5);
-
-    public DotNetLanguageSpecificChecks(
-        IProcessHelper processHelper,
-        IPowershellHelper powershellHelper,
-        IGitHelper gitHelper,
-        IRepositoryService repositoryService,
-        ILogger<DotNetLanguageSpecificChecks> logger)
-    {
-        _processHelper = processHelper;
-        _powershellHelper = powershellHelper;
-        _gitHelper = gitHelper;
-        _repositoryService = repositoryService;
-        _logger = logger;
-    }
 
     public async Task<CLICheckResponse> CheckGeneratedCode(string packagePath, bool fixCheckErrors = false, CancellationToken ct = default)
     {
@@ -53,11 +45,11 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
                 return new CLICheckResponse(1, "", "Failed to determine service directory from the provided package path.");
             }
 
-            var (invoked, result) = await _repositoryService.TryInvoke("CodeChecks", packagePath, new()
+            var (invoked, result) = await _repositoryScriptService.TryInvoke("CodeChecks", packagePath, new()
                 {
                     { "ServiceDirectory", serviceDirectory },
                     { "SpellCheckPublicApiSurface", true }
-                }, true, ct);
+                }, ct);
 
             return invoked ?
                 new CLICheckResponse(result.ExitCode, result.Output) :
