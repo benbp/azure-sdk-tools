@@ -1,11 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 using System.CommandLine;
-using System.CommandLine.Parsing;
 using System.ComponentModel;
+using System.Diagnostics;
 using Azure.Sdk.Tools.Cli.Commands;
 using ModelContextProtocol.Server;
 using Azure.Sdk.Tools.Cli.Models;
+using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Example
 {
@@ -68,6 +69,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.Example
             try
             {
                 logger.LogInformation("Echoing message: {message}", message);
+                Activity.Current?.SetCustomProperty(TagName.TESTING, "HELLO_WORLD_TEST_OVERRIDE");
 
                 return new()
                 {
