@@ -53,39 +53,15 @@ public class DotNetLanguageSpecificChecks : ILanguageSpecificChecks
                 return new CLICheckResponse(1, "", "Failed to determine service directory from the provided package path.");
             }
 
-            /*
-               The below works with the following contract config in the azure-sdk-for-net repository:
-
-                [
-                   {
-                       "tags": [ "CodeChecks" ],
-                       "command": "eng/scripts/CodeChecks.ps1"
-                   }
-                ]
-
-                With CodeChecks.ps1 parameters being aliased (a contrived example, the alias is not necessary in this case):
-
-                param (
-                    [Parameter(Position=0)]
-                    [Alias('servicedir')]
-                    [string] $ServiceDirectory,
-
-                    [Parameter()]
-                    [Alias('spellcheck')]
-                    [switch] $SpellCheckPublicApiSurface
-                )
-            */
-
-            if (await _repositoryService.HasImplementation("CodeChecks", packagePath, ct))
-            {
-                return await _repositoryService.Invoke("CodeChecks", packagePath, new()
+            var (invoked, result) = await _repositoryService.TryInvoke("CodeChecks", packagePath, new()
                 {
-                    { "servicedir", serviceDirectory },
-                    { "spellcheck", true }
-                }, ct);
-            }
+                    { "ServiceDirectory", serviceDirectory },
+                    { "SpellCheckPublicApiSurface", true }
+                }, true, ct);
 
-            return new CLICheckResponse(1, "", "No implementation found for CodeChecks in repository.");
+            return invoked ?
+                new CLICheckResponse(result.ExitCode, result.Output) :
+                new CLICheckResponse(1, "", "No implementation found for CodeChecks in repository.");
         }
         catch (Exception ex)
         {

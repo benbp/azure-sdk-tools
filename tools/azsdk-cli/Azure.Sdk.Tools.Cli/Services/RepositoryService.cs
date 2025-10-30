@@ -2,7 +2,6 @@ using System.Collections.Specialized;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Models;
 
 namespace Azure.Sdk.Tools.Cli.Services;
 
@@ -10,39 +9,60 @@ public interface IRepositoryService
 {
     Task<string> GetCommand(string commandName, string packagePath, CancellationToken ct);
     Task<bool> HasImplementation(string commandName, string packagePath, CancellationToken ct);
-    Task<CLICheckResponse> Invoke(string commandName, string packagePath, OrderedDictionary args, CancellationToken ct);
+    Task<(bool invoked, ProcessResult result)> TryInvoke(
+        string commandName,
+        string packagePath,
+        OrderedDictionary args,
+        bool invokeFromRepoRoot = true,
+        CancellationToken ct = default
+    );
 }
 
 public class RepoCommandContract
 {
     [JsonPropertyName("tags")]
-    public List<string> Tags { get; set; } = new();
+    public List<string> Tags { get; set; } = [];
 
     [JsonPropertyName("command")]
     public string Command { get; set; } = string.Empty;
 }
 
-public class RepositoryService(
-    ILogger<RepositoryService> logger,
+/// <summary>
+/// Provides repository-specific script discovery and execution by loading the automation config,
+/// caching command mappings per package path, and invoking the associated PowerShell scripts.
+/// </summary>
+/// <param name="logger">The logger used to record informational and warning messages.</param>
+/// <param name="gitHelper">Helper that locates the repository root for a given package path.</param>
+/// <param name="powershellHelper">Helper responsible for running PowerShell commands.</param>
+public class RepositoryScriptService(
+    ILogger<RepositoryScriptService> logger,
     IGitHelper gitHelper,
     IPowershellHelper powershellHelper
 ) : IRepositoryService
 {
-    private Dictionary<string, Dictionary<string, string>> repoCommandCache = [];
+    public string ScriptConfig = Path.Join("eng", "azsdk-cli-command-overrides.json");
 
-    private async Task Load(string packagePath, CancellationToken ct)
+    private readonly Dictionary<string, Dictionary<string, string>> commandCache = [];
+
+    private readonly JsonSerializerOptions jsonOptions = new()
     {
-        if (repoCommandCache.TryGetValue(packagePath, out var _))
+        WriteIndented = false,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
+    };
+
+    private async Task Load(string repoRoot, CancellationToken ct)
+    {
+        if (commandCache.TryGetValue(repoRoot, out var _))
         {
             return;
         }
 
-        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
-        var contractPath = Path.Join(repoRoot, "eng", "azsdk-automation-contract.json");
+        var contractPath = Path.Join(repoRoot, ScriptConfig);
         if (File.Exists(contractPath))
         {
             var json = await File.ReadAllTextAsync(contractPath, ct);
-            var contract = JsonSerializer.Deserialize<List<RepoCommandContract>>(json);
+            var contract = JsonSerializer.Deserialize<List<RepoCommandContract>>(json, jsonOptions);
 
             if (contract == null)
             {
@@ -54,7 +74,11 @@ public class RepositoryService(
             {
                 foreach (var tag in command.Tags)
                 {
-                    repoCommandCache[packagePath][tag] = command.Command;
+                    if (!commandCache.ContainsKey(repoRoot))
+                    {
+                        commandCache[repoRoot] = new Dictionary<string, string>();
+                    }
+                    commandCache[repoRoot][tag] = Path.Join(command.Command);
                 }
             }
         }
@@ -62,12 +86,18 @@ public class RepositoryService(
 
     public async Task<string> GetCommand(string commandName, string packagePath, CancellationToken ct)
     {
-        await Load(packagePath, ct);
+        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
+        await Load(repoRoot, ct);
 
-        if (!repoCommandCache.TryGetValue(packagePath, out var commandMap) ||
+        if (!commandCache.TryGetValue(packagePath, out var commandMap) ||
             !commandMap.TryGetValue(commandName, out string? value))
         {
             return null;
+        }
+
+        if (!File.Exists(Path.Join(repoRoot, value)))
+        {
+            throw new Exception($"Script override '{value}' for command '{commandName}' in '{ScriptConfig}' does not exist in the repository");
         }
 
         return value;
@@ -75,19 +105,56 @@ public class RepositoryService(
 
     public async Task<bool> HasImplementation(string commandName, string packagePath, CancellationToken ct)
     {
-        var command = await GetCommand(commandName, packagePath, ct);
-        return command != null;
+        await Load(packagePath, ct);
+
+        if (!commandCache.TryGetValue(packagePath, out var commandMap) ||
+            !commandMap.TryGetValue(commandName, out string? value))
+        {
+            return false;
+        }
+
+        return true;
     }
 
-    public async Task<CLICheckResponse> Invoke(string commandName, string packagePath, OrderedDictionary args, CancellationToken ct)
+    public async Task<(bool invoked, ProcessResult result)> TryInvoke(
+        string commandName,
+        string packagePath,
+        OrderedDictionary args,
+        bool invokeFromRepoRoot = true,
+        CancellationToken ct = default
+    )
     {
         var scriptPath = await GetCommand(commandName, packagePath, ct);
-        var paramJson = JsonSerializer.Serialize(args, new JsonSerializerOptions { WriteIndented = false });
+        if (scriptPath == null)
+        {
+            return (false, new());
+        }
+
+        string workingDirectory = "";
+        var repoRoot = gitHelper.DiscoverRepoRoot(packagePath);
+        if (!invokeFromRepoRoot)
+        {
+            scriptPath = Path.Join(repoRoot, scriptPath);
+            workingDirectory = repoRoot;
+        }
+
+        var paramJson = JsonSerializer.Serialize(args, jsonOptions);
         var command = $"$params = ('{paramJson}' | ConvertFrom-Json -AsHashtable); & {scriptPath} @params";
 
-        var options = new PowershellOptions(args: [command]);
+        var options = new PowershellOptions(args: [command], workingDirectory: workingDirectory);
         var result = await powershellHelper.Run(options, ct);
 
-        return new CLICheckResponse(result.ExitCode, result.Output);
+        if (result.ExitCode != 0)
+        {
+            logger.LogError("Command '{CommandName}' in package path '{PackagePath}' failed with exit code {ExitCode}. Output: {Output}",
+                commandName, packagePath, result.ExitCode, result.Output);
+        }
+
+        return (true, result);
+    }
+
+    public async Task<(bool invoked, ProcessResult result)> TryInvoke( string commandName, string packagePath, OrderedDictionary args, CancellationToken ct)
+    {
+        return await TryInvoke(commandName, packagePath, args, true, ct);
     }
 }
