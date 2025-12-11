@@ -4,6 +4,7 @@ using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
+using OpenTelemetry;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -18,10 +19,17 @@ public class Program
 
     public static async Task<int> Run(string[] args, LogLevel? logLevel = null)
     {
+        var isCommandLine = IsCommandLine(args);
         var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
         logLevel ??= debug ? LogLevel.Debug : LogLevel.Information;
+
+        using var tracerProvider = isCommandLine ? TelemetryService.RegisterCliTelemetry(debug) : null;
+
         ServerApp = CreateAppBuilder(args, outputFormat, logLevel.Value, debug).Build();
-        return await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
+        var exitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
+
+        tracerProvider?.ForceFlush();
+        return exitCode;
     }
 
     // todo: make this honor subcommands of `start` and the like, instead of simply looking presence of `start` verb

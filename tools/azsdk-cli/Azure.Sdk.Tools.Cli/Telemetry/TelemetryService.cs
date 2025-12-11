@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Reflection;
+using Azure.Monitor.OpenTelemetry.Exporter;
+using Azure.Sdk.Tools.Cli.Extensions;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using OpenTelemetry;
@@ -40,18 +43,22 @@ internal class TelemetryService : ITelemetryService
 
     public static TracerProvider RegisterCliTelemetry(bool debug)
     {
+        var version = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+
         var builder = OpenTelemetry.Sdk.CreateTracerProviderBuilder();
         builder
+            .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                .AddService(Constants.TOOLS_ACTIVITY_SOURCE, serviceVersion: version)
+                .AddTelemetrySdk())
             .AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+            .AddHttpClientInstrumentation()
             .SetSampler(new AlwaysOnSampler())
             .AddProcessor(new TelemetryProcessor());
 
-#if !DEBUG
-            // Only upload telemetry when not in debug mode
-            builder.AddOtlpExporter(otlp =>
-                otlp.ExportProcessorType = ExportProcessorType.Simple
-            );
-#endif
+        builder.AddAzureMonitorTraceExporter(options =>
+        {
+            options.ConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
+        });
 
         // output to console when --debug is passed (separate from dotnet debug build/config mode)
         if (debug)
