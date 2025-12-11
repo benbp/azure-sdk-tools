@@ -17,7 +17,19 @@ namespace Azure.Sdk.Tools.Cli.Extensions;
 
 public static class OpenTelemetryExtensions
 {
-    private const string DefaultAppInsights = "InstrumentationKey=61976f7a-4734-47a1-9fa0-0d5dcfda7f11;IngestionEndpoint=https://centralus-2.in.applicationinsights.azure.com/;LiveEndpoint=https://centralus.livediagnostics.monitor.azure.com/;ApplicationId=b22875b9-495e-4a5f-925a-a8b3b28ab441";
+    // internal const string DefaultAppInsightsConnectionString = "InstrumentationKey=61976f7a-4734-47a1-9fa0-0d5dcfda7f11;IngestionEndpoint=https://centralus-2.in.applicationinsights.azure.com/;LiveEndpoint=https://centralus.livediagnostics.monitor.azure.com/;ApplicationId=b22875b9-495e-4a5f-925a-a8b3b28ab441";
+    internal const string DefaultAppInsightsConnectionString = "InstrumentationKey=42dc29b2-404c-4878-afb6-0cee7dbc51ae;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=117cd943-794d-4bb1-964e-2d546afdabe1";
+
+    internal static string GetAppInsightsConnectionString()
+    {
+        var appInsightsConnectionString = Environment.GetEnvironmentVariable("AZSDKTOOLS_APPLICATIONINSIGHTS_CONNECTION_STRING");
+        if (string.IsNullOrEmpty(appInsightsConnectionString))
+        {
+            appInsightsConnectionString = DefaultAppInsightsConnectionString;
+        }
+
+        return appInsightsConnectionString;
+    }
 
     public static void ConfigureOpenTelemetry(this IServiceCollection services)
     {
@@ -90,11 +102,7 @@ public static class OpenTelemetryExtensions
             builder.AddSource(serverConfig.Value.Name);
         });
 
-        var appInsightsConnectionString = Environment.GetEnvironmentVariable("AZSDKTOOLS_APPLICATIONINSIGHTS_CONNECTION_STRING");
-        if (string.IsNullOrEmpty(appInsightsConnectionString))
-        {
-            appInsightsConnectionString = DefaultAppInsights;
-        }
+        var appInsightsConnectionString = GetAppInsightsConnectionString();
 
         services.AddOpenTelemetry()
             .ConfigureResource(r =>
