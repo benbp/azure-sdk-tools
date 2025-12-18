@@ -8,7 +8,7 @@ internal class ProgramTests
     public async Task TestMain()
     {
         // Force app builder to build and verify things like DI lifetimes
-        Assert.That(() => Program.CreateAppBuilder(["--help"], "hidden", LogLevel.None).Build(), Throws.Nothing);
+        Assert.That(() => Program.CreateAppBuilder(["--help"], true, "hidden", LogLevel.None).Build(), Throws.Nothing);
 
         // Run full builder setup and CLI parsing end to end
         var result = await Program.Run(["-o", "hidden", "example", "hello-world", "test"], LogLevel.None);

@@ -5,7 +5,6 @@ using Azure.Sdk.Tools.Cli.Extensions;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
-using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 namespace Azure.Sdk.Tools.Cli;
