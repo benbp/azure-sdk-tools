@@ -5,6 +5,7 @@ using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Trace;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -23,22 +24,28 @@ public class Program
         var (outputFormat, debug) = SharedOptions.GetGlobalOptionValues(args);
         logLevel ??= debug ? LogLevel.Debug : LogLevel.Information;
 
-        using var tracerProvider = isCommandLine ? TelemetryService.RegisterCliTelemetry(debug) : null;
+        ServerApp = CreateAppBuilder(args, isCommandLine, outputFormat, logLevel.Value, debug).Build();
 
-        ServerApp = CreateAppBuilder(args, outputFormat, logLevel.Value, debug).Build();
-        var exitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
+        // Skip tracerProvider instantiation setup if we're starting the asp.net server as it will do it
+        if (!isCommandLine)
+        {
+            var serverExitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
+            return serverExitCode;
+        }
 
-        tracerProvider?.ForceFlush();
-        return exitCode;
+        using var tracerProvider = ServerApp.Services.GetRequiredService<TracerProvider>();
+
+        var cliExitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
+        var flushed = tracerProvider.ForceFlush(5000);
+
+        return cliExitCode;
     }
 
     // todo: make this honor subcommands of `start` and the like, instead of simply looking presence of `start` verb
     public static bool IsCommandLine(string[] args) => !args.Select(x => x.Trim().ToLowerInvariant()).Any(x => x == "start" || x == "mcp");
 
-    public static WebApplicationBuilder CreateAppBuilder(string[] args, string outputFormat, LogLevel logLevel, bool debug = false)
+    public static WebApplicationBuilder CreateAppBuilder(string[] args, bool isCommandLine, string outputFormat, LogLevel logLevel, bool debug = false)
     {
-        var isCommandLine = IsCommandLine(args);
-
         // Any args that ASP.NET doesn't recognize will be _ignored_ by the CreateBuilder, so we don't need to ONLY
         // pass unmatched ASP.NET config values like --ASPNET_URLS to the builder. It'll just quietly ignore everything
         // it doesn't recognize.
@@ -92,10 +99,11 @@ public class Program
 
         if (isCommandLine)
         {
+            TelemetryService.RegisterCliTelemetry(builder.Services, debug);
             return builder;
         }
 
-        TelemetryService.RegisterServerTelemetry(builder.Services, debug);
+        TelemetryService.RegisterMcpServerTelemetry(builder.Services, debug);
 
         builder.WebHost.ConfigureKestrel(options =>
         {

@@ -10,9 +10,11 @@ using ModelContextProtocol.Protocol;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Extensions.Hosting;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Telemetry.InformationProvider;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
+using OpenTelemetry.Exporter;
 
 namespace Azure.Sdk.Tools.Cli.Telemetry;
 /// <summary>
@@ -41,35 +43,24 @@ internal class TelemetryService : ITelemetryService
         Task.Factory.StartNew(InitializeTagList);
     }
 
-    public static TracerProvider RegisterCliTelemetry(bool debug)
+    public static void RegisterCliTelemetry(IServiceCollection services, bool debug)
     {
-        var version = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+        var builder = services.AddOpenTelemetry()
+            .WithTracing(b =>
+            {
+                b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+                    .AddHttpClientInstrumentation()
+                    .AddProcessor(new TelemetryProcessor())
+                    .SetSampler(new AlwaysOnSampler());
+                if (debug) { b.AddConsoleExporter(); }
+            })
+            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
 
-        var builder = OpenTelemetry.Sdk.CreateTracerProviderBuilder();
-        builder
-            .SetResourceBuilder(ResourceBuilder.CreateDefault()
-                .AddService(Constants.TOOLS_ACTIVITY_SOURCE, serviceVersion: version)
-                .AddTelemetrySdk())
-            .AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
-            .AddHttpClientInstrumentation()
-            .SetSampler(new AlwaysOnSampler())
-            .AddProcessor(new TelemetryProcessor());
-
-        builder.AddAzureMonitorTraceExporter(options =>
-        {
-            options.ConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
-        });
-
-        // output to console when --debug is passed (separate from dotnet debug build/config mode)
-        if (debug)
-        {
-            builder.AddConsoleExporter();
-        }
-
-        return builder.Build();
+            // Only upload telemetry when not in debug mode
+            builder.UseOtlpExporter();
     }
 
-    public static void RegisterServerTelemetry(IServiceCollection services, bool debug = false)
+    public static void RegisterMcpServerTelemetry(IServiceCollection services, bool debug)
     {
         var builder = services.AddOpenTelemetry()
             .WithTracing(b =>
@@ -79,12 +70,11 @@ internal class TelemetryService : ITelemetryService
                     .AddHttpClientInstrumentation()
                     .AddProcessor(new TelemetryProcessor());
                 if (debug) { b.AddConsoleExporter(); }
-            });
+            })
+            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
 
-#if !DEBUG
             // Only upload telemetry when not in debug mode
             builder.UseOtlpExporter();
-#endif
     }
 
     public ValueTask<Activity?> StartActivity(string activityId) => StartActivity(activityId, null);
