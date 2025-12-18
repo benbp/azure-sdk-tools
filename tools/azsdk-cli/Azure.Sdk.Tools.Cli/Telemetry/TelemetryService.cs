@@ -2,19 +2,12 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Reflection;
-using Azure.Monitor.OpenTelemetry.Exporter;
-using Azure.Sdk.Tools.Cli.Extensions;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
-using OpenTelemetry;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using OpenTelemetry.Extensions.Hosting;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Telemetry.InformationProvider;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
-using OpenTelemetry.Exporter;
 
 namespace Azure.Sdk.Tools.Cli.Telemetry;
 /// <summary>
@@ -50,14 +43,10 @@ internal class TelemetryService : ITelemetryService
             {
                 b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
                     .AddHttpClientInstrumentation()
-                    .AddProcessor(new TelemetryProcessor())
-                    .SetSampler(new AlwaysOnSampler());
+                    .AddProcessor(new TelemetryProcessor());
                 if (debug) { b.AddConsoleExporter(); }
             })
             .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
-
-            // Only upload telemetry when not in debug mode
-            builder.UseOtlpExporter();
     }
 
     public static void RegisterMcpServerTelemetry(IServiceCollection services, bool debug)
@@ -72,9 +61,6 @@ internal class TelemetryService : ITelemetryService
                 if (debug) { b.AddConsoleExporter(); }
             })
             .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
-
-            // Only upload telemetry when not in debug mode
-            builder.UseOtlpExporter();
     }
 
     public ValueTask<Activity?> StartActivity(string activityId) => StartActivity(activityId, null);
