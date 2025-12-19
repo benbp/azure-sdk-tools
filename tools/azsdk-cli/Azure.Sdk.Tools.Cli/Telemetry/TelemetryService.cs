@@ -39,6 +39,7 @@ internal class TelemetryService : ITelemetryService
     public static void RegisterCliTelemetry(IServiceCollection services, bool debug)
     {
         var builder = services.AddOpenTelemetry()
+            .WithLogging()
             .WithTracing(b =>
             {
                 b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
