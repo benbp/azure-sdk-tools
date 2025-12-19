@@ -59,6 +59,7 @@ namespace Azure.Sdk.Tools.Cli.Commands
                 {
                     var _tool = (MCPToolBase)ActivatorUtilities.CreateInstance(scopedProvider, t);
                     _tool.Initialize(
+                        scopedProvider.GetRequiredService<ILogger<MCPToolBase>>(),
                         scopedProvider.GetRequiredService<IOutputHelper>(),
                         scopedProvider.GetRequiredService<ITelemetryService>(),
                         debug);

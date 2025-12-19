@@ -25,8 +25,8 @@ public abstract class MCPToolBase
 {
     private bool initialized = false;
     private bool debug = false;
-    private IOutputHelper output { get; set; }
     private ILogger<MCPToolBase> logger { get; set; }
+    private IOutputHelper output { get; set; }
     private ITelemetryService telemetryService { get; set; }
 
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
