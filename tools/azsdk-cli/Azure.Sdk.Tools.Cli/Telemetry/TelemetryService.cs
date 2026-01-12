@@ -9,6 +9,7 @@ using OpenTelemetry.Logs;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Telemetry.InformationProvider;
 using Azure.Sdk.Tools.Cli.Extensions;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
 
 namespace Azure.Sdk.Tools.Cli.Telemetry;

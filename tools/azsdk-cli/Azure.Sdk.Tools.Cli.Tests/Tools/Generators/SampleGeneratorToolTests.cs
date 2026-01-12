@@ -11,6 +11,7 @@ using Azure.Sdk.Tools.Cli.Telemetry;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Package;
 using Azure.Sdk.Tools.Cli.Tools.Package.Samples;
+using Azure.Sdk.Tools.Cli.Tools;
 using LibGit2Sharp;
 using Moq;
 
@@ -147,7 +148,7 @@ public class SampleGeneratorToolTests
             };
         });
         tool = new SampleGeneratorTool(microagentHostServiceMock.Object, logger, mockGitHelper.Object, _languageServices);
-        tool.Initialize(_outputHelper, telemetryServiceMock.Object);
+        tool.Initialize(new TestLogger<MCPToolBase>(), _outputHelper, telemetryServiceMock.Object);
         var command = tool.GetCommandInstances().First();
         var parseResult = command.Parse(["generate", "--prompt", "Do thing", "--package-path", packagePath]);
         int exitCode = await parseResult.InvokeAsync();
@@ -292,7 +293,7 @@ public class SampleGeneratorToolTests
         Directory.CreateDirectory(pkgPath);
 
         var errorTool = new SampleGeneratorTool(microagentHostServiceMock.Object, logger, _mockGitHelper.Object, []);
-        errorTool.Initialize(_outputHelper, telemetryServiceMock.Object);
+        errorTool.Initialize(new TestLogger<MCPToolBase>(), _outputHelper, telemetryServiceMock.Object);
         var command = errorTool.GetCommandInstances().First();
         var parseResult = command.Parse(["generate", "--prompt", "Anything", "--package-path", pkgPath]);
         int exitCode = await parseResult.InvokeAsync();
@@ -377,7 +378,7 @@ public class SampleGeneratorToolTests
             _languageServices
         );
 
-        tool.Initialize(_outputHelper, telemetryServiceMock.Object);
+        tool.Initialize(new TestLogger<MCPToolBase>(), _outputHelper, telemetryServiceMock.Object);
     }
 
     private (string repoRoot, string packagePath) CreateFakeGoPackage()

@@ -4,6 +4,7 @@ using Azure.Sdk.Tools.Cli.Telemetry;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 using Azure.Sdk.Tools.Cli.Tools.Example;
 using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Tools;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Tools.Example;
 
@@ -14,7 +15,7 @@ internal class HelloWorldToolTests
     {
         OutputHelper outputHelper = new(OutputHelper.OutputModes.Hidden);
         var tool = new HelloWorldTool(new TestLogger<HelloWorldTool>());
-        tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object);
+        tool.Initialize(new TestLogger<MCPToolBase>(), outputHelper, new Mock<ITelemetryService>().Object);
         var cmd = tool.GetCommandInstances().First();
 
         var parseResult = cmd.Parse(["hello-world", "HI. MY NAME IS"]);
@@ -36,7 +37,7 @@ Duration: 1ms
     {
         OutputHelper outputHelper = new(OutputHelper.OutputModes.Hidden);
         var tool = new HelloWorldTool(new TestLogger<HelloWorldTool>());
-        tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object);
+        tool.Initialize(new TestLogger<MCPToolBase>(), outputHelper, new Mock<ITelemetryService>().Object);
         var cmd = tool.GetCommandInstances().First();
 
         var parseResult = cmd.Parse(["hello-world", "HI. MY NAME IS", "--fail"]);
