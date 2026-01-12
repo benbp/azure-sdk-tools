@@ -31,6 +31,34 @@ public static class OpenTelemetryExtensions
         return appInsightsConnectionString;
     }
 
+    public static TracerProvider CreateTracerProvider()
+    {
+        var tracerProvider = OpenTelemetry.Sdk.CreateTracerProviderBuilder();
+        tracerProvider.ConfigureResource(r =>
+        {
+            var version = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+            r.AddService(Constants.TOOLS_ACTIVITY_SOURCE, version)
+                .AddTelemetrySdk();
+        });
+        var telemetryEnv = Environment.GetEnvironmentVariable("AZSDKTOOLS_COLLECT_TELEMETRY");
+        var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
+        if (telemetryEnabled)
+        {
+            tracerProvider.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+            .AddAzureMonitorTraceExporter(options =>
+            {
+    #if DEBUG
+                options.EnableLiveMetrics = true;
+                options.Diagnostics.IsLoggingEnabled = true;
+                options.Diagnostics.IsLoggingContentEnabled = true;
+    #endif
+                options.ConnectionString = GetAppInsightsConnectionString();
+            });
+        }
+
+        return tracerProvider.Build();
+    }
+
     public static void ConfigureOpenTelemetry(this IServiceCollection services)
     {
         services.AddOptions<AzSdkToolsMcpServerConfiguration>()
@@ -69,13 +97,13 @@ public static class OpenTelemetryExtensions
         EnableAzureMonitor(services);
     }
 
-    public static void ConfigureOpenTelemetryLogger(this ILoggingBuilder builder)
-    {
-        builder.AddOpenTelemetry(logger =>
-        {
-            logger.AddProcessor(new TelemetryLogRecordEraser());
-        });
-    }
+//    public static void ConfigureOpenTelemetryLogger(this ILoggingBuilder builder)
+//    {
+//        builder.AddOpenTelemetry(logger =>
+//        {
+//            logger.AddProcessor(new TelemetryLogRecordEraser());
+//        });
+//    }
 
     private static void EnableAzureMonitor(this IServiceCollection services)
     {

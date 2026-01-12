@@ -1,10 +1,11 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation. Licensed under the MIT License.
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -32,7 +33,13 @@ public class Program
             return serverExitCode;
         }
 
-        using var tracerProvider = ServerApp.Services.GetRequiredService<TracerProvider>();
+        using var tracerProvider = OpenTelemetry.Sdk.CreateTracerProviderBuilder()
+            .AddAzureMonitorTraceExporter(o =>
+            {
+                var conn = "InstrumentationKey=cf8756d3-ef86-4365-9da3-c3df9d28b1d3;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=9dd94d04-d58f-4d70-b9b2-40682cd7b3e7";
+                o.ConnectionString = conn;
+            })
+            .Build();
 
         var cliExitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
         var flushed = tracerProvider.ForceFlush(5000);
@@ -81,6 +88,14 @@ public class Program
         {
             l.AddConsole();
             l.SetMinimumLevel(logLevel);
+            // l.AddOpenTelemetry(logging =>
+            // {
+            //     logging.AddAzureMonitorLogExporter(options =>
+            //     {
+            //         var conn = "InstrumentationKey=cf8756d3-ef86-4365-9da3-c3df9d28b1d3;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=9dd94d04-d58f-4d70-b9b2-40682cd7b3e7";
+            //         options.ConnectionString = conn;
+            //     });
+            // });
         });
 
         var outputMode = !isCommandLine ? OutputHelper.OutputModes.Mcp : outputFormat switch

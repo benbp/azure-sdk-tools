@@ -36,18 +36,24 @@ internal class TelemetryService : ITelemetryService
         Task.Factory.StartNew(InitializeTagList);
     }
 
-    public static void RegisterCliTelemetry(IServiceCollection services, bool debug)
+    public static TracerProvider RegisterCliTelemetry(IServiceCollection services, bool debug)
     {
-        var builder = services.AddOpenTelemetry()
-            .WithLogging()
-            .WithTracing(b =>
-            {
-                b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
-                    .AddHttpClientInstrumentation()
-                    .AddProcessor(new TelemetryProcessor());
-                if (debug) { b.AddConsoleExporter(); }
-            })
-            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
+        var tracerProvider = OpenTelemetry.Sdk.CreateTracerProviderBuilder()
+            .AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+            .AddHttpClientInstrumentation()
+            .AddProcessor(new TelemetryProcessor());
+
+//         var builder = services.AddOpenTelemetry()
+//             .WithLogging()
+//             .WithTracing(b =>
+//             {
+//                 b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+//                     .AddAspNetCoreInstrumentation()
+//                     .AddHttpClientInstrumentation()
+//                     .AddProcessor(new TelemetryProcessor());
+//                 if (debug) { b.AddConsoleExporter(); }
+//             })
+//             .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
     }
 
     public static void RegisterMcpServerTelemetry(IServiceCollection services, bool debug)
