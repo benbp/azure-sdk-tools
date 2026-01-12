@@ -74,8 +74,6 @@ public abstract class MCPToolBase
                 AddCustomTelemetryFromResponse(activity, response);
             }
 
-            logger.LogInformation("{result}", output.Format(response));
-            logger.LogWarning("[bbp warn] {result}", output.Format(response));
             output.OutputCommandResponse(response);
 
             return response.ExitCode;
