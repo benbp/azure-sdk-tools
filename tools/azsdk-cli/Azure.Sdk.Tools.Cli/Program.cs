@@ -33,16 +33,8 @@ public class Program
             return serverExitCode;
         }
 
-        using var tracerProvider = OpenTelemetry.Sdk.CreateTracerProviderBuilder()
-            .AddAzureMonitorTraceExporter(o =>
-            {
-                var conn = "InstrumentationKey=cf8756d3-ef86-4365-9da3-c3df9d28b1d3;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=9dd94d04-d58f-4d70-b9b2-40682cd7b3e7";
-                o.ConnectionString = conn;
-            })
-            .Build();
-
         var cliExitCode = await CommandRunner.BuildAndRun(args, ServerApp.Services, debug);
-        var flushed = tracerProvider.ForceFlush(5000);
+        FlushTelemetry(ServerApp.Services);
 
         return cliExitCode;
     }
@@ -129,5 +121,14 @@ public class Program
             .WithStdioServerTransport();
 
         return builder;
+    }
+
+    private static void FlushTelemetry(IServiceProvider services)
+    {
+        var tracerProvider = services.GetService<TracerProvider>();
+        tracerProvider?.ForceFlush(5000);
+
+        var loggerProvider = services.GetService<OpenTelemetryLoggerProvider>();
+        loggerProvider?.ForceFlush(5000);
     }
 }

@@ -5,8 +5,10 @@ using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Telemetry.InformationProvider;
+using Azure.Sdk.Tools.Cli.Extensions;
 using static Azure.Sdk.Tools.Cli.Telemetry.TelemetryConstants;
 
 namespace Azure.Sdk.Tools.Cli.Telemetry;
@@ -36,24 +38,35 @@ internal class TelemetryService : ITelemetryService
         Task.Factory.StartNew(InitializeTagList);
     }
 
-    public static TracerProvider RegisterCliTelemetry(IServiceCollection services, bool debug)
+    public static void RegisterCliTelemetry(IServiceCollection services, bool debug)
     {
-        var tracerProvider = OpenTelemetry.Sdk.CreateTracerProviderBuilder()
-            .AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
-            .AddHttpClientInstrumentation()
-            .AddProcessor(new TelemetryProcessor());
+        services.ConfigureOpenTelemetryTracerProvider(builder =>
+        {
+            builder.AddHttpClientInstrumentation()
+                .AddProcessor(new TelemetryProcessor());
+            if (debug) { builder.AddConsoleExporter(); }
+        });
 
-//         var builder = services.AddOpenTelemetry()
-//             .WithLogging()
-//             .WithTracing(b =>
-//             {
-//                 b.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
-//                     .AddAspNetCoreInstrumentation()
-//                     .AddHttpClientInstrumentation()
-//                     .AddProcessor(new TelemetryProcessor());
-//                 if (debug) { b.AddConsoleExporter(); }
-//             })
-//             .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
+        services.AddOpenTelemetry()
+            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
+
+        var telemetryEnv = Environment.GetEnvironmentVariable("AZSDKTOOLS_COLLECT_TELEMETRY");
+        var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
+        if (!telemetryEnabled)
+        {
+            return;
+        }
+
+        services.AddLogging(builder =>
+        {
+            builder.AddOpenTelemetry(logging =>
+            {
+                logging.AddAzureMonitorLogExporter(options =>
+                {
+                    options.ConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
+                });
+            });
+        });
     }
 
     public static void RegisterMcpServerTelemetry(IServiceCollection services, bool debug)
@@ -81,7 +94,7 @@ internal class TelemetryService : ITelemetryService
 
         await _isInitialized.Task;
 
-        var activity = Parent.StartActivity(activityId);
+        var activity = Parent.StartActivity(activityId, ActivityKind.Server);
 
         if (activity == null)
         {
