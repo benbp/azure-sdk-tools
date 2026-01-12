@@ -75,6 +75,7 @@ public abstract class MCPToolBase
             }
 
             logger.LogInformation("{result}", output.Format(response));
+            logger.LogWarning("[bbp warn] {result}", output.Format(response));
             output.OutputCommandResponse(response);
 
             return response.ExitCode;
