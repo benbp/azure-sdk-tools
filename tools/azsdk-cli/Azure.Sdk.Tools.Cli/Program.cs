@@ -128,7 +128,7 @@ public class Program
         var tracerProvider = services.GetService<TracerProvider>();
         tracerProvider?.ForceFlush(5000);
 
-        var loggerProvider = services.GetService<OpenTelemetryLoggerProvider>();
+        var loggerProvider = services.GetService<OpenTelemetry.Logs.LoggerProvider>();
         loggerProvider?.ForceFlush(5000);
     }
 }
