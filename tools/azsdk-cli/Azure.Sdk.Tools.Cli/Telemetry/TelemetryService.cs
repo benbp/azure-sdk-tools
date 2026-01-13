@@ -21,11 +21,12 @@ internal class TelemetryService : ITelemetryService
     private readonly bool _isEnabled;
     private readonly List<KeyValuePair<string, object?>> _tagsList;
     private readonly IMachineInformationProvider _informationProvider;
+    private readonly ILogger<TelemetryService> _logger;
     private readonly TaskCompletionSource _isInitialized = new TaskCompletionSource();
 
     internal ActivitySource Parent { get; }
 
-    public TelemetryService(IMachineInformationProvider informationProvider, IOptions<AzSdkToolsMcpServerConfiguration> options)
+    public TelemetryService(ILogger<TelemetryService> logger, IMachineInformationProvider informationProvider, IOptions<AzSdkToolsMcpServerConfiguration> options)
     {
         _isEnabled = options.Value.IsTelemetryEnabled;
         _tagsList = new List<KeyValuePair<string, object?>>()
@@ -34,6 +35,8 @@ internal class TelemetryService : ITelemetryService
         };
 
         Parent = new ActivitySource(options.Value.Name, options.Value.Version, _tagsList);
+
+        _logger = logger;
         _informationProvider = informationProvider;
 
         Task.Factory.StartNew(InitializeTagList);
@@ -99,7 +102,12 @@ internal class TelemetryService : ITelemetryService
 
         if (activity == null)
         {
+#if DEBUG
+            // Fail fast if we're generating null activities so we can catch silent issues in development
+            throw new Exception($"Failed to start activity '{activityId}', StartActivity returned null!");
+#else
             return activity;
+#endif
         }
 
         if (clientInfo != null)
