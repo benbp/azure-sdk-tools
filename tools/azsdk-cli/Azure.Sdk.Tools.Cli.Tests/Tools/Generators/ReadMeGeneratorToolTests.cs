@@ -30,7 +30,7 @@ namespace Azure.Sdk.Tools.Cli.Tests.Tools.Generators
                 new TestLogger<ReadMeGeneratorTool>(),
                 mockMicroAgentService.Object
             );
-            tool.Initialize(new TestLogger<MCPToolBase>(), outputHelper, telemetryServiceMock.Object);
+            tool.Initialize(outputHelper, telemetryServiceMock.Object);
         }
 
         [Test]

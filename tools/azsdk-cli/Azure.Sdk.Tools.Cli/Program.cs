@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation. Licensed under the MIT License.
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Extensions;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Telemetry;
-using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Trace;
 
 namespace Azure.Sdk.Tools.Cli;
 
@@ -62,7 +61,7 @@ public class Program
         // In MCP server mode skip console output except for fatal server errors (which may happen
         // before the MCP logging transport is initialized).
         // All other logs will be redirected via the mcp logger over json-rpc to the mcp client only
-        builder.Logging.ConfigureMcpConsoleLogging(isCommandLine);
+        builder.Logging.ConfigureMcpConsoleFallbackLogging(isCommandLine);
 
         // Skip azure client logging noise
         builder.Logging.AddFilter((category, level) =>
@@ -87,19 +86,19 @@ public class Program
         };
 
         // register common services
-        ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode, enableAzureMonitorExporter: !isCommandLine);
+        ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode);
         // register MCP tools
         ServiceRegistrations.RegisterInstrumentedMcpTools(builder.Services, args);
 
         if (isCommandLine)
         {
-            TelemetryService.RegisterCliTelemetry(builder.Services, debug);
+            builder.Services.AddTelemetry(TelemetryMode.Cli, debug);
             return builder;
         }
 
         builder.Services.ConfigureMcpLogging();
 
-        TelemetryService.RegisterMcpServerTelemetry(builder.Services, debug);
+        builder.Services.AddTelemetry(TelemetryMode.McpServer, debug);
 
         builder.WebHost.ConfigureKestrel(options =>
         {

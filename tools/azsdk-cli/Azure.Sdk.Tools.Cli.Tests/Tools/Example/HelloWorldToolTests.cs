@@ -16,7 +16,7 @@ internal class HelloWorldToolTests
     {
         OutputHelper outputHelper = new(OutputHelper.OutputModes.Hidden);
         var tool = new HelloWorldTool(new TestLogger<HelloWorldTool>());
-        tool.Initialize(new TestLogger<MCPToolBase>(), outputHelper, new Mock<ITelemetryService>().Object);
+        tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object);
         var cmd = tool.GetCommandInstances().First();
 
         var parseResult = cmd.Parse(["hello-world", "HI. MY NAME IS"]);
@@ -38,7 +38,7 @@ Duration: 1ms
     {
         OutputHelper outputHelper = new(OutputHelper.OutputModes.Hidden);
         var tool = new HelloWorldTool(new TestLogger<HelloWorldTool>());
-        tool.Initialize(new TestLogger<MCPToolBase>(), outputHelper, new Mock<ITelemetryService>().Object);
+        tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object);
         var cmd = tool.GetCommandInstances().First();
 
         var parseResult = cmd.Parse(["hello-world", "HI. MY NAME IS", "--fail"]);
