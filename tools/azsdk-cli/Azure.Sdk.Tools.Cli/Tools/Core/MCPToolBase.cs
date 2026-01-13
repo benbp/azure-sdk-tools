@@ -28,7 +28,6 @@ public abstract class MCPToolBase
     private ILogger<MCPToolBase> logger { get; set; }
     private IOutputHelper output { get; set; }
     private ITelemetryService telemetryService { get; set; }
-
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
 
     public void Initialize(ILogger<MCPToolBase> logger, IOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
