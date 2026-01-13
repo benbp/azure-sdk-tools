@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Reflection;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
 using Azure.Sdk.Tools.Cli.Configuration;
 using Azure.Sdk.Tools.Cli.Telemetry.InformationProvider;
 using Azure.Sdk.Tools.Cli.Extensions;
@@ -49,6 +51,12 @@ internal class TelemetryService : ITelemetryService
         var appInsightsConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
 
         services.AddOpenTelemetry()
+            .ConfigureResource(r =>
+            {
+                var version = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+                r.AddService(Constants.TOOLS_ACTIVITY_SOURCE, version)
+                .AddTelemetrySdk();
+            })
             .WithTracing(builder =>
             {
                 builder.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)

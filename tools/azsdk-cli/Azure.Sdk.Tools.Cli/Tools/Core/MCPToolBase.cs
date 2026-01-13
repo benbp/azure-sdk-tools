@@ -25,16 +25,14 @@ public abstract class MCPToolBase
 {
     private bool initialized = false;
     private bool debug = false;
-    private ILogger<MCPToolBase> logger { get; set; }
     private IOutputHelper output { get; set; }
     private ITelemetryService telemetryService { get; set; }
     public virtual CommandGroup[] CommandHierarchy { get; set; } = [];
 
-    public void Initialize(ILogger<MCPToolBase> logger, IOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
+    public void Initialize(IOutputHelper outputHelper, ITelemetryService telemetryService, bool debug = false)
     {
         this.debug = debug;
         this.output = outputHelper;
-        this.logger = logger;
         this.telemetryService = telemetryService;
 
         this.initialized = true;
