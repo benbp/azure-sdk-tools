@@ -87,7 +87,7 @@ public class Program
         };
 
         // register common services
-        ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode);
+        ServiceRegistrations.RegisterCommonServices(builder.Services, outputMode, enableAzureMonitorExporter: !isCommandLine);
         // register MCP tools
         ServiceRegistrations.RegisterInstrumentedMcpTools(builder.Services, args);
 

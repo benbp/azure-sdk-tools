@@ -26,7 +26,7 @@ namespace Azure.Sdk.Tools.Cli.Services
         /// </summary>
         /// <param name="services"></param>
         /// todo: make this use reflection to populate itself with all of our services and helpers
-        public static void RegisterCommonServices(IServiceCollection services, OutputHelper.OutputModes outputMode)
+        public static void RegisterCommonServices(IServiceCollection services, OutputHelper.OutputModes outputMode, bool enableAzureMonitorExporter = true)
         {
             // Services
             services.AddSingleton<IAzureService, AzureService>();
@@ -87,7 +87,7 @@ namespace Azure.Sdk.Tools.Cli.Services
 
             // Telemetry
             services.AddSingleton<ITelemetryService, TelemetryService>();
-            services.ConfigureOpenTelemetry();
+            services.ConfigureOpenTelemetry(enableAzureMonitorExporter);
 
             services.AddHttpClient();
             services.AddAzureClients(clientBuilder =>

@@ -60,7 +60,7 @@ public static class OpenTelemetryExtensions
         return tracerProvider.Build();
     }
 
-    public static void ConfigureOpenTelemetry(this IServiceCollection services)
+    public static void ConfigureOpenTelemetry(this IServiceCollection services, bool enableAzureMonitorExporter = true)
     {
         services.AddOptions<AzSdkToolsMcpServerConfiguration>()
             .Configure(options =>
@@ -95,32 +95,6 @@ public static class OpenTelemetryExtensions
             services.AddSingleton<IMachineInformationProvider, DefaultMachineInformationProvider>();
         }
 
-        EnableAzureMonitor(services);
-    }
-
-    public static void ConfigureOpenTelemetryLogger(this ILoggingBuilder builder)
-    {
-        // The McpRawOutputHelper forwards process stdout streams back to the MCP client over ILogger.
-        // Sub-process output should not be uploaded to azure monitor, so add an exclusion here.
-        builder.AddFilter<OpenTelemetryLoggerProvider>((category, _) =>
-            !string.Equals(category, "Azure.Sdk.Tools.Cli.Helpers.McpRawOutputHelper", StringComparison.Ordinal));
-        builder.AddOpenTelemetry(logger =>
-        {
-            logger.AddProcessor(new TelemetryLogRecordEraser());
-        });
-    }
-
-    private static void EnableAzureMonitor(this IServiceCollection services)
-    {
-#if DEBUG
-        services.AddSingleton(sp =>
-        {
-            var forwarder = new AzureEventSourceLogForwarder(sp.GetRequiredService<ILoggerFactory>());
-            forwarder.Start();
-            return forwarder;
-        });
-#endif
-
         services.ConfigureOpenTelemetryTracerProvider((sp, builder) =>
         {
             var serverConfig = sp.GetRequiredService<IOptions<AzSdkToolsMcpServerConfiguration>>();
@@ -130,6 +104,36 @@ public static class OpenTelemetryExtensions
             }
             builder.AddSource(serverConfig.Value.Name);
         });
+
+        if (enableAzureMonitorExporter)
+        {
+            EnableAzureMonitorExporter(services);
+        }
+    }
+
+    public static void ConfigureOpenTelemetryLogger(this ILoggingBuilder builder)
+    {
+        // The McpRawOutputHelper forwards process stdout streams back to the MCP client over ILogger.
+        // Sub-process output should not be uploaded to azure monitor, so add an exclusion here.
+        builder.AddFilter<OpenTelemetryLoggerProvider>((category, _) =>
+            !string.Equals(category, "Azure.Sdk.Tools.Cli.Helpers.McpRawOutputHelper", StringComparison.Ordinal));
+        builder.AddFilter<OpenTelemetryLoggerProvider>((_, level) => level >= LogLevel.Information);
+        builder.AddOpenTelemetry(logger =>
+        {
+            logger.AddProcessor(new TelemetryLogRecordEraser());
+        });
+    }
+
+    private static void EnableAzureMonitorExporter(this IServiceCollection services)
+    {
+#if DEBUG
+        services.AddSingleton(sp =>
+        {
+            var forwarder = new AzureEventSourceLogForwarder(sp.GetRequiredService<ILoggerFactory>());
+            forwarder.Start();
+            return forwarder;
+        });
+#endif
 
         var appInsightsConnectionString = GetAppInsightsConnectionString();
 

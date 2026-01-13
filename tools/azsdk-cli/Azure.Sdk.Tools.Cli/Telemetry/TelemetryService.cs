@@ -44,18 +44,32 @@ internal class TelemetryService : ITelemetryService
 
     public static void RegisterCliTelemetry(IServiceCollection services, bool debug)
     {
+        var telemetryEnv = Environment.GetEnvironmentVariable("AZSDKTOOLS_COLLECT_TELEMETRY");
+        var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
+        var appInsightsConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
+
         services.ConfigureOpenTelemetryTracerProvider(builder =>
         {
             builder.AddHttpClientInstrumentation()
                 .AddProcessor(new TelemetryProcessor());
             if (debug) { builder.AddConsoleExporter(); }
+            if (telemetryEnabled)
+            {
+                builder.AddAzureMonitorTraceExporter(options =>
+                {
+#if DEBUG
+                    options.EnableLiveMetrics = true;
+                    options.Diagnostics.IsLoggingEnabled = true;
+                    options.Diagnostics.IsLoggingContentEnabled = true;
+#endif
+                    options.ConnectionString = appInsightsConnectionString;
+                });
+            }
         });
 
         services.AddOpenTelemetry();
         //            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
 
-        var telemetryEnv = Environment.GetEnvironmentVariable("AZSDKTOOLS_COLLECT_TELEMETRY");
-        var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
         if (!telemetryEnabled)
         {
             return;
@@ -104,7 +118,7 @@ internal class TelemetryService : ITelemetryService
         {
 #if DEBUG
             // Fail fast if we're generating null activities so we can catch silent issues in development
-            throw new Exception($"Failed to start activity '{activityId}', StartActivity returned null!");
+            throw new Exception($"Failed to start activity '{activityId}' as there is no listener registered");
 #else
             return activity;
 #endif
