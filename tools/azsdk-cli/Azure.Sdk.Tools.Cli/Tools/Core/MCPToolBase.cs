@@ -58,7 +58,7 @@ public abstract class MCPToolBase
             activity?.SetTag(TagName.CommandArgs, commandLine);
 
             CommandResponse response = await HandleCommand(parseResult, cancellationToken);
-            // activity?.SetTag(TagName.CommandResponse, result);
+            activity?.SetTag(TagName.CommandResponse, response);
 
             if (response.ExitCode == 0)
             {
@@ -83,10 +83,6 @@ public abstract class MCPToolBase
             activity?.AddException(ex);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             throw;
-        }
-        finally
-        {
-            activity?.Stop();
         }
     }
 

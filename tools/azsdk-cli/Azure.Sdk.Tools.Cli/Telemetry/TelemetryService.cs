@@ -48,8 +48,8 @@ internal class TelemetryService : ITelemetryService
             if (debug) { builder.AddConsoleExporter(); }
         });
 
-        services.AddOpenTelemetry()
-            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
+        services.AddOpenTelemetry();
+        //            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
 
         var telemetryEnv = Environment.GetEnvironmentVariable("AZSDKTOOLS_COLLECT_TELEMETRY");
         var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
