@@ -48,26 +48,26 @@ internal class TelemetryService : ITelemetryService
         var telemetryEnabled = string.IsNullOrEmpty(telemetryEnv) || (bool.TryParse(telemetryEnv, out var parsed) && parsed);
         var appInsightsConnectionString = OpenTelemetryExtensions.GetAppInsightsConnectionString();
 
-        services.ConfigureOpenTelemetryTracerProvider(builder =>
-        {
-            builder.AddHttpClientInstrumentation()
-                .AddProcessor(new TelemetryProcessor());
-            if (debug) { builder.AddConsoleExporter(); }
-            if (telemetryEnabled)
+        services.AddOpenTelemetry()
+            .WithTracing(builder =>
             {
-                builder.AddAzureMonitorTraceExporter(options =>
+                builder.AddSource(Constants.TOOLS_ACTIVITY_SOURCE)
+                    .AddHttpClientInstrumentation()
+                    .AddProcessor(new TelemetryProcessor());
+                if (debug) { builder.AddConsoleExporter(); }
+                if (telemetryEnabled)
                 {
+                    builder.AddAzureMonitorTraceExporter(options =>
+                    {
 #if DEBUG
-                    options.EnableLiveMetrics = true;
-                    options.Diagnostics.IsLoggingEnabled = true;
-                    options.Diagnostics.IsLoggingContentEnabled = true;
+                        options.EnableLiveMetrics = true;
+                        options.Diagnostics.IsLoggingEnabled = true;
+                        options.Diagnostics.IsLoggingContentEnabled = true;
 #endif
-                    options.ConnectionString = appInsightsConnectionString;
-                });
-            }
-        });
-
-        services.AddOpenTelemetry();
+                        options.ConnectionString = appInsightsConnectionString;
+                    });
+                }
+            });
         //            .WithMetrics(m => m.AddMeter("Azure.Sdk.Tools.Cli.Metrics"));
 
         if (!telemetryEnabled)
