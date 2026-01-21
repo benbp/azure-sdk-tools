@@ -11,7 +11,11 @@ param(
 
   [string]$TargetPath = "",
 
-  [string[]]$ExcludePaths = @()
+  [string[]]$ExcludePaths = @(),
+
+  [string]$SourceCommit = "HEAD",
+
+  [string]$TargetBranch = "main"
 )
 
 $repoRootFull = Resolve-Path $RepoRoot
@@ -33,6 +37,11 @@ if ($FromDiff) {
     $targetPathValue = $repoRootFull
   }
 
+  $env:SYSTEM_PULLREQUEST_SOURCECOMMITID = $SourceCommit
+  $env:SYSTEM_PULLREQUEST_TARGETBRANCH = $TargetBranch
+  $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER = "0"
+  $env:BUILD_SOURCESDIRECTORY = $repoRootFull
+
   & $diffScript -TargetPath $targetPathValue -ArtifactPath $diffDir -ExcludePaths $ExcludePaths
   if ($LASTEXITCODE -ne 0) {
     throw "Generate-PR-Diff.ps1 failed with exit code $LASTEXITCODE"
@@ -51,13 +60,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $cliArgs = @("eng", "package-info", "--out-dir", $cliOutDir, "--repo-root", $repoRootFull)
 if ($FromDiff) {
-  $cliArgs += "--from-diff"
-  if (-not [string]::IsNullOrEmpty($TargetPath)) {
-    $cliArgs += @("--target-path", $TargetPath)
-  }
-  foreach ($path in $ExcludePaths) {
-    $cliArgs += @("--exclude-path", $path)
-  }
+  $cliArgs += "--ci"
 }
 elseif (-not [string]::IsNullOrEmpty($ServiceDirectory)) {
   $cliArgs += @("--service-directory", $ServiceDirectory)

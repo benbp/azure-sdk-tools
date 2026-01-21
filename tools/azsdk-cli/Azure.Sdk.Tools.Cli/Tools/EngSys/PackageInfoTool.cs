@@ -3,24 +3,24 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.ComponentModel;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
+using Azure.Sdk.Tools.Cli.Services.Languages;
 using Azure.Sdk.Tools.Cli.Tools.Core;
 
 namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 [Description("Generate PackageInfo JSON files used by CI pipelines.")]
 public class PackageInfoTool(
-    IPowershellHelper powershellHelper,
     IProcessHelper processHelper,
     IGitHelper gitHelper,
-    ILogger<PackageInfoTool> logger
-) : MCPTool
+    ILogger<PackageInfoTool> logger,
+    IEnumerable<LanguageService> languageServices
+) : LanguageMcpTool(languageServices, gitHelper, logger)
 {
     public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.EngSys];
 
@@ -36,9 +36,9 @@ public class PackageInfoTool(
         Required = false,
     };
 
-    private readonly Option<bool> fromDiffOpt = new("--from-diff")
+    private readonly Option<bool> ciOpt = new("--ci")
     {
-        Description = "Select packages based on a git diff (PR-style filtering)",
+        Description = "Select packages based on a CI PR diff (uses Azure Pipelines environment variables)",
         Required = false,
         DefaultValueFactory = _ => false,
     };
@@ -47,31 +47,6 @@ public class PackageInfoTool(
     {
         Description = "Path to the repository root. Defaults to the repo containing the working directory.",
         Required = false,
-    };
-
-    private readonly Option<string> targetPathOpt = new("--target-path")
-    {
-        Description = "Path under which changes will be detected when using --from-diff.",
-        Required = false,
-    };
-
-    private readonly Option<string> sourceCommitOpt = new("--source-commit")
-    {
-        Description = "Source commit for diff (defaults to SYSTEM_PULLREQUEST_SOURCECOMMITID or HEAD).",
-        Required = false,
-    };
-
-    private readonly Option<string> targetBranchOpt = new("--target-branch")
-    {
-        Description = "Target branch for diff (defaults to SYSTEM_PULLREQUEST_TARGETBRANCH or main).",
-        Required = false,
-    };
-
-    private readonly Option<string[]> excludePathsOpt = new("--exclude-path")
-    {
-        Description = "Paths to exclude from diff targeting (repeatable).",
-        Required = false,
-        AllowMultipleArgumentsPerToken = true,
     };
 
     private readonly Option<bool> addDevVersionOpt = new("--add-dev-version")
@@ -92,12 +67,8 @@ public class PackageInfoTool(
     {
         outDirOpt,
         serviceDirectoryOpt,
-        fromDiffOpt,
+        ciOpt,
         repoRootOpt,
-        targetPathOpt,
-        sourceCommitOpt,
-        targetBranchOpt,
-        excludePathsOpt,
         addDevVersionOpt,
         artifactListOpt,
     };
@@ -106,23 +77,20 @@ public class PackageInfoTool(
     {
         var outDir = parseResult.GetValue(outDirOpt);
         var serviceDirectory = parseResult.GetValue(serviceDirectoryOpt);
-        var fromDiff = parseResult.GetValue(fromDiffOpt);
+        var ciMode = parseResult.GetValue(ciOpt);
         var repoRootOverride = parseResult.GetValue(repoRootOpt);
-        var targetPath = parseResult.GetValue(targetPathOpt);
-        var sourceCommit = parseResult.GetValue(sourceCommitOpt);
-        var targetBranch = parseResult.GetValue(targetBranchOpt);
-        var excludePaths = parseResult.GetValue(excludePathsOpt) ?? [];
         var addDevVersion = parseResult.GetValue(addDevVersionOpt);
         var artifactList = parseResult.GetValue(artifactListOpt) ?? [];
 
         try
         {
-            if (fromDiff && !string.IsNullOrWhiteSpace(serviceDirectory))
+            if (ciMode && !string.IsNullOrWhiteSpace(serviceDirectory))
             {
-                logger.LogWarning("Ignoring --service-directory because --from-diff is set.");
+                logger.LogWarning("Ignoring --service-directory because --ci is set.");
+                serviceDirectory = string.Empty;
             }
 
-            var repoRoot = ResolveRepoRoot(repoRootOverride, targetPath);
+            var repoRoot = ResolveRepoRoot(repoRootOverride);
             var packageProperties = await GetAllPackagePropertiesAsync(repoRoot, serviceDirectory, ct);
             if (packageProperties.Count == 0)
             {
@@ -133,9 +101,9 @@ public class PackageInfoTool(
             List<PackageEntry> selectedPackages;
             PackageInfoDiff? diff = null;
 
-            if (fromDiff)
+            if (ciMode)
             {
-                diff = await BuildDiffAsync(repoRoot, targetPath, sourceCommit, targetBranch, excludePaths, ct);
+                diff = await BuildDiffAsync(repoRoot, ct);
                 selectedPackages = await SelectPackagesForDiffAsync(repoRoot, packageEntries, diff, ct);
             }
             else
@@ -155,15 +123,13 @@ public class PackageInfoTool(
                 .Select(p => new PackageEntry(p))
                 .ToList();
 
-            var packageInfoNames = await ResolvePackageInfoNamesAsync(repoRoot, selectedPackages, ct);
-
             var exportedPaths = new Dictionary<string, PackageEntry>(StringComparer.OrdinalIgnoreCase);
             var outputFiles = new List<string>();
 
             for (var i = 0; i < selectedPackages.Count; i++)
             {
                 var pkg = selectedPackages[i];
-                var packageInfoName = packageInfoNames[i];
+                var packageInfoName = pkg.Name ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(packageInfoName))
                 {
                     continue;
@@ -184,8 +150,14 @@ public class PackageInfoTool(
                 {
                     logger.LogInformation("GroupId: {Group}", pkg.Group);
                 }
-                logger.LogInformation("Spec Project Path: {SpecPath}", pkg.SpecProjectPath ?? "(unknown)");
-                logger.LogInformation("Release date: {ReleaseStatus}", pkg.ReleaseStatus ?? "(unknown)");
+                if (!string.IsNullOrEmpty(pkg.SpecProjectPath))
+                {
+                    logger.LogInformation("Spec Project Path: {SpecPath}", pkg.SpecProjectPath);
+                }
+                if (!string.IsNullOrEmpty(pkg.ReleaseStatus))
+                {
+                    logger.LogInformation("Release date: {ReleaseStatus}", pkg.ReleaseStatus);
+                }
                 logger.LogInformation("Output path of json file: {OutputPath}", outputPath);
 
                 exportedPaths[outputPath] = pkg;
@@ -206,82 +178,56 @@ public class PackageInfoTool(
         }
     }
 
-    private string ResolveRepoRoot(string? repoRootOverride, string? targetPath)
+    private string ResolveRepoRoot(string? repoRootOverride)
     {
         if (!string.IsNullOrEmpty(repoRootOverride))
         {
             return RealPath.GetRealPath(repoRootOverride);
         }
 
-        var repoAnchor = !string.IsNullOrEmpty(targetPath) ? targetPath : Environment.CurrentDirectory;
-        return gitHelper.DiscoverRepoRoot(repoAnchor);
+        return gitHelper.DiscoverRepoRoot(Environment.CurrentDirectory);
     }
 
     private async Task<List<JsonObject>> GetAllPackagePropertiesAsync(string repoRoot, string? serviceDirectory, CancellationToken ct)
     {
-        var commonPs1 = Path.Combine(repoRoot, "eng", "common", "scripts", "common.ps1");
-        if (!File.Exists(commonPs1))
+        var languageService = GetLanguageService(repoRoot)
+            ?? throw new InvalidOperationException("Unable to resolve language service for repository. Ensure repository name matches azure-sdk-for-<lang>.");
+
+        var sdkRoot = Path.Combine(repoRoot, "sdk");
+        var searchRoot = string.IsNullOrWhiteSpace(serviceDirectory)
+            ? sdkRoot
+            : Path.Combine(sdkRoot, serviceDirectory);
+
+        if (!Directory.Exists(searchRoot))
         {
-            throw new FileNotFoundException($"Unable to find common.ps1 at {commonPs1}");
+            throw new DirectoryNotFoundException($"Service directory does not exist: {searchRoot}");
         }
 
-        var serviceLiteral = string.IsNullOrWhiteSpace(serviceDirectory)
-            ? "$null"
-            : $"'{EscapePowerShell(serviceDirectory)}'";
+        var packageDirectories = FindPackageDirectories(languageService.Language, searchRoot);
+        var packageInfos = new List<JsonObject>();
 
-        var script = $"""
-            . '{EscapePowerShell(commonPs1)}'
-            function LogInfo {{ }}
-            function LogWarning {{ }}
-            function LogError {{ param($message) Write-Error $message }}
-            $serviceDirectory = {serviceLiteral}
-            $packages = Get-AllPkgProperties -ServiceDirectory $serviceDirectory
-            $packages | ConvertTo-Json -Depth 100
-            """;
-
-        var result = await powershellHelper.Run(new PowershellOptions([script], logOutputStream: false, workingDirectory: repoRoot), ct);
-        if (result.ExitCode != 0)
+        foreach (var packageDirectory in packageDirectories)
         {
-            throw new InvalidOperationException($"Failed to load package properties: {result.Output}");
+            var packageInfo = await languageService.GetPackageInfo(packageDirectory, ct);
+            packageInfos.Add(BuildPackageInfoJson(packageInfo));
         }
 
-        if (string.IsNullOrWhiteSpace(result.Stdout))
-        {
-            return [];
-        }
-
-        var node = JsonNode.Parse(result.Stdout);
-        if (node is JsonArray array)
-        {
-            return array.OfType<JsonObject>().ToList();
-        }
-
-        if (node is JsonObject obj)
-        {
-            return [obj];
-        }
-
-        return [];
+        return packageInfos;
     }
 
-    private async Task<PackageInfoDiff> BuildDiffAsync(
-        string repoRoot,
-        string? targetPath,
-        string? sourceCommit,
-        string? targetBranch,
-        IEnumerable<string> excludePaths,
-        CancellationToken ct)
+    private async Task<PackageInfoDiff> BuildDiffAsync(string repoRoot, CancellationToken ct)
     {
-        var sourceCommitish = string.IsNullOrWhiteSpace(sourceCommit)
-            ? Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_SOURCECOMMITID") ?? "HEAD"
-            : sourceCommit;
+        var sourceCommitish = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_SOURCECOMMITID") ?? "HEAD";
+        var targetBranchValue = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_TARGETBRANCH") ?? string.Empty;
 
-        var targetBranchValue = string.IsNullOrWhiteSpace(targetBranch)
-            ? Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_TARGETBRANCH") ?? "main"
-            : targetBranch;
+        if (string.IsNullOrWhiteSpace(targetBranchValue))
+        {
+            logger.LogWarning("SYSTEM_PULLREQUEST_TARGETBRANCH is not set. No diff will be calculated.");
+            return new PackageInfoDiff([], [], [], [], Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") ?? "-1");
+        }
 
         var targetCommitish = NormalizeTargetBranch(targetBranchValue);
-        var diffPath = NormalizeDiffPath(repoRoot, targetPath);
+        var diffPath = NormalizeDiffPath(repoRoot, GetCiTargetPath(repoRoot));
 
         var changedFiles = await GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "d", ct);
         var deletedFiles = await GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "D", ct);
@@ -292,7 +238,7 @@ public class PackageInfoTool(
         return new PackageInfoDiff(
             ChangedFiles: changedFiles,
             ChangedServices: changedServices,
-            ExcludePaths: excludePaths.ToList(),
+            ExcludePaths: [],
             DeletedFiles: deletedFiles,
             PrNumber: prNumber
         );
@@ -363,13 +309,13 @@ public class PackageInfoTool(
 
                             if (!filePath.StartsWith($"{directory}/", StringComparison.OrdinalIgnoreCase))
                             {
-                                break;
+                                continue;
                             }
 
                             var relative = filePath[(directory.Length + 1)..];
                             if (relative.Contains("/") || !Path.HasExtension(relative))
                             {
-                                break;
+                                continue;
                             }
 
                             if (!directoryIndex.TryGetValue(directory, out var soleCiYml))
@@ -419,12 +365,6 @@ public class PackageInfoTool(
                 pkg.SetIncludedForValidation(true);
                 packagesWithChanges.Add(pkg);
             }
-        }
-
-        var additionalFromFunction = await GetAdditionalValidationPackagesFromPackageSetAsync(repoRoot, packagesWithChanges, diff, allPackages, ct);
-        if (additionalFromFunction.Count > 0)
-        {
-            packagesWithChanges.AddRange(additionalFromFunction);
         }
 
         if (packagesWithChanges.Count == 0)
@@ -570,131 +510,6 @@ public class PackageInfoTool(
         return processedFiles.ToList();
     }
 
-    private async Task<List<PackageEntry>> GetAdditionalValidationPackagesFromPackageSetAsync(
-        string repoRoot,
-        List<PackageEntry> packagesWithChanges,
-        PackageInfoDiff diff,
-        List<PackageEntry> allPackages,
-        CancellationToken ct)
-    {
-        var commonPs1 = Path.Combine(repoRoot, "eng", "common", "scripts", "common.ps1");
-        if (!File.Exists(commonPs1))
-        {
-            return [];
-        }
-
-        var packagePath = Path.Combine(Path.GetTempPath(), $"packagesWithChanges-{Guid.NewGuid():N}.json");
-        var diffPath = Path.Combine(Path.GetTempPath(), $"diff-{Guid.NewGuid():N}.json");
-        var allPackagesPath = Path.Combine(Path.GetTempPath(), $"allPackages-{Guid.NewGuid():N}.json");
-
-        try
-        {
-            File.WriteAllText(packagePath, JsonSerializer.Serialize(packagesWithChanges.Select(p => p.Data), new JsonSerializerOptions { WriteIndented = true }));
-            File.WriteAllText(diffPath, JsonSerializer.Serialize(diff, new JsonSerializerOptions { WriteIndented = true }));
-            File.WriteAllText(allPackagesPath, JsonSerializer.Serialize(allPackages.Select(p => p.Data), new JsonSerializerOptions { WriteIndented = true }));
-
-            var script = $"""
-                . '{EscapePowerShell(commonPs1)}'
-                function LogInfo {{ }}
-                function LogWarning {{ }}
-                function LogError {{ param($message) Write-Error $message }}
-                $packagesWithChanges = Get-Content -Raw '{EscapePowerShell(packagePath)}' | ConvertFrom-Json
-                $diff = Get-Content -Raw '{EscapePowerShell(diffPath)}' | ConvertFrom-Json
-                $allPackageProperties = Get-Content -Raw '{EscapePowerShell(allPackagesPath)}' | ConvertFrom-Json
-                if ($AdditionalValidationPackagesFromPackageSetFn -and (Test-Path "Function:$AdditionalValidationPackagesFromPackageSetFn")) {{
-                  $additional = & $AdditionalValidationPackagesFromPackageSetFn $packagesWithChanges $diff $allPackageProperties
-                  $additional | ConvertTo-Json -Depth 100
-                }}
-                """;
-
-            var result = await powershellHelper.Run(new PowershellOptions([script], logOutputStream: false, workingDirectory: repoRoot), ct);
-            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Stdout))
-            {
-                return [];
-            }
-
-            var node = JsonNode.Parse(result.Stdout);
-            if (node is JsonArray array)
-            {
-                return array.OfType<JsonObject>().Select(obj => new PackageEntry(obj)).ToList();
-            }
-
-            if (node is JsonObject obj)
-            {
-                return [new PackageEntry(obj)];
-            }
-
-            return [];
-        }
-        finally
-        {
-            TryDeleteFile(packagePath);
-            TryDeleteFile(diffPath);
-            TryDeleteFile(allPackagesPath);
-        }
-    }
-
-    private async Task<List<string>> ResolvePackageInfoNamesAsync(string repoRoot, List<PackageEntry> packages, CancellationToken ct)
-    {
-        if (packages.Count == 0)
-        {
-            return [];
-        }
-
-        var commonPs1 = Path.Combine(repoRoot, "eng", "common", "scripts", "common.ps1");
-        if (!File.Exists(commonPs1))
-        {
-            return packages.Select(pkg => pkg.Name ?? string.Empty).ToList();
-        }
-
-        var packagesPath = Path.Combine(Path.GetTempPath(), $"package-info-names-{Guid.NewGuid():N}.json");
-        try
-        {
-            File.WriteAllText(packagesPath, JsonSerializer.Serialize(packages.Select(p => p.Data), new JsonSerializerOptions { WriteIndented = true }));
-
-            var script = $"""
-                . '{EscapePowerShell(commonPs1)}'
-                function LogInfo {{ }}
-                function LogWarning {{ }}
-                function LogError {{ param($message) Write-Error $message }}
-                $packages = Get-Content -Raw '{EscapePowerShell(packagesPath)}' | ConvertFrom-Json
-                $results = @()
-                foreach ($pkg in $packages) {{
-                  $name = $pkg.Name
-                  if (Test-Path "Function:Get-PackageInfoNameOverride") {{
-                    $name = Get-PackageInfoNameOverride $pkg
-                  }}
-                  $results += $name
-                }}
-                $results | ConvertTo-Json -Depth 10
-                """;
-
-            var result = await powershellHelper.Run(new PowershellOptions([script], logOutputStream: false, workingDirectory: repoRoot), ct);
-            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Stdout))
-            {
-                return packages.Select(pkg => pkg.Name ?? string.Empty).ToList();
-            }
-
-            var node = JsonNode.Parse(result.Stdout);
-            if (node is JsonArray array)
-            {
-                var names = array.Select(value => value?.ToString() ?? string.Empty).ToList();
-                return names.Count == packages.Count ? names : packages.Select(pkg => pkg.Name ?? string.Empty).ToList();
-            }
-
-            if (node is JsonValue value)
-            {
-                return packages.Count == 1 ? [value.ToString()] : packages.Select(pkg => pkg.Name ?? string.Empty).ToList();
-            }
-
-            return packages.Select(pkg => pkg.Name ?? string.Empty).ToList();
-        }
-        finally
-        {
-            TryDeleteFile(packagesPath);
-        }
-    }
-
     private static string NormalizeTargetBranch(string targetBranch)
     {
         if (targetBranch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
@@ -741,21 +556,93 @@ public class PackageInfoTool(
 
     private static string NormalizePath(string path) => path.Replace("\\", "/");
 
-    private static string EscapePowerShell(string value) => value.Replace("'", "''");
-
-    private static void TryDeleteFile(string path)
+    private static string GetCiTargetPath(string repoRoot)
     {
-        try
+        var envPath = Environment.GetEnvironmentVariable("BUILD_SOURCESDIRECTORY")
+            ?? Environment.GetEnvironmentVariable("SYSTEM_DEFAULTWORKINGDIRECTORY");
+        return string.IsNullOrWhiteSpace(envPath) ? repoRoot : envPath;
+    }
+
+    private static IEnumerable<string> FindPackageDirectories(SdkLanguage language, string searchRoot)
+    {
+        var patterns = language switch
         {
-            if (File.Exists(path))
+            SdkLanguage.DotNet => new[] { "*.csproj" },
+            SdkLanguage.Java => new[] { "pom.xml" },
+            SdkLanguage.JavaScript => new[] { "package.json" },
+            SdkLanguage.Python => new[] { "setup.py", "pyproject.toml" },
+            SdkLanguage.Go => new[] { "go.mod" },
+            _ => Array.Empty<string>()
+        };
+
+        if (patterns.Length == 0)
+        {
+            return [];
+        }
+
+        var packageRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pattern in patterns)
+        {
+            foreach (var filePath in Directory.EnumerateFiles(searchRoot, pattern, SearchOption.AllDirectories))
             {
-                File.Delete(path);
+                var packageRoot = GetPackageRootFromManifest(language, filePath);
+                if (!string.IsNullOrEmpty(packageRoot))
+                {
+                    packageRoots.Add(packageRoot);
+                }
             }
         }
-        catch
+
+        return packageRoots;
+    }
+
+    private static string? GetPackageRootFromManifest(SdkLanguage language, string manifestPath)
+    {
+        var directory = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrEmpty(directory))
         {
-            // Best-effort cleanup.
+            return null;
         }
+
+        if (language == SdkLanguage.DotNet)
+        {
+            var directoryName = new DirectoryInfo(directory).Name;
+            if (string.Equals(directoryName, "src", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(directoryName, "test", StringComparison.OrdinalIgnoreCase))
+            {
+                return Directory.GetParent(directory)?.FullName;
+            }
+        }
+
+        return directory;
+    }
+
+    private static JsonObject BuildPackageInfoJson(PackageInfo info)
+    {
+        var repoRoot = info.RepoRoot;
+        var packageRelativePath = Path.Combine("sdk", info.RelativePath).Replace("\\", "/");
+        var readmePath = Path.Combine(info.PackagePath, "README.md");
+        var changelogPath = Path.Combine(info.PackagePath, "CHANGELOG.md");
+
+        return new JsonObject
+        {
+            ["Name"] = info.PackageName ?? string.Empty,
+            ["ArtifactName"] = info.PackageName ?? string.Empty,
+            ["Version"] = info.PackageVersion ?? string.Empty,
+            ["DirectoryPath"] = packageRelativePath,
+            ["ServiceDirectory"] = info.ServiceName ?? string.Empty,
+            ["ReadMePath"] = File.Exists(readmePath) ? Path.GetRelativePath(repoRoot, readmePath).Replace("\\", "/") : string.Empty,
+            ["ChangeLogPath"] = File.Exists(changelogPath) ? Path.GetRelativePath(repoRoot, changelogPath).Replace("\\", "/") : string.Empty,
+            ["SdkType"] = info.SdkType switch
+            {
+                SdkType.Management => "mgmt",
+                SdkType.Dataplane => "client",
+                _ => string.Empty
+            },
+            ["IsNewSdk"] = true,
+            ["ReleaseStatus"] = string.Empty,
+            ["IncludedForValidation"] = false
+        };
     }
 
     private sealed class PackageEntry
@@ -779,40 +666,8 @@ public class PackageInfoTool(
 
         public bool IsNewSdk => bool.TryParse(Data["IsNewSdk"]?.ToString(), out var value) && value;
 
-        public List<string> TriggeringPaths
-        {
-            get
-            {
-                if (Data["ArtifactDetails"] is not JsonObject artifactDetails)
-                {
-                    return [];
-                }
-
-                if (artifactDetails["triggeringPaths"] is not JsonArray paths)
-                {
-                    return [];
-                }
-
-                return paths.Select(node => node?.ToString())
-                    .Where(value => !string.IsNullOrEmpty(value))
-                    .ToList()!;
-            }
-        }
-
-        public List<string> AdditionalValidationPackages
-        {
-            get
-            {
-                if (Data["AdditionalValidationPackages"] is not JsonArray packages)
-                {
-                    return [];
-                }
-
-                return packages.Select(node => node?.ToString())
-                    .Where(value => !string.IsNullOrEmpty(value))
-                    .ToList()!;
-            }
-        }
+        public List<string> TriggeringPaths => [];
+        public List<string> AdditionalValidationPackages => [];
 
         public void SetIncludedForValidation(bool included)
         {
