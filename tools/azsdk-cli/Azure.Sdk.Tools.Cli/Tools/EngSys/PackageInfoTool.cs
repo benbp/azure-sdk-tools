@@ -18,9 +18,9 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 public class PackageInfoTool(
     IProcessHelper processHelper,
     IGitHelper gitHelper,
-    ILogger<PackageInfoTool> logger,
+    ILogger<PackageInfoTool> _logger,
     IEnumerable<LanguageService> languageServices
-) : LanguageMcpTool(languageServices, gitHelper, logger)
+) : LanguageMcpTool(languageServices, gitHelper, _logger)
 {
     public override CommandGroup[] CommandHierarchy { get; set; } = [SharedCommandGroups.EngSys];
 
