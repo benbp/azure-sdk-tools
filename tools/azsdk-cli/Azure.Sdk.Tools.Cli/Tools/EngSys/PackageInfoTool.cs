@@ -737,6 +737,7 @@ public class PackageInfoTool(
             {
                 SdkType.Management => "mgmt",
                 SdkType.Dataplane => "client",
+                SdkType.Functions => "functions",
                 _ => string.Empty
             },
             ["IsNewSdk"] = info.IsNewSdk,
