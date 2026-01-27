@@ -63,7 +63,7 @@ elseif (-not [string]::IsNullOrEmpty($ServiceDirectory)) {
   $cliArgs += @("--service-directory", $ServiceDirectory)
 }
 
-& dotnet run --project /home/ben/ai/projects/package-info-generate/tools/azsdk-cli/Azure.Sdk.Tools.Cli/ -- @cliArgs
+& dotnet run --no-restore --project /home/ben/ai/projects/package-info-generate/tools/azsdk-cli/Azure.Sdk.Tools.Cli/ -- @cliArgs
 if ($LASTEXITCODE -ne 0) {
   throw "dotnet run -- eng package-info failed with exit code $LASTEXITCODE"
 }
@@ -132,6 +132,17 @@ foreach ($relativePath in $psRelative) {
 
   if ($psNormalized -ne $cliNormalized) {
     Write-Host "Content mismatch for $relativePath"
+    Write-Host "Diff for $relativePath (jq -S):"
+    Write-Host "  PS:  $psFile"
+    Write-Host "  CLI: $cliFile"
+    $psSorted = & jq -S . $psFile
+    $cliSorted = & jq -S . $cliFile
+    $psTmp = [System.IO.Path]::GetTempFileName()
+    $cliTmp = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $psTmp -Value $psSorted
+    Set-Content -Path $cliTmp -Value $cliSorted
+    & diff $psTmp $cliTmp | ForEach-Object { Write-Host "  $_" }
+    Remove-Item $psTmp, $cliTmp -Force -ErrorAction SilentlyContinue
     $failed = $true
   }
 }

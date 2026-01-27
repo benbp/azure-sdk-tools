@@ -99,4 +99,9 @@ public class PackageInfo
     /// Indicates whether the package is included only for validation.
     /// </summary>
     public bool IncludedForValidation { get; init; }
+
+    /// <summary>
+    /// Indicates whether the package opts out of AOT compatibility checks (dotnet).
+    /// </summary>
+    public bool? AotCompatOptOut { get; init; }
 }

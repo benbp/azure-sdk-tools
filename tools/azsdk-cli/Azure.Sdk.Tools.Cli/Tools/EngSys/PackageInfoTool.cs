@@ -744,7 +744,7 @@ public class PackageInfoTool(
             ["IncludedForValidation"] = info.IncludedForValidation,
             ["AdditionalValidationPackages"] = null,
             ["ArtifactDetails"] = null,
-            ["CIParameters"] = GetCiParameters(info.Language),
+            ["CIParameters"] = PackageInfoCiHelper.GetCiParameters(info),
             ["DevVersion"] = null
         };
     }
@@ -785,23 +785,6 @@ public class PackageInfoTool(
         }
 
         return string.Empty;
-    }
-
-    private static JsonObject GetCiParameters(SdkLanguage language)
-    {
-        var parameters = new JsonObject
-        {
-            ["CIMatrixConfigs"] = new JsonArray()
-        };
-
-        if (language == SdkLanguage.DotNet)
-        {
-            parameters["BuildSnippets"] = true;
-            parameters["CheckAOTCompat"] = true;
-            parameters["AOTTestInputs"] = new JsonArray();
-        }
-
-        return parameters;
     }
 
     private static string? GetTypeSpecProjectPathFromTspLocation(string tspLocationPath)

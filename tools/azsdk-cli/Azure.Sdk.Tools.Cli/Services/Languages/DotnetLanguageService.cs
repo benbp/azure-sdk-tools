@@ -51,7 +51,7 @@ public sealed partial class DotnetLanguageService: LanguageService
     {
         logger.LogDebug("Resolving .NET package info for path: {packagePath}", packagePath);
         var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, packagePath, ct);
-        var (packageName, packageVersion, sdkType, serviceDirectory, isNewSdk) = await TryGetPackageInfoAsync(fullPath, ct);
+        var (packageName, packageVersion, sdkType, serviceDirectory, isNewSdk, aotCompatOptOut) = await TryGetPackageInfoAsync(fullPath, ct);
 
         if (string.IsNullOrWhiteSpace(packageName) ||
             string.IsNullOrWhiteSpace(packageVersion) ||
@@ -84,7 +84,8 @@ public sealed partial class DotnetLanguageService: LanguageService
             SdkType = parsedSdkType,
             ServiceDirectory = serviceDirectory,
             ArtifactName = packageName,
-            IsNewSdk = isNewSdk
+            IsNewSdk = isNewSdk,
+            AotCompatOptOut = aotCompatOptOut
         };
 
         logger.LogDebug("Resolved .NET package: {packageName} v{packageVersion} at {relativePath} (as {parsedSdkType})",
@@ -93,7 +94,7 @@ public sealed partial class DotnetLanguageService: LanguageService
         return model;
     }
 
-    private async Task<(string Name, string Version, string SdkType, string ServiceDirectory, bool IsNewSdk)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
+    private async Task<(string Name, string Version, string SdkType, string ServiceDirectory, bool IsNewSdk, bool? AotCompatOptOut)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
     {
         var csproj = Directory.GetFiles(Path.Combine(packagePath, "src"), "*.csproj").FirstOrDefault();
 
@@ -135,6 +136,11 @@ public sealed partial class DotnetLanguageService: LanguageService
             var sdkType = parts[4]; // sdkType
             var serviceDirectory = parts[1]; // serviceDir
             var isNewSdk = bool.TryParse(parts[5], out var parsed) && parsed;
+            bool? aotCompatOptOut = null;
+            if (parts.Length > 7 && bool.TryParse(parts[7], out var parsedOptOut))
+            {
+                aotCompatOptOut = parsedOptOut;
+            }
 
             if (string.IsNullOrWhiteSpace(name) ||
                 string.IsNullOrWhiteSpace(version) ||
@@ -147,7 +153,7 @@ public sealed partial class DotnetLanguageService: LanguageService
             logger.LogTrace("Found package info via MSBuild: {name} v{version} ({sdkType})",
                 name, version, sdkType);
 
-            return (name, version, sdkType, serviceDirectory, isNewSdk);
+            return (name, version, sdkType, serviceDirectory, isNewSdk, aotCompatOptOut);
         }
 
         throw new InvalidOperationException($"Unable to parse MSBuild GetPackageInfo identity for {csproj}.");
