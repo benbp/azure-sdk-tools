@@ -94,6 +94,91 @@ public sealed partial class DotnetLanguageService: LanguageService
         return model;
     }
 
+    public async Task<IReadOnlyList<PackageInfo>> GetPackageInfosForServiceDirectory(
+        string repoRoot,
+        string serviceDirectory,
+        bool addDevVersion,
+        CancellationToken ct = default)
+    {
+        var serviceProj = Path.Combine(repoRoot, "eng", "service.proj");
+        var outputFilePath = Path.Combine(Path.GetTempPath(), $"package-info-{Guid.NewGuid()}.txt");
+
+        var args = new List<string>
+        {
+            "msbuild",
+            "/nologo",
+            "/t:GetPackageInfo",
+            serviceProj,
+            $"/p:ServiceDirectory={serviceDirectory}",
+            $"/p:AddDevVersion={addDevVersion}",
+            $"/p:OutputProjectInfoListFilePath={outputFilePath}",
+            "-tl:off"
+        };
+
+        var result = await processHelper.Run(new ProcessOptions(
+            command: "dotnet",
+            args: [.. args],
+            workingDirectory: repoRoot
+        ), ct);
+
+        if (result == null || result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"MSBuild GetPackageInfo failed for {serviceProj}. Output: {result?.Output}");
+        }
+
+        var lines = new List<string>();
+        if (File.Exists(outputFilePath))
+        {
+            lines = File.ReadAllLines(outputFilePath)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+            File.Delete(outputFilePath);
+        }
+
+        if (lines.Count == 0)
+        {
+            throw new InvalidOperationException($"MSBuild GetPackageInfo returned no packages for service directory '{serviceDirectory}'.");
+        }
+
+        var packageInfos = new List<PackageInfo>();
+        foreach (var line in lines)
+        {
+            if (!TryParsePackageInfoLine(line, out var parsed))
+            {
+                continue;
+            }
+
+            var (repoRootResolved, relativePath, fullPath) = PackagePathParser.Parse(gitHelper, parsed.PackagePath);
+            var samplesDirectory = FindSamplesDirectory(fullPath);
+            var parsedSdkType = parsed.SdkType switch
+            {
+                "client" => SdkType.Dataplane,
+                "mgmt" => SdkType.Management,
+                "functions" => SdkType.Functions,
+                _ => SdkType.Unknown
+            };
+
+            packageInfos.Add(new PackageInfo
+            {
+                PackagePath = fullPath,
+                RepoRoot = repoRootResolved,
+                RelativePath = relativePath,
+                PackageName = parsed.PackageName,
+                PackageVersion = parsed.PackageVersion,
+                ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
+                Language = Models.SdkLanguage.DotNet,
+                SamplesDirectory = samplesDirectory,
+                SdkType = parsedSdkType,
+                ServiceDirectory = parsed.ServiceDirectory,
+                ArtifactName = parsed.PackageName,
+                IsNewSdk = parsed.IsNewSdk,
+                AotCompatOptOut = parsed.AotCompatOptOut
+            });
+        }
+
+        return packageInfos;
+    }
+
     private async Task<(string Name, string Version, string SdkType, string ServiceDirectory, bool IsNewSdk, bool? AotCompatOptOut)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
     {
         var csproj = Directory.GetFiles(Path.Combine(packagePath, "src"), "*.csproj").FirstOrDefault();
@@ -120,6 +205,10 @@ public sealed partial class DotnetLanguageService: LanguageService
         var targetResults = jsonDoc.RootElement.GetProperty("TargetResults");
         var getPackageInfo = targetResults.GetProperty("GetPackageInfo");
         var items = getPackageInfo.GetProperty("Items");
+        if (items.GetArrayLength() == 0)
+        {
+            throw new InvalidOperationException($"MSBuild GetPackageInfo returned no items for {csproj}.");
+        }
 
         // Identity field which contains the package info
         var identity = items[0].GetProperty("Identity").GetString();
@@ -158,6 +247,61 @@ public sealed partial class DotnetLanguageService: LanguageService
 
         throw new InvalidOperationException($"Unable to parse MSBuild GetPackageInfo identity for {csproj}.");
     }
+
+    private static bool TryParsePackageInfoLine(string line, out ParsedPackageInfo parsed)
+    {
+        parsed = default;
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        var parts = line.Split(separator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim('\'', ' '))
+            .ToArray();
+
+        if (parts.Length < 6)
+        {
+            return false;
+        }
+
+        var packagePath = parts[0];
+        if (!Directory.Exists(packagePath))
+        {
+            return false;
+        }
+
+        var serviceDirectory = parts[1];
+        var packageName = parts[2];
+        var packageVersion = parts[3];
+        var sdkType = parts[4];
+        var isNewSdk = bool.TryParse(parts[5], out var parsedIsNewSdk) && parsedIsNewSdk;
+        bool? aotCompatOptOut = null;
+        if (parts.Length > 7 && bool.TryParse(parts[7], out var parsedOptOut))
+        {
+            aotCompatOptOut = parsedOptOut;
+        }
+
+        parsed = new ParsedPackageInfo(
+            packagePath,
+            serviceDirectory,
+            packageName,
+            packageVersion,
+            sdkType,
+            isNewSdk,
+            aotCompatOptOut);
+
+        return true;
+    }
+
+    private readonly record struct ParsedPackageInfo(
+        string PackagePath,
+        string ServiceDirectory,
+        string PackageName,
+        string PackageVersion,
+        string SdkType,
+        bool IsNewSdk,
+        bool? AotCompatOptOut);
 
     /// <summary>
     /// Finds the samples directory by looking for folders under tests that contain files with "#region Snippet:" in their content

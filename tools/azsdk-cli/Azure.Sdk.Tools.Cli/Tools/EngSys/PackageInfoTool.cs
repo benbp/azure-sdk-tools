@@ -112,7 +112,7 @@ public class PackageInfoTool(
     private async Task<CommandResponse> Execute(PackageInfoOptions options, CancellationToken ct)
     {
         var repoRoot = ResolveRepoRoot(options.RepoRootOverride);
-        var packageEntries = await GetPackageEntries(repoRoot, options.ServiceDirectory, ct);
+        var packageEntries = await GetPackageEntries(repoRoot, options.ServiceDirectory, options.AddDevVersion, ct);
         if (packageEntries.Count == 0)
         {
             return new DefaultCommandResponse { Message = "No packages found to process." };
@@ -137,9 +137,10 @@ public class PackageInfoTool(
     private async Task<List<PackageEntry>> GetPackageEntries(
         string repoRoot,
         string? serviceDirectory,
+        bool addDevVersion,
         CancellationToken ct)
     {
-        var packageProperties = await GetAllPackageProperties(repoRoot, serviceDirectory, ct);
+        var packageProperties = await GetAllPackageProperties(repoRoot, serviceDirectory, addDevVersion, ct);
         return packageProperties.Select(p => new PackageEntry(p)).ToList();
     }
 
@@ -234,10 +235,16 @@ public class PackageInfoTool(
         return gitHelper.DiscoverRepoRoot(Environment.CurrentDirectory);
     }
 
-    private async Task<List<JsonObject>> GetAllPackageProperties(string repoRoot, string? serviceDirectory, CancellationToken ct)
+    private async Task<List<JsonObject>> GetAllPackageProperties(string repoRoot, string? serviceDirectory, bool addDevVersion, CancellationToken ct)
     {
         var languageService = GetLanguageService(repoRoot)
             ?? throw new InvalidOperationException("Unable to resolve language service for repository. Ensure repository name matches azure-sdk-for-<lang>.");
+
+        if (languageService is DotnetLanguageService dotnetService)
+        {
+            var dotnetPackages = await dotnetService.GetPackageInfosForServiceDirectory(repoRoot, serviceDirectory ?? string.Empty, addDevVersion, ct);
+            return dotnetPackages.Select(BuildPackageInfoJson).ToList();
+        }
 
         var sdkRoot = Path.Combine(repoRoot, "sdk");
         var searchRoot = string.IsNullOrWhiteSpace(serviceDirectory)
