@@ -2,9 +2,6 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$RepoRoot,
 
-  [Parameter(Mandatory = $true)]
-  [string]$CliPath,
-
   [string]$ServiceDirectory = "",
 
   [switch]$FromDiff,
@@ -66,9 +63,9 @@ elseif (-not [string]::IsNullOrEmpty($ServiceDirectory)) {
   $cliArgs += @("--service-directory", $ServiceDirectory)
 }
 
-& $CliPath @cliArgs
+& dotnet run --project /home/ben/ai/projects/package-info-generate/tools/azsdk-cli/Azure.Sdk.Tools.Cli/ -- @cliArgs
 if ($LASTEXITCODE -ne 0) {
-  throw "azsdk eng package-info failed with exit code $LASTEXITCODE"
+  throw "dotnet run -- eng package-info failed with exit code $LASTEXITCODE"
 }
 
 function ConvertTo-OrderedObject {

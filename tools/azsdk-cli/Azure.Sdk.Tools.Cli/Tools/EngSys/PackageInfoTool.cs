@@ -75,107 +75,153 @@ public class PackageInfoTool(
 
     public override async Task<CommandResponse> HandleCommand(ParseResult parseResult, CancellationToken ct)
     {
-        var outDir = parseResult.GetValue(outDirOpt);
-        var serviceDirectory = parseResult.GetValue(serviceDirectoryOpt);
-        var ciMode = parseResult.GetValue(ciOpt);
-        var repoRootOverride = parseResult.GetValue(repoRootOpt);
-        var addDevVersion = parseResult.GetValue(addDevVersionOpt);
-        var artifactList = parseResult.GetValue(artifactListOpt) ?? [];
-
         try
         {
-            if (ciMode && !string.IsNullOrWhiteSpace(serviceDirectory))
-            {
-                logger.LogWarning("Ignoring --service-directory because --ci is set.");
-                serviceDirectory = string.Empty;
-            }
-
-            var repoRoot = ResolveRepoRoot(repoRootOverride);
-            var packageProperties = await GetAllPackagePropertiesAsync(repoRoot, serviceDirectory, ct);
-            if (packageProperties.Count == 0)
-            {
-                return new DefaultCommandResponse { Message = "No packages found to process." };
-            }
-
-            var packageEntries = packageProperties.Select(p => new PackageEntry(p)).ToList();
-            List<PackageEntry> selectedPackages;
-            PackageInfoDiff? diff = null;
-
-            if (ciMode)
-            {
-                diff = await BuildDiffAsync(repoRoot, ct);
-                selectedPackages = await SelectPackagesForDiffAsync(repoRoot, packageEntries, diff, ct);
-            }
-            else
-            {
-                selectedPackages = packageEntries;
-            }
-
-            if (selectedPackages.Count == 0)
-            {
-                return new DefaultCommandResponse { Message = "No packages matched the requested criteria." };
-            }
-
-            selectedPackages = PackageInfoArtifactFilter.FilterByArtifacts(
-                selectedPackages.Select(p => p.Data).ToList(),
-                artifactList,
-                warning => logger.LogWarning("{warning}", warning))
-                .Select(p => new PackageEntry(p))
-                .ToList();
-
-            var exportedPaths = new Dictionary<string, PackageEntry>(StringComparer.OrdinalIgnoreCase);
-            var outputFiles = new List<string>();
-
-            for (var i = 0; i < selectedPackages.Count; i++)
-            {
-                var pkg = selectedPackages[i];
-                var packageInfoName = pkg.Name ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(packageInfoName))
-                {
-                    continue;
-                }
-
-                var outputPath = Path.Combine(outDir, $"{packageInfoName}.json");
-                if (exportedPaths.TryGetValue(outputPath, out var existing) && existing.IsNewSdk)
-                {
-                    logger.LogInformation("Track 2 package info with file name {Path} already exported. Skipping export.", outputPath);
-                    continue;
-                }
-
-                logger.LogInformation("Package Name: {Name}", pkg.Name ?? "(unknown)");
-                logger.LogInformation("Package Version: {Version}", pkg.Version ?? "(unknown)");
-                logger.LogInformation("Package SDK Type: {SdkType}", pkg.SdkType ?? "(unknown)");
-                logger.LogInformation("Artifact Name: {Artifact}", pkg.ArtifactName ?? "(unknown)");
-                if (!string.IsNullOrEmpty(pkg.Group))
-                {
-                    logger.LogInformation("GroupId: {Group}", pkg.Group);
-                }
-                if (!string.IsNullOrEmpty(pkg.SpecProjectPath))
-                {
-                    logger.LogInformation("Spec Project Path: {SpecPath}", pkg.SpecProjectPath);
-                }
-                if (!string.IsNullOrEmpty(pkg.ReleaseStatus))
-                {
-                    logger.LogInformation("Release date: {ReleaseStatus}", pkg.ReleaseStatus);
-                }
-                logger.LogInformation("Output path of json file: {OutputPath}", outputPath);
-
-                exportedPaths[outputPath] = pkg;
-                PackageInfoFileWriter.WritePackageInfoFile(pkg.Data, outputPath, addDevVersion, repoRoot);
-                outputFiles.Add(outputPath);
-            }
-
-            return new DefaultCommandResponse
-            {
-                Message = $"Files written to {outDir}:",
-                Result = outputFiles
-            };
+            var options = NormalizeOptions(ParseOptions(parseResult));
+            return await Execute(options, ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to generate PackageInfo output.");
             return new DefaultCommandResponse { ResponseError = ex.Message };
         }
+    }
+
+    private PackageInfoOptions ParseOptions(ParseResult parseResult)
+    {
+        return new PackageInfoOptions(
+            parseResult.GetValue(outDirOpt),
+            parseResult.GetValue(serviceDirectoryOpt),
+            parseResult.GetValue(ciOpt),
+            parseResult.GetValue(repoRootOpt),
+            parseResult.GetValue(addDevVersionOpt),
+            parseResult.GetValue(artifactListOpt) ?? []);
+    }
+
+    private PackageInfoOptions NormalizeOptions(PackageInfoOptions options)
+    {
+        if (options.CiMode && !string.IsNullOrWhiteSpace(options.ServiceDirectory))
+        {
+            logger.LogWarning("Ignoring --service-directory because --ci is set.");
+            return options with { ServiceDirectory = string.Empty };
+        }
+
+        return options;
+    }
+
+    private async Task<CommandResponse> Execute(PackageInfoOptions options, CancellationToken ct)
+    {
+        var repoRoot = ResolveRepoRoot(options.RepoRootOverride);
+        var packageEntries = await GetPackageEntries(repoRoot, options.ServiceDirectory, ct);
+        if (packageEntries.Count == 0)
+        {
+            return new DefaultCommandResponse { Message = "No packages found to process." };
+        }
+
+        var selectedPackages = await SelectPackages(repoRoot, packageEntries, options.CiMode, ct);
+        if (selectedPackages.Count == 0)
+        {
+            return new DefaultCommandResponse { Message = "No packages matched the requested criteria." };
+        }
+
+        selectedPackages = FilterPackagesByArtifact(selectedPackages, options.ArtifactList);
+        var outputFiles = WritePackageInfoFiles(selectedPackages, options.OutDir, options.AddDevVersion, repoRoot);
+
+        return new DefaultCommandResponse
+        {
+            Message = $"Files written to {options.OutDir}:",
+            Result = outputFiles
+        };
+    }
+
+    private async Task<List<PackageEntry>> GetPackageEntries(
+        string repoRoot,
+        string? serviceDirectory,
+        CancellationToken ct)
+    {
+        var packageProperties = await GetAllPackageProperties(repoRoot, serviceDirectory, ct);
+        return packageProperties.Select(p => new PackageEntry(p)).ToList();
+    }
+
+    private async Task<List<PackageEntry>> SelectPackages(
+        string repoRoot,
+        List<PackageEntry> packageEntries,
+        bool ciMode,
+        CancellationToken ct)
+    {
+        if (!ciMode)
+        {
+            return packageEntries;
+        }
+
+        var diff = await BuildDiff(repoRoot, ct);
+        return SelectPackagesForDiff(repoRoot, packageEntries, diff);
+    }
+
+    private List<PackageEntry> FilterPackagesByArtifact(List<PackageEntry> selectedPackages, string[] artifactList)
+    {
+        return PackageInfoArtifactFilter.FilterByArtifacts(
+            selectedPackages.Select(p => p.Data).ToList(),
+            artifactList,
+            warning => logger.LogWarning("{warning}", warning))
+            .Select(p => new PackageEntry(p))
+            .ToList();
+    }
+
+    private List<string> WritePackageInfoFiles(
+        List<PackageEntry> selectedPackages,
+        string outDir,
+        bool addDevVersion,
+        string repoRoot)
+    {
+        var exportedPaths = new Dictionary<string, PackageEntry>(StringComparer.OrdinalIgnoreCase);
+        var outputFiles = new List<string>();
+
+        for (var i = 0; i < selectedPackages.Count; i++)
+        {
+            var pkg = selectedPackages[i];
+            var packageInfoName = pkg.Name ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(packageInfoName))
+            {
+                continue;
+            }
+
+            var outputPath = Path.Combine(outDir, $"{packageInfoName}.json");
+            if (exportedPaths.TryGetValue(outputPath, out var existing) && existing.IsNewSdk)
+            {
+                logger.LogInformation("Track 2 package info with file name {Path} already exported. Skipping export.", outputPath);
+                continue;
+            }
+
+            LogPackageDetails(pkg, outputPath);
+
+            exportedPaths[outputPath] = pkg;
+            PackageInfoFileWriter.WritePackageInfoFile(pkg.Data, outputPath, addDevVersion, repoRoot);
+            outputFiles.Add(outputPath);
+        }
+
+        return outputFiles;
+    }
+
+    private void LogPackageDetails(PackageEntry pkg, string outputPath)
+    {
+        logger.LogInformation("Package Name: {Name}", pkg.Name ?? "(unknown)");
+        logger.LogInformation("Package Version: {Version}", pkg.Version ?? "(unknown)");
+        logger.LogInformation("Package SDK Type: {SdkType}", pkg.SdkType ?? "(unknown)");
+        logger.LogInformation("Artifact Name: {Artifact}", pkg.ArtifactName ?? "(unknown)");
+        if (!string.IsNullOrEmpty(pkg.Group))
+        {
+            logger.LogInformation("GroupId: {Group}", pkg.Group);
+        }
+        if (!string.IsNullOrEmpty(pkg.SpecProjectPath))
+        {
+            logger.LogInformation("Spec Project Path: {SpecPath}", pkg.SpecProjectPath);
+        }
+        if (!string.IsNullOrEmpty(pkg.ReleaseStatus))
+        {
+            logger.LogInformation("Release date: {ReleaseStatus}", pkg.ReleaseStatus);
+        }
+        logger.LogInformation("Output path of json file: {OutputPath}", outputPath);
     }
 
     private string ResolveRepoRoot(string? repoRootOverride)
@@ -188,7 +234,7 @@ public class PackageInfoTool(
         return gitHelper.DiscoverRepoRoot(Environment.CurrentDirectory);
     }
 
-    private async Task<List<JsonObject>> GetAllPackagePropertiesAsync(string repoRoot, string? serviceDirectory, CancellationToken ct)
+    private async Task<List<JsonObject>> GetAllPackageProperties(string repoRoot, string? serviceDirectory, CancellationToken ct)
     {
         var languageService = GetLanguageService(repoRoot)
             ?? throw new InvalidOperationException("Unable to resolve language service for repository. Ensure repository name matches azure-sdk-for-<lang>.");
@@ -203,7 +249,7 @@ public class PackageInfoTool(
             throw new DirectoryNotFoundException($"Service directory does not exist: {searchRoot}");
         }
 
-        var packageDirectories = FindPackageDirectories(languageService.Language, searchRoot);
+        var packageDirectories = GetPackageDirectories(languageService.Language, sdkRoot, searchRoot, !string.IsNullOrWhiteSpace(serviceDirectory));
         var packageInfos = new List<JsonObject>();
 
         foreach (var packageDirectory in packageDirectories)
@@ -215,7 +261,7 @@ public class PackageInfoTool(
         return packageInfos;
     }
 
-    private async Task<PackageInfoDiff> BuildDiffAsync(string repoRoot, CancellationToken ct)
+    private async Task<PackageInfoDiff> BuildDiff(string repoRoot, CancellationToken ct)
     {
         var sourceCommitish = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_SOURCECOMMITID") ?? "HEAD";
         var targetBranchValue = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_TARGETBRANCH") ?? string.Empty;
@@ -229,8 +275,8 @@ public class PackageInfoTool(
         var targetCommitish = NormalizeTargetBranch(targetBranchValue);
         var diffPath = NormalizeDiffPath(repoRoot, GetCiTargetPath(repoRoot));
 
-        var changedFiles = await GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "d", ct);
-        var deletedFiles = await GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "D", ct);
+        var changedFiles = await GetChangedFiles(repoRoot, targetCommitish, sourceCommitish, diffPath, "d", ct);
+        var deletedFiles = await GetChangedFiles(repoRoot, targetCommitish, sourceCommitish, diffPath, "D", ct);
 
         var changedServices = GetChangedServices(changedFiles);
         var prNumber = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") ?? "-1";
@@ -244,11 +290,10 @@ public class PackageInfoTool(
         );
     }
 
-    private async Task<List<PackageEntry>> SelectPackagesForDiffAsync(
+    private List<PackageEntry> SelectPackagesForDiff(
         string repoRoot,
         List<PackageEntry> allPackages,
-        PackageInfoDiff diff,
-        CancellationToken ct)
+        PackageInfoDiff diff)
     {
         var targetedFiles = new List<string>(diff.ChangedFiles);
         if (diff.DeletedFiles.Count > 0)
@@ -381,7 +426,7 @@ public class PackageInfoTool(
         return packagesWithChanges;
     }
 
-    private async Task<List<string>> GetChangedFilesAsync(
+    private async Task<List<string>> GetChangedFiles(
         string repoRoot,
         string targetCommitish,
         string sourceCommitish,
@@ -431,6 +476,7 @@ public class PackageInfoTool(
                 return match.Success ? match.Groups[1].Value : null;
             })
             .Where(value => !string.IsNullOrEmpty(value))
+            .Select(value => value!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -563,11 +609,19 @@ public class PackageInfoTool(
         return string.IsNullOrWhiteSpace(envPath) ? repoRoot : envPath;
     }
 
-    private static IEnumerable<string> FindPackageDirectories(SdkLanguage language, string searchRoot)
+    private static IEnumerable<string> GetPackageDirectories(
+        SdkLanguage language,
+        string sdkRoot,
+        string searchRoot,
+        bool isServiceRoot)
     {
+        if (language == SdkLanguage.DotNet)
+        {
+            return GetDotNetPackageDirectories(sdkRoot, searchRoot, isServiceRoot);
+        }
+
         var patterns = language switch
         {
-            SdkLanguage.DotNet => new[] { "*.csproj" },
             SdkLanguage.Java => new[] { "pom.xml" },
             SdkLanguage.JavaScript => new[] { "package.json" },
             SdkLanguage.Python => new[] { "setup.py", "pyproject.toml" },
@@ -594,6 +648,42 @@ public class PackageInfoTool(
         }
 
         return packageRoots;
+    }
+
+    private static IEnumerable<string> GetDotNetPackageDirectories(string sdkRoot, string searchRoot, bool isServiceRoot)
+    {
+        if (isServiceRoot)
+        {
+            return GetDotNetPackagesUnderService(searchRoot);
+        }
+
+        var packages = new List<string>();
+        foreach (var serviceDir in Directory.GetDirectories(sdkRoot))
+        {
+            packages.AddRange(GetDotNetPackagesUnderService(serviceDir));
+        }
+
+        return packages;
+    }
+
+    private static IEnumerable<string> GetDotNetPackagesUnderService(string serviceRoot)
+    {
+        var packages = new List<string>();
+        foreach (var packageDir in Directory.GetDirectories(serviceRoot))
+        {
+            var srcDir = Path.Combine(packageDir, "src");
+            if (!Directory.Exists(srcDir))
+            {
+                continue;
+            }
+
+            if (Directory.GetFiles(srcDir, "*.csproj", SearchOption.TopDirectoryOnly).Length > 0)
+            {
+                packages.Add(packageDir);
+            }
+        }
+
+        return packages;
     }
 
     private static string? GetPackageRootFromManifest(SdkLanguage language, string manifestPath)
@@ -623,27 +713,151 @@ public class PackageInfoTool(
         var packageRelativePath = Path.Combine("sdk", info.RelativePath).Replace("\\", "/");
         var readmePath = Path.Combine(info.PackagePath, "README.md");
         var changelogPath = Path.Combine(info.PackagePath, "CHANGELOG.md");
+        var releaseStatus = info.ReleaseStatus;
+        if (string.IsNullOrEmpty(releaseStatus) && File.Exists(changelogPath) && !string.IsNullOrEmpty(info.PackageVersion))
+        {
+            releaseStatus = GetReleaseStatus(changelogPath, info.PackageVersion) ?? string.Empty;
+        }
+
+        var serviceDirectory = !string.IsNullOrEmpty(info.ServiceDirectory)
+            ? info.ServiceDirectory
+            : GetServiceDirectoryFromRelativePath(info);
 
         return new JsonObject
         {
             ["Name"] = info.PackageName ?? string.Empty,
-            ["ArtifactName"] = info.PackageName ?? string.Empty,
+            ["ArtifactName"] = info.ArtifactName ?? info.PackageName ?? string.Empty,
             ["Version"] = info.PackageVersion ?? string.Empty,
             ["DirectoryPath"] = packageRelativePath,
-            ["ServiceDirectory"] = info.ServiceName ?? string.Empty,
+            ["ServiceDirectory"] = serviceDirectory ?? string.Empty,
             ["ReadMePath"] = File.Exists(readmePath) ? Path.GetRelativePath(repoRoot, readmePath).Replace("\\", "/") : string.Empty,
             ["ChangeLogPath"] = File.Exists(changelogPath) ? Path.GetRelativePath(repoRoot, changelogPath).Replace("\\", "/") : string.Empty,
+            ["Group"] = info.Group,
             ["SdkType"] = info.SdkType switch
             {
                 SdkType.Management => "mgmt",
                 SdkType.Dataplane => "client",
                 _ => string.Empty
             },
-            ["IsNewSdk"] = true,
-            ["ReleaseStatus"] = string.Empty,
-            ["IncludedForValidation"] = false
+            ["IsNewSdk"] = info.IsNewSdk,
+            ["ReleaseStatus"] = releaseStatus ?? string.Empty,
+            ["IncludedForValidation"] = info.IncludedForValidation,
+            ["AdditionalValidationPackages"] = null,
+            ["ArtifactDetails"] = null,
+            ["CIParameters"] = GetCiParameters(info.Language),
+            ["DevVersion"] = null
         };
     }
+
+    private static string? GetReleaseStatus(string changelogPath, string version)
+    {
+        try
+        {
+            var regex = new Regex(
+                @"^#+\s+(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z\.-]+)?)\s*(?<status>\([^)]+\))?",
+                RegexOptions.Compiled);
+            foreach (var line in File.ReadLines(changelogPath))
+            {
+                var match = regex.Match(line);
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                var matchedVersion = match.Groups["version"].Value;
+                if (!string.Equals(matchedVersion, version, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var status = match.Groups["status"].Value;
+                if (string.IsNullOrWhiteSpace(status))
+                {
+                    return string.Empty;
+                }
+
+                return status.Trim().Trim('(', ')');
+            }
+        }
+        catch
+        {
+            return string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    private static JsonObject GetCiParameters(SdkLanguage language)
+    {
+        var parameters = new JsonObject
+        {
+            ["CIMatrixConfigs"] = new JsonArray()
+        };
+
+        if (language == SdkLanguage.DotNet)
+        {
+            parameters["BuildSnippets"] = true;
+            parameters["CheckAOTCompat"] = true;
+            parameters["AOTTestInputs"] = new JsonArray();
+        }
+
+        return parameters;
+    }
+
+    private static string? GetTypeSpecProjectPathFromTspLocation(string tspLocationPath)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(tspLocationPath))
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#'))
+                {
+                    continue;
+                }
+
+                if (trimmed.StartsWith("directory:", StringComparison.OrdinalIgnoreCase))
+                {
+                    return trimmed["directory:".Length..].Trim().Trim('"', '\'');
+                }
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static string? GetServiceDirectoryFromRelativePath(PackageInfo info)
+    {
+        if (string.IsNullOrEmpty(info.RelativePath))
+        {
+            return null;
+        }
+
+        var segments = info.RelativePath.Replace("\\", "/").Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+        {
+            return null;
+        }
+
+        if (info.Language == SdkLanguage.Go && segments.Length >= 2)
+        {
+            return $"{segments[0]}/{segments[1]}";
+        }
+
+        return segments[0];
+    }
+
+    private sealed record PackageInfoOptions(
+        string OutDir,
+        string? ServiceDirectory,
+        bool CiMode,
+        string? RepoRootOverride,
+        bool AddDevVersion,
+        string[] ArtifactList);
 
     private sealed class PackageEntry
     {

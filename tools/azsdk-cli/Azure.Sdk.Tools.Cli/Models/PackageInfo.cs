@@ -64,4 +64,39 @@ public class PackageInfo
     /// SDK type : management plane or data plane.
     /// </summary>
     public SdkType SdkType { get; set; } = SdkType.Unknown;
+
+    /// <summary>
+    /// Optional artifact name used for CI and packaging metadata.
+    /// </summary>
+    public string? ArtifactName { get; init; }
+
+    /// <summary>
+    /// Service directory under sdk/ (may include group/service for Go).
+    /// </summary>
+    public string? ServiceDirectory { get; init; }
+
+    /// <summary>
+    /// Optional group identifier (e.g., Maven groupId).
+    /// </summary>
+    public string? Group { get; init; }
+
+    /// <summary>
+    /// Optional spec project path (e.g., from tsp-location.yaml).
+    /// </summary>
+    public string? SpecProjectPath { get; init; }
+
+    /// <summary>
+    /// Release status derived from changelog (e.g., "Unreleased" or a date).
+    /// </summary>
+    public string? ReleaseStatus { get; init; }
+
+    /// <summary>
+    /// Indicates whether the package is a track 2 (new SDK) package.
+    /// </summary>
+    public bool IsNewSdk { get; init; }
+
+    /// <summary>
+    /// Indicates whether the package is included only for validation.
+    /// </summary>
+    public bool IncludedForValidation { get; init; }
 }
