@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Text.Json.Serialization;
+
+using System.Text.Json.Nodes;
 
 namespace Azure.Sdk.Tools.Cli.Models;
 
@@ -10,63 +11,52 @@ namespace Azure.Sdk.Tools.Cli.Models;
 public class PackageInfo
 {
     /// <summary>
-    /// Absolute path on disk to the root directory of the package that is being inspected / operated on.
+    /// Absolute path on disk to the root directory of the package.
     /// </summary>
-    /// <remarks>
-    /// This is typically a directory under the cloned azure-sdk-* repository, e.g. a path like
-    /// <c>/home/user/azure-sdk-for-js/sdk/storage/storage-blob</c>.
-    /// </remarks>
     public required string PackagePath { get; init; }
 
     /// <summary>
-    /// Absolute path to the root of the git repository that contains the package (e.g. <c>azure-sdk-for-js</c>).
+    /// Absolute path to the root of the git repository.
     /// </summary>
-    /// <remarks>
-    /// Useful when computing relative paths or when running repository level tooling (git operations, global config lookup, etc.).
-    /// </remarks>
     public required string RepoRoot { get; init; }
 
     /// <summary>
-    /// Path of the package relative to <see cref="RepoRoot"/> (no leading directory separators).
+    /// Path of the package relative to sdk/ directory (e.g., "storage/Azure.Storage.Blobs").
     /// </summary>
-    /// <example><c>sdk/storage/storage-blob</c></example>
     public required string RelativePath { get; init; }
 
     /// <summary>
-    /// The actual package name as defined in the language-specific manifest file.
+    /// The package name as defined in the manifest file.
     /// </summary>
     public required string? PackageName { get; init; }
 
     /// <summary>
-    /// Logical Azure service name that the package targets (e.g. <c>storage</c>, <c>keyvault</c>, <c>cosmos</c>).
+    /// Azure service name (e.g., storage, keyvault).
     /// </summary>
     public required string ServiceName { get; init; }
 
     /// <summary>
-    /// Language moniker (e.g. <c>typescript</c>, <c>dotnet</c>, <c>python</c>, <c>java</c>, <c>go</c> ).
+    /// SDK language (dotnet, java, python, etc.).
     /// </summary>
-    /// <remarks>
-    /// Used for selecting language specific strategies (sample folder layout, file extensions, version extraction, etc.).
-    /// </remarks>
     public required SdkLanguage Language { get; init; }
 
     /// <summary>
-    /// The current package version string, or <c>null</c> if it cannot be determined.
+    /// Current package version string.
     /// </summary>
     public required string? PackageVersion { get; init; }
 
     /// <summary>
-    /// The absolute path to the directory containing runnable samples for the package.
+    /// Absolute path to the samples directory.
     /// </summary>
     public required string SamplesDirectory { get; init; }
 
     /// <summary>
-    /// SDK type : management plane or data plane.
+    /// SDK type: management, dataplane, or functions.
     /// </summary>
-    public SdkType SdkType { get; set; } = SdkType.Unknown;
+    public SdkType SdkType { get; init; } = SdkType.Unknown;
 
     /// <summary>
-    /// Optional artifact name used for CI and packaging metadata.
+    /// Artifact name for CI/packaging (usually same as PackageName).
     /// </summary>
     public string? ArtifactName { get; init; }
 
@@ -81,27 +71,106 @@ public class PackageInfo
     public string? Group { get; init; }
 
     /// <summary>
-    /// Optional spec project path (e.g., from tsp-location.yaml).
-    /// </summary>
-    public string? SpecProjectPath { get; init; }
-
-    /// <summary>
-    /// Release status derived from changelog (e.g., "Unreleased" or a date).
+    /// Release status from changelog (e.g., "Unreleased" or a date).
     /// </summary>
     public string? ReleaseStatus { get; init; }
 
     /// <summary>
-    /// Indicates whether the package is a track 2 (new SDK) package.
+    /// Whether this is a track 2 (new SDK) package.
     /// </summary>
     public bool IsNewSdk { get; init; }
 
     /// <summary>
-    /// Indicates whether the package is included only for validation.
+    /// Whether the package is included only for validation (not direct changes).
     /// </summary>
-    public bool IncludedForValidation { get; init; }
+    public bool IncludedForValidation { get; set; }
 
     /// <summary>
-    /// Indicates whether the package opts out of AOT compatibility checks (dotnet).
+    /// Whether the package opts out of AOT compatibility checks (.NET only).
     /// </summary>
     public bool? AotCompatOptOut { get; init; }
+
+    /// <summary>
+    /// Paths that trigger CI for this package when changed.
+    /// Paths are relative to repo root with leading slash and use forward slashes.
+    /// </summary>
+    public List<string> TriggeringPaths { get; set; } = [];
+
+    /// <summary>
+    /// Additional packages that should be validated when this package changes.
+    /// Paths are relative to repo root.
+    /// </summary>
+    public List<string> AdditionalValidationPackages { get; set; } = [];
+
+    /// <summary>
+    /// CI parameters extracted from ci*.yml.
+    /// </summary>
+    public CiParameters CiParameters { get; set; } = CiParameters.Default;
+
+    /// <summary>
+    /// Directory path relative to repo root (e.g., "sdk/storage/Azure.Storage.Blobs").
+    /// </summary>
+    public string DirectoryPath => $"sdk/{RelativePath}".Replace("\\", "/");
+
+    /// <summary>
+    /// Converts to JSON format expected by CI pipelines.
+    /// </summary>
+    public JsonObject ToJson()
+    {
+        var readmePath = Path.Combine(PackagePath, "README.md");
+        var changelogPath = Path.Combine(PackagePath, "CHANGELOG.md");
+
+        return new JsonObject
+        {
+            ["Name"] = PackageName ?? string.Empty,
+            ["ArtifactName"] = ArtifactName ?? PackageName ?? string.Empty,
+            ["Version"] = PackageVersion ?? string.Empty,
+            ["DirectoryPath"] = DirectoryPath,
+            ["ServiceDirectory"] = ServiceDirectory ?? GetServiceDirectoryFromPath(),
+            ["ReadMePath"] = File.Exists(readmePath) ? GetRelativePath(readmePath) : string.Empty,
+            ["ChangeLogPath"] = File.Exists(changelogPath) ? GetRelativePath(changelogPath) : string.Empty,
+            ["Group"] = Group,
+            ["SdkType"] = SdkType switch
+            {
+                SdkType.Management => "mgmt",
+                SdkType.Dataplane => "client",
+                SdkType.Functions => "functions",
+                _ => string.Empty
+            },
+            ["IsNewSdk"] = IsNewSdk,
+            ["ReleaseStatus"] = ReleaseStatus ?? string.Empty,
+            ["IncludedForValidation"] = IncludedForValidation,
+            ["AdditionalValidationPackages"] = null,
+            ["ArtifactDetails"] = null,
+            ["CIParameters"] = CiParameters.ToJson(),
+            ["DevVersion"] = null
+        };
+    }
+
+    private string GetRelativePath(string absolutePath)
+    {
+        return Path.GetRelativePath(RepoRoot, absolutePath).Replace("\\", "/");
+    }
+
+    private string? GetServiceDirectoryFromPath()
+    {
+        if (string.IsNullOrEmpty(RelativePath))
+        {
+            return null;
+        }
+
+        var segments = RelativePath.Replace("\\", "/").Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+        {
+            return null;
+        }
+
+        // Go uses nested service directories like "resourcemanager/compute"
+        if (Language == SdkLanguage.Go && segments.Length >= 2)
+        {
+            return $"{segments[0]}/{segments[1]}";
+        }
+
+        return segments[0];
+    }
 }

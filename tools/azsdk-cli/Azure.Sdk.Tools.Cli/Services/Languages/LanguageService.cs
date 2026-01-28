@@ -59,6 +59,22 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
 #pragma warning restore CS1998
 
         /// <summary>
+        /// Discovers all packages in a service directory (or all services if empty).
+        /// Returns fully-populated PackageInfo including CI parameters and triggering paths.
+        /// </summary>
+        /// <param name="repoRoot">Absolute path to the repository root.</param>
+        /// <param name="serviceDirectory">Service directory under sdk/ (e.g., "storage"). Empty for all services.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>List of discovered packages with CI parameters populated.</returns>
+        public virtual Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
+            string repoRoot,
+            string? serviceDirectory,
+            CancellationToken ct = default)
+        {
+            throw new NotImplementedException("DiscoverPackagesAsync is not implemented for this language.");
+        }
+
+        /// <summary>
         /// Analyzes dependencies for the specific package.
         /// </summary>
         /// <param name="packagePath">Path to the package directory</param>

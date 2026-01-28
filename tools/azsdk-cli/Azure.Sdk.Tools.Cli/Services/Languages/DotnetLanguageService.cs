@@ -1,23 +1,25 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Diagnostics;
+
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Models.Responses.Package;
+using Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 namespace Azure.Sdk.Tools.Cli.Services.Languages;
 
 /// <summary>
 /// Produces <see cref="PackageInfo"/> for .NET packages.
 /// </summary>
-public sealed partial class DotnetLanguageService: LanguageService
+public sealed partial class DotnetLanguageService : LanguageService
 {
     private const string DotNetCommand = "dotnet";
     private const string RequiredDotNetVersion = "9.0.102"; // TODO - centralize this as part of env setup tool
     private const string GeneratedFolderName = "Generated";
     private static readonly TimeSpan CodeChecksTimeout = TimeSpan.FromMinutes(6);
     private static readonly TimeSpan AotCompatTimeout = TimeSpan.FromMinutes(5);
+    private static readonly string[] MsBuildOutputSeparator = ["' '"];
 
     private readonly IPowershellHelper powershellHelper;
 
@@ -35,157 +37,112 @@ public sealed partial class DotnetLanguageService: LanguageService
         this.powershellHelper = powershellHelper;
     }
 
-    public override SdkLanguage Language { get; } = SdkLanguage.DotNet;
+    public override SdkLanguage Language => SdkLanguage.DotNet;
     public override bool IsCustomizedCodeUpdateSupported => true;
 
-    private static readonly string[] separator = new[] { "' '" };
-
     /// <summary>
-    /// Gets the default samples directory path relative to the package path.
+    /// Discovers all packages in a service directory with CI parameters populated.
     /// </summary>
-    /// <param name="packagePath">The package path</param>
-    /// <returns>The default samples directory path</returns>
-    private static string GetDefaultSamplesDirectory(string packagePath) => Path.Combine(packagePath, "tests", "samples");
+    public override async Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
+        string repoRoot,
+        string? serviceDirectory,
+        CancellationToken ct = default)
+    {
+        var packages = await GetPackageInfosFromMsBuildAsync(repoRoot, serviceDirectory ?? string.Empty, ct);
+
+        // Populate CI parameters and triggering paths for each package
+        foreach (var package in packages)
+        {
+            PackageInfoCiHelper.PopulateCiParameters(package);
+        }
+
+        return packages;
+    }
 
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         logger.LogDebug("Resolving .NET package info for path: {packagePath}", packagePath);
         var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, packagePath, ct);
-        var (packageName, packageVersion, sdkType, serviceDirectory, isNewSdk, aotCompatOptOut) = await TryGetPackageInfoAsync(fullPath, ct);
 
-        if (string.IsNullOrWhiteSpace(packageName) ||
-            string.IsNullOrWhiteSpace(packageVersion) ||
-            string.IsNullOrWhiteSpace(sdkType) ||
-            string.IsNullOrWhiteSpace(serviceDirectory))
-        {
-            throw new InvalidOperationException($"Failed to resolve .NET package info for {fullPath}.");
-        }
+        var parsed = await TryGetSinglePackageInfoFromMsBuildAsync(fullPath, ct);
+        var package = parsed.HasValue
+            ? CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath)
+            : CreateBasicPackageInfo(repoRoot, relativePath, fullPath);
 
-        var samplesDirectory = FindSamplesDirectory(fullPath);
+        // Populate CI parameters
+        PackageInfoCiHelper.PopulateCiParameters(package);
 
-        var parsedSdkType = sdkType switch
-        {
-            "client" => SdkType.Dataplane,
-            "mgmt" => SdkType.Management,
-            "functions" => SdkType.Functions,
-            _ => SdkType.Unknown
-        };
+        logger.LogDebug("Resolved .NET package: {packageName} v{packageVersion} at {relativePath} (as {sdkType})",
+            package.PackageName ?? "(unknown)",
+            package.PackageVersion ?? "(unknown)",
+            relativePath,
+            package.SdkType);
 
-        var model = new PackageInfo
-        {
-            PackagePath = fullPath,
-            RepoRoot = repoRoot,
-            RelativePath = relativePath,
-            PackageName = packageName,
-            PackageVersion = packageVersion,
-            ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
-            Language = Models.SdkLanguage.DotNet,
-            SamplesDirectory = samplesDirectory,
-            SdkType = parsedSdkType,
-            ServiceDirectory = serviceDirectory,
-            ArtifactName = packageName,
-            IsNewSdk = isNewSdk,
-            AotCompatOptOut = aotCompatOptOut
-        };
-
-        logger.LogDebug("Resolved .NET package: {packageName} v{packageVersion} at {relativePath} (as {parsedSdkType})",
-            packageName ?? "(unknown)", packageVersion ?? "(unknown)", relativePath, parsedSdkType.ToString() ?? "(unknown)");
-
-        return model;
+        return package;
     }
 
+    /// <summary>
+    /// Gets package infos for a service directory. This is the legacy method signature kept for compatibility.
+    /// </summary>
     public async Task<IReadOnlyList<PackageInfo>> GetPackageInfosForServiceDirectory(
         string repoRoot,
         string serviceDirectory,
         bool addDevVersion,
         CancellationToken ct = default)
     {
+        // Note: addDevVersion is handled by the caller during JSON serialization
+        return await DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
+    }
+
+    private async Task<List<PackageInfo>> GetPackageInfosFromMsBuildAsync(
+        string repoRoot,
+        string serviceDirectory,
+        CancellationToken ct)
+    {
         var serviceProj = Path.Combine(repoRoot, "eng", "service.proj");
         var outputFilePath = Path.Combine(Path.GetTempPath(), $"package-info-{Guid.NewGuid()}.txt");
 
-        var args = new List<string>
+        try
         {
-            "msbuild",
-            "/nologo",
-            "/t:GetPackageInfo",
-            serviceProj,
-            $"/p:ServiceDirectory={serviceDirectory}",
-            $"/p:AddDevVersion={addDevVersion}",
-            $"/p:OutputProjectInfoListFilePath={outputFilePath}",
-            "-tl:off"
-        };
+            var result = await RunMsBuildGetPackageInfoAsync(serviceProj, serviceDirectory, outputFilePath, repoRoot, ct);
 
-        var result = await processHelper.Run(new ProcessOptions(
-            command: "dotnet",
-            args: [.. args],
-            workingDirectory: repoRoot
-        ), ct);
-
-        if (result == null || result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"MSBuild GetPackageInfo failed for {serviceProj}. Output: {result?.Output}");
-        }
-
-        var lines = new List<string>();
-        if (File.Exists(outputFilePath))
-        {
-            lines = File.ReadAllLines(outputFilePath)
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .ToList();
-            File.Delete(outputFilePath);
-        }
-
-        if (lines.Count == 0)
-        {
-            throw new InvalidOperationException($"MSBuild GetPackageInfo returned no packages for service directory '{serviceDirectory}'.");
-        }
-
-        var packageInfos = new List<PackageInfo>();
-        foreach (var line in lines)
-        {
-            if (!TryParsePackageInfoLine(line, out var parsed))
+            if (result.ExitCode != 0)
             {
-                continue;
+                throw new InvalidOperationException($"MSBuild GetPackageInfo failed for {serviceProj}. Output: {result.Output}");
             }
 
-            var (repoRootResolved, relativePath, fullPath) = PackagePathParser.Parse(gitHelper, parsed.PackagePath);
-            var samplesDirectory = FindSamplesDirectory(fullPath);
-            var parsedSdkType = parsed.SdkType switch
+            var lines = ReadAndDeleteOutputFile(outputFilePath);
+            if (lines.Count == 0)
             {
-                "client" => SdkType.Dataplane,
-                "mgmt" => SdkType.Management,
-                "functions" => SdkType.Functions,
-                _ => SdkType.Unknown
-            };
+                throw new InvalidOperationException($"MSBuild GetPackageInfo returned no packages for service directory '{serviceDirectory}'.");
+            }
 
-            packageInfos.Add(new PackageInfo
-            {
-                PackagePath = fullPath,
-                RepoRoot = repoRootResolved,
-                RelativePath = relativePath,
-                PackageName = parsed.PackageName,
-                PackageVersion = parsed.PackageVersion,
-                ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
-                Language = Models.SdkLanguage.DotNet,
-                SamplesDirectory = samplesDirectory,
-                SdkType = parsedSdkType,
-                ServiceDirectory = parsed.ServiceDirectory,
-                ArtifactName = parsed.PackageName,
-                IsNewSdk = parsed.IsNewSdk,
-                AotCompatOptOut = parsed.AotCompatOptOut
-            });
+            return await ParsePackageInfoLines(lines, ct);
         }
-
-        return packageInfos;
+        finally
+        {
+            // Ensure temp file is cleaned up
+            if (File.Exists(outputFilePath))
+            {
+                File.Delete(outputFilePath);
+            }
+        }
     }
 
-    private async Task<(string Name, string Version, string SdkType, string ServiceDirectory, bool IsNewSdk, bool? AotCompatOptOut)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
+    private async Task<ParsedMsBuildPackageInfo?> TryGetSinglePackageInfoFromMsBuildAsync(string packagePath, CancellationToken ct)
     {
-        var csproj = Directory.GetFiles(Path.Combine(packagePath, "src"), "*.csproj").FirstOrDefault();
+        var srcDir = Path.Combine(packagePath, "src");
+        if (!Directory.Exists(srcDir))
+        {
+            logger.LogDebug("No src directory found at {srcDir}, returning basic package info", srcDir);
+            return null;
+        }
 
+        var csproj = Directory.GetFiles(srcDir, "*.csproj").FirstOrDefault();
         if (csproj == null)
         {
-            throw new InvalidOperationException($"No .csproj file found in {packagePath}.");
+            logger.LogDebug("No .csproj file found in {srcDir}, returning basic package info", srcDir);
+            return null;
         }
 
         logger.LogTrace("Getting package info via MSBuild for: {csproj}", csproj);
@@ -197,104 +154,182 @@ public sealed partial class DotnetLanguageService: LanguageService
 
         if (result == null || result.ExitCode != 0)
         {
-            throw new InvalidOperationException($"MSBuild GetPackageInfo failed for {csproj}. Output: {result?.Output}");
+            logger.LogDebug("MSBuild GetPackageInfo failed for {csproj}. Output: {output}", csproj, result?.Output);
+            return null;
         }
 
-        // Parse JSON output
-        using var jsonDoc = JsonDocument.Parse(result.Stdout);
-        var targetResults = jsonDoc.RootElement.GetProperty("TargetResults");
-        var getPackageInfo = targetResults.GetProperty("GetPackageInfo");
-        var items = getPackageInfo.GetProperty("Items");
-        if (items.GetArrayLength() == 0)
+        try
         {
-            throw new InvalidOperationException($"MSBuild GetPackageInfo returned no items for {csproj}.");
+            using var jsonDoc = JsonDocument.Parse(result.Stdout);
+            var identity = jsonDoc.RootElement
+                .GetProperty("TargetResults")
+                .GetProperty("GetPackageInfo")
+                .GetProperty("Items")[0]
+                .GetProperty("Identity")
+                .GetString();
+
+            return ParseMsBuildOutputLine(identity);
         }
-
-        // Identity field which contains the package info
-        var identity = items[0].GetProperty("Identity").GetString();
-
-        // Parse the identity string:  'pkgPath' 'serviceDir' 'pkgName' 'pkgVersion' 'sdkType' 'isNewSdk' 'dllFolder' 'AotCompatOptOut'
-        var parts = identity?.Split(separator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Trim('\'', ' '))
-            .ToArray();
-
-        if (parts?.Length >= 6) // for now we only need items in the first 6 positions
+        catch (Exception ex)
         {
-            var name = parts[2]; // pkgName
-            var version = parts[3]; // pkgVersion
-            var sdkType = parts[4]; // sdkType
-            var serviceDirectory = parts[1]; // serviceDir
-            var isNewSdk = bool.TryParse(parts[5], out var parsed) && parsed;
-            bool? aotCompatOptOut = null;
-            if (parts.Length > 7 && bool.TryParse(parts[7], out var parsedOptOut))
-            {
-                aotCompatOptOut = parsedOptOut;
-            }
-
-            if (string.IsNullOrWhiteSpace(name) ||
-                string.IsNullOrWhiteSpace(version) ||
-                string.IsNullOrWhiteSpace(sdkType) ||
-                string.IsNullOrWhiteSpace(serviceDirectory))
-            {
-                throw new InvalidOperationException($"MSBuild GetPackageInfo returned incomplete data for {csproj}.");
-            }
-
-            logger.LogTrace("Found package info via MSBuild: {name} v{version} ({sdkType})",
-                name, version, sdkType);
-
-            return (name, version, sdkType, serviceDirectory, isNewSdk, aotCompatOptOut);
+            logger.LogDebug(ex, "Failed to parse MSBuild output for {csproj}", csproj);
+            return null;
         }
-
-        throw new InvalidOperationException($"Unable to parse MSBuild GetPackageInfo identity for {csproj}.");
     }
 
-    private static bool TryParsePackageInfoLine(string line, out ParsedPackageInfo parsed)
+    private async Task<ProcessResult> RunMsBuildGetPackageInfoAsync(
+        string serviceProj,
+        string serviceDirectory,
+        string outputFilePath,
+        string repoRoot,
+        CancellationToken ct)
     {
-        parsed = default;
-        if (string.IsNullOrWhiteSpace(line))
+        var args = new[]
         {
-            return false;
+            "msbuild",
+            "/nologo",
+            "/t:GetPackageInfo",
+            serviceProj,
+            $"/p:ServiceDirectory={serviceDirectory}",
+            "/p:AddDevVersion=false",
+            $"/p:OutputProjectInfoListFilePath={outputFilePath}",
+            "-tl:off"
+        };
+
+        var result = await processHelper.Run(new ProcessOptions(
+            command: "dotnet",
+            args: args,
+            workingDirectory: repoRoot
+        ), ct);
+
+        if (result == null)
+        {
+            var nullResult = new ProcessResult { ExitCode = -1 };
+            nullResult.AppendStderr("Process returned null");
+            return nullResult;
+        }
+        return result;
+    }
+
+    private static List<string> ReadAndDeleteOutputFile(string outputFilePath)
+    {
+        if (!File.Exists(outputFilePath))
+        {
+            return [];
         }
 
-        var parts = line.Split(separator, StringSplitOptions.RemoveEmptyEntries)
+        var lines = File.ReadAllLines(outputFilePath)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        File.Delete(outputFilePath);
+        return lines;
+    }
+
+    private async Task<List<PackageInfo>> ParsePackageInfoLines(List<string> lines, CancellationToken ct)
+    {
+        var packages = new List<PackageInfo>();
+
+        foreach (var line in lines)
+        {
+            var parsed = ParseMsBuildOutputLine(line);
+            if (parsed == null)
+            {
+                continue;
+            }
+
+            if (!Directory.Exists(parsed.Value.PackagePath))
+            {
+                logger.LogDebug("Skipping package with non-existent path: {path}", parsed.Value.PackagePath);
+                continue;
+            }
+
+            var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, parsed.Value.PackagePath, ct);
+            packages.Add(CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath));
+        }
+
+        return packages;
+    }
+
+    /// <summary>
+    /// Parses the MSBuild output format: 'pkgPath' 'serviceDir' 'pkgName' 'pkgVersion' 'sdkType' 'isNewSdk' 'dllFolder' 'AotCompatOptOut'
+    /// </summary>
+    private static ParsedMsBuildPackageInfo? ParseMsBuildOutputLine(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return null;
+        }
+
+        var parts = line.Split(MsBuildOutputSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Select(p => p.Trim('\'', ' '))
             .ToArray();
 
         if (parts.Length < 6)
         {
-            return false;
+            return null;
         }
 
-        var packagePath = parts[0];
-        if (!Directory.Exists(packagePath))
-        {
-            return false;
-        }
-
-        var serviceDirectory = parts[1];
-        var packageName = parts[2];
-        var packageVersion = parts[3];
-        var sdkType = parts[4];
-        var isNewSdk = bool.TryParse(parts[5], out var parsedIsNewSdk) && parsedIsNewSdk;
-        bool? aotCompatOptOut = null;
-        if (parts.Length > 7 && bool.TryParse(parts[7], out var parsedOptOut))
-        {
-            aotCompatOptOut = parsedOptOut;
-        }
-
-        parsed = new ParsedPackageInfo(
-            packagePath,
-            serviceDirectory,
-            packageName,
-            packageVersion,
-            sdkType,
-            isNewSdk,
-            aotCompatOptOut);
-
-        return true;
+        return new ParsedMsBuildPackageInfo(
+            PackagePath: parts[0],
+            ServiceDirectory: parts[1],
+            PackageName: parts[2],
+            PackageVersion: parts[3],
+            SdkType: parts[4],
+            IsNewSdk: bool.TryParse(parts[5], out var isNew) && isNew,
+            AotCompatOptOut: parts.Length > 7 && bool.TryParse(parts[7], out var aot) ? aot : null
+        );
     }
 
-    private readonly record struct ParsedPackageInfo(
+    private PackageInfo CreatePackageInfo(ParsedMsBuildPackageInfo parsed, string repoRoot, string relativePath, string fullPath)
+    {
+        var sdkType = parsed.SdkType switch
+        {
+            "client" => SdkType.Dataplane,
+            "mgmt" => SdkType.Management,
+            "functions" => SdkType.Functions,
+            _ => SdkType.Unknown
+        };
+
+        return new PackageInfo
+        {
+            PackagePath = fullPath,
+            RepoRoot = repoRoot,
+            RelativePath = relativePath,
+            PackageName = parsed.PackageName,
+            PackageVersion = parsed.PackageVersion,
+            ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
+            Language = SdkLanguage.DotNet,
+            SamplesDirectory = FindSamplesDirectory(fullPath),
+            SdkType = sdkType,
+            ServiceDirectory = parsed.ServiceDirectory,
+            ArtifactName = parsed.PackageName,
+            IsNewSdk = parsed.IsNewSdk,
+            AotCompatOptOut = parsed.AotCompatOptOut
+        };
+    }
+
+    /// <summary>
+    /// Creates a basic PackageInfo when MSBuild cannot provide package details.
+    /// Used when the src directory or .csproj file is missing.
+    /// </summary>
+    private PackageInfo CreateBasicPackageInfo(string repoRoot, string relativePath, string fullPath)
+    {
+        return new PackageInfo
+        {
+            PackagePath = fullPath,
+            RepoRoot = repoRoot,
+            RelativePath = relativePath,
+            PackageName = null,
+            PackageVersion = null,
+            ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
+            Language = SdkLanguage.DotNet,
+            SamplesDirectory = FindSamplesDirectory(fullPath),
+            SdkType = SdkType.Unknown
+        };
+    }
+
+    private readonly record struct ParsedMsBuildPackageInfo(
         string PackagePath,
         string ServiceDirectory,
         string PackageName,
@@ -303,11 +338,6 @@ public sealed partial class DotnetLanguageService: LanguageService
         bool IsNewSdk,
         bool? AotCompatOptOut);
 
-    /// <summary>
-    /// Finds the samples directory by looking for folders under tests that contain files with "#region Snippet:" in their content
-    /// </summary>
-    /// <param name="packagePath">The package path to search under</param>
-    /// <returns>The path to the samples directory, or a default path if not found</returns>
     private string FindSamplesDirectory(string packagePath)
     {
         try
@@ -315,7 +345,6 @@ public sealed partial class DotnetLanguageService: LanguageService
             var testsPath = Path.Combine(packagePath, "tests");
             if (!Directory.Exists(testsPath))
             {
-                logger.LogTrace("Tests directory not found at {testsPath}", testsPath);
                 return GetDefaultSamplesDirectory(packagePath);
             }
 
@@ -324,39 +353,35 @@ public sealed partial class DotnetLanguageService: LanguageService
 
             foreach (var directory in testSubdirectories)
             {
-                // Look for .cs files containing "#region Snippet:" in their content
-                var sampleFiles = Directory.GetFiles(directory, "*.cs", SearchOption.TopDirectoryOnly)
-                    .Where(file =>
+                var hasSamples = Directory.GetFiles(directory, "*.cs", SearchOption.TopDirectoryOnly)
+                    .Any(file =>
                     {
                         try
                         {
-                            var content = File.ReadAllText(file);
-                            return content.Contains("#region Snippet:", StringComparison.Ordinal);
+                            return File.ReadAllText(file).Contains("#region Snippet:", StringComparison.Ordinal);
                         }
                         catch
                         {
                             return false;
                         }
-                    })
-                    .ToArray();
+                    });
 
-                if (sampleFiles.Length > 0)
+                if (hasSamples)
                 {
-                    logger.LogTrace("Found samples directory at {directory} with {count} files containing snippet regions",
-                        directory, sampleFiles.Length);
                     return directory;
                 }
             }
 
-            logger.LogTrace("No samples directory found under {testsPath}, using default", testsPath);
             return GetDefaultSamplesDirectory(packagePath);
         }
-        catch (Exception ex)
+        catch
         {
-            logger.LogWarning(ex, "Error searching for samples directory under {packagePath}, using default", packagePath);
             return GetDefaultSamplesDirectory(packagePath);
         }
     }
+
+    private static string GetDefaultSamplesDirectory(string packagePath)
+        => Path.Combine(packagePath, "tests", "samples");
 
     public override async Task<TestRunResponse> RunAllTests(string packagePath, CancellationToken ct = default)
     {
@@ -364,24 +389,16 @@ public sealed partial class DotnetLanguageService: LanguageService
         var workingDirectory = Directory.Exists(testsPath) ? testsPath : packagePath;
 
         var result = await processHelper.Run(new ProcessOptions(
-                command: "dotnet",
-                args: ["test"],
-                workingDirectory: workingDirectory
-            ),
-            ct
-        );
+            command: "dotnet",
+            args: ["test"],
+            workingDirectory: workingDirectory
+        ), ct);
 
         return new TestRunResponse(result);
     }
 
     public override bool HasCustomizations(string packagePath, CancellationToken ct)
     {
-        // In azure-sdk-for-net, generated code lives in the Generated folder.
-        // Customizations are partial types defined outside the Generated folder.
-        // Example: sdk/ai/Azure.AI.DocumentIntelligence/src/
-        //   - Generated/ (generated code)
-        //   - Customized/ or other folders (customization code with partial classes)
-
         try
         {
             var generatedDirMarker = Path.DirectorySeparatorChar + GeneratedFolderName + Path.DirectorySeparatorChar;
@@ -392,13 +409,10 @@ public sealed partial class DotnetLanguageService: LanguageService
             {
                 try
                 {
-                    foreach (var line in File.ReadLines(file))
+                    if (File.ReadLines(file).Any(line => line.Contains("partial class")))
                     {
-                        if (line.Contains("partial class"))
-                        {
-                            logger.LogDebug("Found .NET partial class in {FilePath}", file);
-                            return true;
-                        }
+                        logger.LogDebug("Found .NET partial class in {FilePath}", file);
+                        return true;
                     }
                 }
                 catch (Exception ex)
@@ -407,7 +421,6 @@ public sealed partial class DotnetLanguageService: LanguageService
                 }
             }
 
-            logger.LogDebug("No .NET partial classes found in {PackagePath}", packagePath);
             return false;
         }
         catch (Exception ex)

@@ -730,6 +730,20 @@ public class PackageInfoTool(
             ? info.ServiceDirectory
             : GetServiceDirectoryFromRelativePath(info);
 
+        // Build triggering paths array
+        var triggeringPathsArray = new JsonArray();
+        foreach (var path in info.TriggeringPaths)
+        {
+            triggeringPathsArray.Add(path);
+        }
+
+        // Build additional validation packages array
+        var additionalValidationArray = new JsonArray();
+        foreach (var path in info.AdditionalValidationPackages)
+        {
+            additionalValidationArray.Add(path);
+        }
+
         return new JsonObject
         {
             ["Name"] = info.PackageName ?? string.Empty,
@@ -750,7 +764,8 @@ public class PackageInfoTool(
             ["IsNewSdk"] = info.IsNewSdk,
             ["ReleaseStatus"] = releaseStatus ?? string.Empty,
             ["IncludedForValidation"] = info.IncludedForValidation,
-            ["AdditionalValidationPackages"] = null,
+            ["AdditionalValidationPackages"] = additionalValidationArray,
+            ["TriggeringPaths"] = triggeringPathsArray,
             ["ArtifactDetails"] = null,
             ["CIParameters"] = PackageInfoCiHelper.GetCiParameters(info),
             ["DevVersion"] = null
@@ -871,8 +886,39 @@ public class PackageInfoTool(
 
         public bool IsNewSdk => bool.TryParse(Data["IsNewSdk"]?.ToString(), out var value) && value;
 
-        public List<string> TriggeringPaths => [];
-        public List<string> AdditionalValidationPackages => [];
+        public List<string> TriggeringPaths
+        {
+            get
+            {
+                if (Data["TriggeringPaths"] is not JsonArray array)
+                {
+                    return [];
+                }
+
+                return array
+                    .Select(node => node?.ToString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s!)
+                    .ToList();
+            }
+        }
+
+        public List<string> AdditionalValidationPackages
+        {
+            get
+            {
+                if (Data["AdditionalValidationPackages"] is not JsonArray array)
+                {
+                    return [];
+                }
+
+                return array
+                    .Select(node => node?.ToString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s!)
+                    .ToList();
+            }
+        }
 
         public void SetIncludedForValidation(bool included)
         {

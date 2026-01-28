@@ -29,6 +29,22 @@ public class DotNetPackageInfoHelperTests
         if (!Directory.Exists(Path.Combine(repoRoot, ".git"))) { await GitTestHelper.GitInitAsync(repoRoot); }
         var packagePath = Path.Combine(repoRoot, "sdk", "storage", "storage-blob");
         Directory.CreateDirectory(packagePath);
+
+        // Create minimal csproj for MSBuild
+        var srcDir = Path.Combine(packagePath, "src");
+        Directory.CreateDirectory(srcDir);
+        var csprojContent = @"<Project Sdk=""Microsoft.NET.Sdk"">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <Target Name=""GetPackageInfo"" Returns=""@(PackageInfoItem)"">
+    <ItemGroup>
+      <PackageInfoItem Include=""'$(MSBuildProjectDirectory)/..' 'storage' 'storage-blob' '1.0.0' 'client' 'true' 'bin/Release/net8.0' 'false'"" />
+    </ItemGroup>
+  </Target>
+</Project>";
+        File.WriteAllText(Path.Combine(srcDir, "storage-blob.csproj"), csprojContent);
+
         var ghMock = new Mock<IGitHubService>();
         var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
         var gitHelper = new GitHelper(ghMock.Object, gitCommandHelper, new TestLogger<GitHelper>());
@@ -36,6 +52,38 @@ public class DotNetPackageInfoHelperTests
         var powershellMock = new Mock<IPowershellHelper>();
         var commonValidationMock = new Mock<ICommonValidationHelpers>();
         return (packagePath, gitHelper, processMock.Object, powershellMock.Object, commonValidationMock.Object);
+    }
+
+    private async Task<(string packagePath, GitHelper gitHelper, ProcessHelper realProcessHelper, IPowershellHelper, ICommonValidationHelpers)> CreateTestPackageWithRealProcessAsync()
+    {
+        var repoRoot = Path.Combine(_tempDir.DirectoryPath, "test-repo");
+        Directory.CreateDirectory(repoRoot);
+        if (!Directory.Exists(Path.Combine(repoRoot, ".git"))) { await GitTestHelper.GitInitAsync(repoRoot); }
+        var packagePath = Path.Combine(repoRoot, "sdk", "storage", "storage-blob");
+        Directory.CreateDirectory(packagePath);
+
+        // Create minimal csproj for MSBuild
+        var srcDir = Path.Combine(packagePath, "src");
+        Directory.CreateDirectory(srcDir);
+        var csprojContent = @"<Project Sdk=""Microsoft.NET.Sdk"">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <Target Name=""GetPackageInfo"" Returns=""@(PackageInfoItem)"">
+    <ItemGroup>
+      <PackageInfoItem Include=""'$(MSBuildProjectDirectory)/..' 'storage' 'storage-blob' '1.0.0' 'client' 'true' 'bin/Release/net8.0' 'false'"" />
+    </ItemGroup>
+  </Target>
+</Project>";
+        File.WriteAllText(Path.Combine(srcDir, "storage-blob.csproj"), csprojContent);
+
+        var ghMock = new Mock<IGitHubService>();
+        var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
+        var gitHelper = new GitHelper(ghMock.Object, gitCommandHelper, new TestLogger<GitHelper>());
+        var realProcessHelper = new ProcessHelper(new TestLogger<ProcessHelper>(), Mock.Of<IRawOutputHelper>());
+        var powershellMock = new Mock<IPowershellHelper>();
+        var commonValidationMock = new Mock<ICommonValidationHelpers>();
+        return (packagePath, gitHelper, realProcessHelper, powershellMock.Object, commonValidationMock.Object);
     }
 
     private void CreateTestFile(string packagePath, string relativePath, string content)
@@ -53,11 +101,11 @@ public class DotNetPackageInfoHelperTests
     public async Task FindSamplesDirectory_WithSampleFiles_ReturnsSamplesDirectory()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         CreateTestFile(packagePath, "tests/samples/Sample01_Basic.cs", "#region Snippet:BasicSample\nnamespace Test; public class Sample01_Basic { }\n#endregion");
         CreateTestFile(packagePath, "tests/samples/BasicSample.cs", "#region Snippet:AnotherSample\nnamespace Test; public class BasicSample { }\n#endregion");
-        
+
         // Create non-sample files
         CreateTestFile(packagePath, "tests/unit/other.cs", "namespace Test; public class NotASample { }");
 
@@ -65,7 +113,7 @@ public class DotNetPackageInfoHelperTests
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "samples")));
     }
@@ -74,12 +122,12 @@ public class DotNetPackageInfoHelperTests
     public async Task FindSamplesDirectory_WithSnippetFiles_ReturnsSamplesDirectory()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         // Create snippet files that should be detected
         CreateTestFile(packagePath, "tests/snippets/Snippet01_Basic.cs", "#region Snippet:BasicSnippet\nnamespace Test; public class Snippet01_Basic { }\n#endregion");
         CreateTestFile(packagePath, "tests/snippets/BasicSnippet.cs", "#region Snippet:AnotherSnippet\nnamespace Test; public class BasicSnippet { }\n#endregion");
-        
+
         // Create non-sample files
         CreateTestFile(packagePath, "tests/unit/UnitTest.cs", "namespace Test; public class UnitTest { }");
 
@@ -87,16 +135,16 @@ public class DotNetPackageInfoHelperTests
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "snippets")));
     }
-    
+
     [Test]
     public async Task FindSamplesDirectory_WithNoSampleFiles_ReturnsDefaultPath()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         // Create non-sample files only
         CreateTestFile(packagePath, "tests/unit/other.cs", "namespace Test; public class NotASample { }");
@@ -105,22 +153,22 @@ public class DotNetPackageInfoHelperTests
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "samples")));
     }
-    
+
     [Test]
     public async Task FindSamplesDirectory_WithNoTestsDirectory_ReturnsDefaultPath()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         var helper = new DotnetLanguageService(processHelper, powershellHelper, gitHelper, new TestLogger<DotnetLanguageService>(), commonValidationHelpers, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>());
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "samples")));
     }
@@ -129,7 +177,7 @@ public class DotNetPackageInfoHelperTests
     public async Task FindSamplesDirectory_WithSnippetRegions_ReturnsCorrectDirectory()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         // Create files with snippet regions
         CreateTestFile(packagePath, "tests/examples/SAMPLE_Basic.cs", "#region Snippet:ExampleSnippet\nnamespace Test; public class SAMPLE_Basic { }\n#endregion");
@@ -139,7 +187,7 @@ public class DotNetPackageInfoHelperTests
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "examples")));
     }
@@ -148,7 +196,7 @@ public class DotNetPackageInfoHelperTests
     public async Task FindSamplesDirectory_WithMultipleDirectories_ReturnsFirstFoundDirectory()
     {
         // Arrange
-        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageAsync();
+        var (packagePath, gitHelper, processHelper, powershellHelper, commonValidationHelpers) = await CreateTestPackageWithRealProcessAsync();
 
         // Create files with snippet regions in multiple directories
         CreateTestFile(packagePath, "tests/examples/BasicSample.cs", "#region Snippet:ExampleSnippet\nnamespace Test; public class BasicSample { }\n#endregion");
@@ -158,7 +206,7 @@ public class DotNetPackageInfoHelperTests
 
         // Act
         var packageInfo = await helper.GetPackageInfo(packagePath);
-        
+
         // Assert - should return the first directory found (alphabetically, "examples" comes before "snippets")
         Assert.That(packageInfo.SamplesDirectory, Is.EqualTo(Path.Combine(packagePath, "tests", "examples")));
     }
@@ -177,7 +225,7 @@ public class DotNetPackageInfoHelperTests
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-  
+
   <Target Name=""GetPackageInfo"" Returns=""@(PackageInfoItem)"">
     <ItemGroup>
       <PackageInfoItem Include=""'$(MSBuildProjectDirectory)' 'testservice' 'Azure.Test.Package' '1.0.0' '{sdkTypeValue}' 'true' 'bin/Release/net8.0' 'false'"" />

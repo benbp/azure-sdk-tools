@@ -40,6 +40,15 @@ public static class PackageInfoFileWriter
         SetRelativePath(outputObject, "ReadMePath", repoRoot);
         SetRelativePath(outputObject, "ChangeLogPath", repoRoot);
 
+        // Remove internal-only fields that shouldn't be in output
+        outputObject.Remove("TriggeringPaths");
+
+        // Convert empty AdditionalValidationPackages array to null for parity with PowerShell
+        if (outputObject["AdditionalValidationPackages"] is JsonArray arr && arr.Count == 0)
+        {
+            outputObject["AdditionalValidationPackages"] = null;
+        }
+
         File.WriteAllText(outputPath, JsonSerializer.Serialize(outputObject, serializerOptions));
     }
 
