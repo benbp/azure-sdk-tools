@@ -112,7 +112,7 @@ public class PackageInfoTool(
 
     private async Task<CommandResponse> Execute(PackageInfoOptions options, CancellationToken ct)
     {
-        var repoRoot = ResolveRepoRoot(options.RepoRootOverride);
+        var repoRoot = await ResolveRepoRoot(options.RepoRootOverride, ct);
         var packages = await GetAllPackages(repoRoot, options.ServiceDirectory, ct);
         if (packages.Count == 0)
         {
@@ -137,7 +137,7 @@ public class PackageInfoTool(
 
     private async Task<List<PackageInfo>> GetAllPackages(string repoRoot, string? serviceDirectory, CancellationToken ct)
     {
-        var languageService = GetLanguageService(repoRoot)
+        var languageService = await GetLanguageServiceAsync(repoRoot, ct)
             ?? throw new InvalidOperationException("Unable to resolve language service for repository. Ensure repository name matches azure-sdk-for-<lang>.");
 
         var packages = await languageService.DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
@@ -207,14 +207,14 @@ public class PackageInfoTool(
         logger.LogInformation("Output path of json file: {OutputPath}", outputPath);
     }
 
-    private string ResolveRepoRoot(string? repoRootOverride)
+    private async Task<string> ResolveRepoRoot(string? repoRootOverride, CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(repoRootOverride))
         {
             return RealPath.GetRealPath(repoRootOverride);
         }
 
-        return gitHelper.DiscoverRepoRoot(Environment.CurrentDirectory);
+        return await gitHelper.DiscoverRepoRootAsync(Environment.CurrentDirectory, ct);
     }
 
     private async Task<PackageInfoDiff> BuildDiff(string repoRoot, CancellationToken ct)
