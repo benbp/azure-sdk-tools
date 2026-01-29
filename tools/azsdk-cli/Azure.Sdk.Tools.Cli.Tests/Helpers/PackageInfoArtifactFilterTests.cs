@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Text.Json.Nodes;
-using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
+using Azure.Sdk.Tools.Cli.Models;
 
 namespace Azure.Sdk.Tools.Cli.Tests.Helpers;
 
@@ -10,17 +10,17 @@ public class PackageInfoArtifactFilterTests
     [Test]
     public void FilterByArtifacts_ReturnsFilteredMatches()
     {
-        var packages = new List<JsonObject>
+        var packages = new List<PackageInfo>
         {
             new()
             {
-                ["Name"] = "PackageA",
-                ["ArtifactName"] = "artifact-a"
+                PackageName = "PackageA",
+                ArtifactName = "artifact-a"
             },
             new()
             {
-                ["Name"] = "PackageB",
-                ["ArtifactName"] = "artifact-b"
+                PackageName = "PackageB",
+                ArtifactName = "artifact-b"
             }
         };
 
@@ -28,19 +28,19 @@ public class PackageInfoArtifactFilterTests
         var result = PackageInfoArtifactFilter.FilterByArtifacts(packages, ["artifact-b"], warnings.Add);
 
         Assert.That(result.Count, Is.EqualTo(1));
-        Assert.That(result[0]["Name"]?.ToString(), Is.EqualTo("PackageB"));
+        Assert.That(result[0].PackageName, Is.EqualTo("PackageB"));
         Assert.That(warnings, Is.Empty);
     }
 
     [Test]
     public void FilterByArtifacts_UsesNoFilterWhenListIsEmpty()
     {
-        var packages = new List<JsonObject>
+        var packages = new List<PackageInfo>
         {
             new()
             {
-                ["Name"] = "PackageA",
-                ["ArtifactName"] = "artifact-a"
+                PackageName = "PackageA",
+                ArtifactName = "artifact-a"
             }
         };
 
@@ -50,4 +50,5 @@ public class PackageInfoArtifactFilterTests
         Assert.That(result.Count, Is.EqualTo(1));
         Assert.That(warnings, Is.Empty);
     }
+
 }

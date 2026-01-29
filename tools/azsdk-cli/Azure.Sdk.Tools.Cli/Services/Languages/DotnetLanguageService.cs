@@ -3,9 +3,9 @@
 
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Models.Responses.Package;
-using Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 namespace Azure.Sdk.Tools.Cli.Services.Languages;
 
@@ -291,6 +291,15 @@ public sealed partial class DotnetLanguageService : LanguageService
             _ => SdkType.Unknown
         };
 
+        // Build relative paths for DirectoryPath, ReadMePath, ChangeLogPath
+        var directoryPath = $"sdk/{relativePath}";
+        var readmePath = Path.Combine(fullPath, "README.md");
+        var changelogPath = Path.Combine(fullPath, "CHANGELOG.md");
+        
+        var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
+        var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
+        var releaseStatus = GetReleaseStatusFromChangelog(changelogPath);
+
         return new PackageInfo
         {
             PackagePath = fullPath,
@@ -305,7 +314,11 @@ public sealed partial class DotnetLanguageService : LanguageService
             ServiceDirectory = parsed.ServiceDirectory,
             ArtifactName = parsed.PackageName,
             IsNewSdk = parsed.IsNewSdk,
-            AotCompatOptOut = parsed.AotCompatOptOut
+            AotCompatOptOut = parsed.AotCompatOptOut,
+            DirectoryPath = directoryPath,
+            ReadMePath = readmeRelative,
+            ChangeLogPath = changelogRelative,
+            ReleaseStatus = releaseStatus
         };
     }
 
@@ -315,6 +328,15 @@ public sealed partial class DotnetLanguageService : LanguageService
     /// </summary>
     private PackageInfo CreateBasicPackageInfo(string repoRoot, string relativePath, string fullPath)
     {
+        // Build relative paths for DirectoryPath, ReadMePath, ChangeLogPath
+        var directoryPath = $"sdk/{relativePath}";
+        var readmePath = Path.Combine(fullPath, "README.md");
+        var changelogPath = Path.Combine(fullPath, "CHANGELOG.md");
+        
+        var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
+        var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
+        var releaseStatus = GetReleaseStatusFromChangelog(changelogPath);
+
         return new PackageInfo
         {
             PackagePath = fullPath,
@@ -325,7 +347,11 @@ public sealed partial class DotnetLanguageService : LanguageService
             ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
             Language = SdkLanguage.DotNet,
             SamplesDirectory = FindSamplesDirectory(fullPath),
-            SdkType = SdkType.Unknown
+            SdkType = SdkType.Unknown,
+            DirectoryPath = directoryPath,
+            ReadMePath = readmeRelative,
+            ChangeLogPath = changelogRelative,
+            ReleaseStatus = releaseStatus
         };
     }
 
@@ -382,6 +408,46 @@ public sealed partial class DotnetLanguageService : LanguageService
 
     private static string GetDefaultSamplesDirectory(string packagePath)
         => Path.Combine(packagePath, "tests", "samples");
+
+    /// <summary>
+    /// Extracts the release status (date or "Unreleased") from the first version entry in CHANGELOG.md.
+    /// Format: ## &lt;version&gt; (&lt;date&gt;) or ## &lt;version&gt; (Unreleased)
+    /// </summary>
+    private static string GetReleaseStatusFromChangelog(string changelogPath)
+    {
+        if (!File.Exists(changelogPath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            foreach (var line in File.ReadLines(changelogPath))
+            {
+                // Match lines like: ## 1.0.3-beta.20 (2022-04-26) or ## 1.0.0 (Unreleased)
+                if (!line.StartsWith("## ", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var openParen = line.IndexOf('(');
+                var closeParen = line.IndexOf(')');
+                if (openParen < 0 || closeParen < openParen)
+                {
+                    continue;
+                }
+
+                var status = line.Substring(openParen + 1, closeParen - openParen - 1).Trim();
+                return status;
+            }
+        }
+        catch
+        {
+            // Ignore errors reading changelog
+        }
+
+        return string.Empty;
+    }
 
     public override async Task<TestRunResponse> RunAllTests(string packagePath, CancellationToken ct = default)
     {

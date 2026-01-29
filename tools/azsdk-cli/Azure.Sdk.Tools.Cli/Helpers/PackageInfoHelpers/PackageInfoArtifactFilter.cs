@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Text.Json.Nodes;
 
-namespace Azure.Sdk.Tools.Cli.Helpers;
+using Azure.Sdk.Tools.Cli.Models;
+
+namespace Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 
 public static class PackageInfoArtifactFilter
 {
-    public static List<JsonObject> FilterByArtifacts(
-        List<JsonObject> packages,
+    public static List<PackageInfo> FilterByArtifacts(
+        List<PackageInfo> packages,
         IEnumerable<string>? artifactList,
         Action<string> warn)
     {
@@ -36,19 +37,14 @@ public static class PackageInfoArtifactFilter
         var artifactSet = new HashSet<string>(filteredArtifacts, StringComparer.OrdinalIgnoreCase);
         foreach (var pkg in packages)
         {
-            if (!pkg.TryGetPropertyValue("ArtifactName", out var artifactNode) || string.IsNullOrEmpty(artifactNode?.ToString()))
+            if (string.IsNullOrEmpty(pkg.ArtifactName))
             {
-                var packageName = pkg["Name"]?.ToString() ?? "(unknown)";
-                warn($"Package '{packageName}' does not have an 'ArtifactName' property and will be excluded from artifact filtering.");
+                warn($"Package '{pkg.PackageName ?? "(unknown)"}' does not have an 'ArtifactName' property and will be excluded from artifact filtering.");
             }
         }
 
         var filtered = packages
-            .Where(pkg =>
-            {
-                var artifactName = pkg["ArtifactName"]?.ToString();
-                return !string.IsNullOrEmpty(artifactName) && artifactSet.Contains(artifactName);
-            })
+            .Where(pkg => !string.IsNullOrEmpty(pkg.ArtifactName) && artifactSet.Contains(pkg.ArtifactName))
             .ToList();
 
         if (filtered.Count == 0)
