@@ -158,6 +158,7 @@ public class PackageInfo
         {
             "mgmt" => SdkType.Management,
             "client" => SdkType.Dataplane,
+            "spring" => SdkType.Spring,
             "functions" => SdkType.Functions,
             _ => SdkType.Unknown
         };
@@ -165,6 +166,7 @@ public class PackageInfo
         {
             SdkType.Management => "mgmt",
             SdkType.Dataplane => "client",
+            SdkType.Spring => "spring",
             SdkType.Functions => "functions",
             _ => string.Empty
         };
