@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 
@@ -13,27 +12,10 @@ namespace Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 /// </summary>
 internal static class PackageInfoCiHelper
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = null,
-        WriteIndented = false
-    };
-
-    /// <summary>
-    /// Returns CI parameters as a JsonObject for use in the package info output.
-    /// </summary>
-    public static JsonObject? GetCiParameters(PackageInfo info)
-    {
-        PopulateCiParameters(info);
-
-        if (info.CiParameters == null)
-        {
-            return null;
-        }
-
-        var json = JsonSerializer.Serialize(info.CiParameters, JsonOptions);
-        return JsonNode.Parse(json)?.AsObject();
-    }
+    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+        .WithNamingConvention(NullNamingConvention.Instance)
+        .IgnoreUnmatchedProperties()
+        .Build();
 
     /// <summary>
     /// Populates CI parameters and triggering paths on a PackageInfo instance.
@@ -117,7 +99,7 @@ internal static class PackageInfoCiHelper
         };
     }
 
-    private static (CiYaml Yaml, string Path)? TryFindCiYaml(PackageInfo info)
+    private static (CiPipelineYaml Yaml, string Path)? TryFindCiYaml(PackageInfo info)
     {
         if (string.IsNullOrWhiteSpace(info.ServiceDirectory))
         {
@@ -147,7 +129,7 @@ internal static class PackageInfoCiHelper
 
         foreach (var ciFile in ciFiles)
         {
-            var yaml = YamlHelper.Deserialize<CiYaml>(ciFile);
+            var yaml = DeserializeYaml<CiPipelineYaml>(ciFile);
             if (yaml == null)
             {
                 continue;
@@ -162,7 +144,20 @@ internal static class PackageInfoCiHelper
         return null;
     }
 
-    private static bool MatchesArtifact(CiYaml yaml, string? artifactName, string? group)
+    private static T? DeserializeYaml<T>(string path) where T : class
+    {
+        try
+        {
+            using var reader = new StreamReader(path);
+            return YamlDeserializer.Deserialize<T>(reader);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool MatchesArtifact(CiPipelineYaml yaml, string? artifactName, string? group)
     {
         var artifacts = yaml.Extends?.Parameters?.Artifacts;
         if (artifacts == null)
@@ -192,7 +187,7 @@ internal static class PackageInfoCiHelper
         return false;
     }
 
-    private static List<Dictionary<string, object?>> ConvertAotInputs(List<CiYamlAotTestInput> inputs)
+    private static List<Dictionary<string, object?>> ConvertAotInputs(List<CiPipelineYamlAotTestInput> inputs)
     {
         var result = new List<Dictionary<string, object?>>();
 

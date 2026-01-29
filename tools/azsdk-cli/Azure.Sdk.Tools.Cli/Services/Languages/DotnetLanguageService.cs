@@ -81,19 +81,6 @@ public sealed partial class DotnetLanguageService : LanguageService
         return package;
     }
 
-    /// <summary>
-    /// Gets package infos for a service directory. This is the legacy method signature kept for compatibility.
-    /// </summary>
-    public async Task<IReadOnlyList<PackageInfo>> GetPackageInfosForServiceDirectory(
-        string repoRoot,
-        string serviceDirectory,
-        bool addDevVersion,
-        CancellationToken ct = default)
-    {
-        // Note: addDevVersion is handled by the caller during JSON serialization
-        return await DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
-    }
-
     private async Task<List<PackageInfo>> GetPackageInfosFromMsBuildAsync(
         string repoRoot,
         string serviceDirectory,

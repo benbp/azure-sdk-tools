@@ -140,32 +140,8 @@ public class PackageInfoTool(
         var languageService = GetLanguageService(repoRoot)
             ?? throw new InvalidOperationException("Unable to resolve language service for repository. Ensure repository name matches azure-sdk-for-<lang>.");
 
-        if (languageService is DotnetLanguageService dotnetService)
-        {
-            var infos = await dotnetService.GetPackageInfosForServiceDirectory(repoRoot, serviceDirectory ?? string.Empty, addDevVersion: false, ct);
-            return infos.ToList();
-        }
-
-        var sdkRoot = Path.Combine(repoRoot, "sdk");
-        var searchRoot = string.IsNullOrWhiteSpace(serviceDirectory)
-            ? sdkRoot
-            : Path.Combine(sdkRoot, serviceDirectory);
-
-        if (!Directory.Exists(searchRoot))
-        {
-            throw new DirectoryNotFoundException($"Service directory does not exist: {searchRoot}");
-        }
-
-        var packageDirectories = GetPackageDirectories(languageService.Language, sdkRoot, searchRoot, !string.IsNullOrWhiteSpace(serviceDirectory));
-        var packages = new List<PackageInfo>();
-
-        foreach (var packageDirectory in packageDirectories)
-        {
-            var packageInfo = await languageService.GetPackageInfo(packageDirectory, ct);
-            packages.Add(packageInfo);
-        }
-
-        return packages;
+        var packages = await languageService.DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
+        return packages.ToList();
     }
 
     private async Task<List<PackageInfo>> SelectPackages(string repoRoot, List<PackageInfo> packages, bool ciMode, CancellationToken ct)
@@ -587,104 +563,6 @@ public class PackageInfoTool(
         var envPath = Environment.GetEnvironmentVariable("BUILD_SOURCESDIRECTORY")
             ?? Environment.GetEnvironmentVariable("SYSTEM_DEFAULTWORKINGDIRECTORY");
         return string.IsNullOrWhiteSpace(envPath) ? repoRoot : envPath;
-    }
-
-    private static IEnumerable<string> GetPackageDirectories(
-        SdkLanguage language,
-        string sdkRoot,
-        string searchRoot,
-        bool isServiceRoot)
-    {
-        if (language == SdkLanguage.DotNet)
-        {
-            return GetDotNetPackageDirectories(sdkRoot, searchRoot, isServiceRoot);
-        }
-
-        var patterns = language switch
-        {
-            SdkLanguage.Java => new[] { "pom.xml" },
-            SdkLanguage.JavaScript => new[] { "package.json" },
-            SdkLanguage.Python => new[] { "setup.py", "pyproject.toml" },
-            SdkLanguage.Go => new[] { "go.mod" },
-            _ => Array.Empty<string>()
-        };
-
-        if (patterns.Length == 0)
-        {
-            return [];
-        }
-
-        var packageRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pattern in patterns)
-        {
-            foreach (var filePath in Directory.EnumerateFiles(searchRoot, pattern, SearchOption.AllDirectories))
-            {
-                var packageRoot = GetPackageRootFromManifest(language, filePath);
-                if (!string.IsNullOrEmpty(packageRoot))
-                {
-                    packageRoots.Add(packageRoot);
-                }
-            }
-        }
-
-        return packageRoots;
-    }
-
-    private static IEnumerable<string> GetDotNetPackageDirectories(string sdkRoot, string searchRoot, bool isServiceRoot)
-    {
-        if (isServiceRoot)
-        {
-            return GetDotNetPackagesUnderService(searchRoot);
-        }
-
-        var packages = new List<string>();
-        foreach (var serviceDir in Directory.GetDirectories(sdkRoot))
-        {
-            packages.AddRange(GetDotNetPackagesUnderService(serviceDir));
-        }
-
-        return packages;
-    }
-
-    private static IEnumerable<string> GetDotNetPackagesUnderService(string serviceRoot)
-    {
-        var packages = new List<string>();
-        foreach (var packageDir in Directory.GetDirectories(serviceRoot))
-        {
-            var srcDir = Path.Combine(packageDir, "src");
-            if (!Directory.Exists(srcDir))
-            {
-                continue;
-            }
-
-            if (Directory.GetFiles(srcDir, "*.csproj", SearchOption.TopDirectoryOnly).Length > 0)
-            {
-                packages.Add(packageDir);
-            }
-        }
-
-        return packages;
-    }
-
-    private static string? GetPackageRootFromManifest(SdkLanguage language, string manifestPath)
-    {
-        var directory = Path.GetDirectoryName(manifestPath);
-        if (string.IsNullOrEmpty(directory))
-        {
-            return null;
-        }
-
-        if (language == SdkLanguage.DotNet)
-        {
-            var directoryName = new DirectoryInfo(directory).Name;
-            if (string.Equals(directoryName, "src", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(directoryName, "test", StringComparison.OrdinalIgnoreCase))
-            {
-                return Directory.GetParent(directory)?.FullName;
-            }
-        }
-
-        return directory;
     }
 
     private sealed record PackageInfoOptions(

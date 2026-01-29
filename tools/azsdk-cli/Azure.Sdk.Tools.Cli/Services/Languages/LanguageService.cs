@@ -61,17 +61,106 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         /// <summary>
         /// Discovers all packages in a service directory (or all services if empty).
         /// Returns fully-populated PackageInfo including CI parameters and triggering paths.
+        /// Default implementation discovers package directories and calls GetPackageInfo for each.
         /// </summary>
         /// <param name="repoRoot">Absolute path to the repository root.</param>
         /// <param name="serviceDirectory">Service directory under sdk/ (e.g., "storage"). Empty for all services.</param>
         /// <param name="ct">Cancellation token.</param>
         /// <returns>List of discovered packages with CI parameters populated.</returns>
-        public virtual Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
+        public virtual async Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
             string repoRoot,
             string? serviceDirectory,
             CancellationToken ct = default)
         {
-            throw new NotImplementedException("DiscoverPackagesAsync is not implemented for this language.");
+            var sdkRoot = Path.Combine(repoRoot, "sdk");
+            var searchRoot = string.IsNullOrWhiteSpace(serviceDirectory)
+                ? sdkRoot
+                : Path.Combine(sdkRoot, serviceDirectory);
+
+            if (!Directory.Exists(searchRoot))
+            {
+                return [];
+            }
+
+            var packageDirectories = DiscoverPackageDirectories(searchRoot, !string.IsNullOrWhiteSpace(serviceDirectory));
+            var packages = new List<PackageInfo>();
+
+            foreach (var packageDirectory in packageDirectories)
+            {
+                try
+                {
+                    var packageInfo = await GetPackageInfo(packageDirectory, ct);
+                    packages.Add(packageInfo);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "Failed to get package info for {directory}", packageDirectory);
+                }
+            }
+
+            return packages;
+        }
+
+        /// <summary>
+        /// Discovers package directories under the search root.
+        /// Override this to customize package discovery for a language.
+        /// </summary>
+        protected virtual IEnumerable<string> DiscoverPackageDirectories(string searchRoot, bool isServiceDirectory)
+        {
+            var patterns = Language switch
+            {
+                SdkLanguage.Java => new[] { "pom.xml" },
+                SdkLanguage.JavaScript => new[] { "package.json" },
+                SdkLanguage.Python => new[] { "setup.py", "pyproject.toml" },
+                SdkLanguage.Go => new[] { "go.mod" },
+                SdkLanguage.DotNet => new[] { "*.csproj" },
+                _ => Array.Empty<string>()
+            };
+
+            if (patterns.Length == 0)
+            {
+                return [];
+            }
+
+            var packageRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pattern in patterns)
+            {
+                foreach (var filePath in Directory.EnumerateFiles(searchRoot, pattern, SearchOption.AllDirectories))
+                {
+                    var packageRoot = GetPackageRootFromManifest(filePath);
+                    if (!string.IsNullOrEmpty(packageRoot))
+                    {
+                        packageRoots.Add(packageRoot);
+                    }
+                }
+            }
+
+            return packageRoots;
+        }
+
+        /// <summary>
+        /// Gets the package root directory from a manifest file path.
+        /// </summary>
+        protected virtual string? GetPackageRootFromManifest(string manifestPath)
+        {
+            var directory = Path.GetDirectoryName(manifestPath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return null;
+            }
+
+            // For .NET, manifest is in src/ subdirectory
+            if (Language == SdkLanguage.DotNet)
+            {
+                var directoryName = new DirectoryInfo(directory).Name;
+                if (string.Equals(directoryName, "src", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(directoryName, "test", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Directory.GetParent(directory)?.FullName;
+                }
+            }
+
+            return directory;
         }
 
         /// <summary>

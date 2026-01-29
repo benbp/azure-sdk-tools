@@ -6,22 +6,22 @@ using YamlDotNet.Serialization;
 namespace Azure.Sdk.Tools.Cli.Models;
 
 /// <summary>
-/// Model for deserializing Azure DevOps CI YAML files.
+/// Model for deserializing Azure DevOps CI pipeline YAML files (ci*.yml).
 /// Only includes fields relevant to package info extraction.
 /// </summary>
-internal class CiYaml
+internal class CiPipelineYaml
 {
     [YamlMember(Alias = "extends")]
-    public CiYamlExtends? Extends { get; set; }
+    public CiPipelineYamlExtends? Extends { get; set; }
 }
 
-internal class CiYamlExtends
+internal class CiPipelineYamlExtends
 {
     [YamlMember(Alias = "parameters")]
-    public CiYamlParameters? Parameters { get; set; }
+    public CiPipelineYamlParameters? Parameters { get; set; }
 }
 
-internal class CiYamlParameters
+internal class CiPipelineYamlParameters
 {
     [YamlMember(Alias = "BuildSnippets")]
     public bool? BuildSnippets { get; set; }
@@ -30,7 +30,7 @@ internal class CiYamlParameters
     public bool? CheckAotCompat { get; set; }
 
     [YamlMember(Alias = "AOTTestInputs")]
-    public List<CiYamlAotTestInput>? AotTestInputs { get; set; }
+    public List<CiPipelineYamlAotTestInput>? AotTestInputs { get; set; }
 
     [YamlMember(Alias = "MatrixConfigs")]
     public List<Dictionary<string, object>>? MatrixConfigs { get; set; }
@@ -42,10 +42,10 @@ internal class CiYamlParameters
     public List<string>? TriggeringPaths { get; set; }
 
     [YamlMember(Alias = "Artifacts")]
-    public List<CiYamlArtifact>? Artifacts { get; set; }
+    public List<CiPipelineYamlArtifact>? Artifacts { get; set; }
 }
 
-internal class CiYamlAotTestInput
+internal class CiPipelineYamlAotTestInput
 {
     [YamlMember(Alias = "ArtifactName")]
     public string? ArtifactName { get; set; }
@@ -69,7 +69,7 @@ internal class CiYamlAotTestInput
         !string.Equals(WarningsFilePath, "None", StringComparison.OrdinalIgnoreCase);
 }
 
-internal class CiYamlArtifact
+internal class CiPipelineYamlArtifact
 {
     [YamlMember(Alias = "name")]
     public string? Name { get; set; }
