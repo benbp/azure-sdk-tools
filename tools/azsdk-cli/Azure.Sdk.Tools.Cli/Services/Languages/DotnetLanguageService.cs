@@ -304,7 +304,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = ChangelogHelper.GetReleaseStatus(changelogPath);
+        var releaseStatus = changelogHelper.GetReleaseStatus(changelogPath);
 
         return new PackageInfo
         {
@@ -341,7 +341,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = ChangelogHelper.GetReleaseStatus(changelogPath);
+        var releaseStatus = changelogHelper.GetReleaseStatus(changelogPath);
 
         return new PackageInfo
         {
