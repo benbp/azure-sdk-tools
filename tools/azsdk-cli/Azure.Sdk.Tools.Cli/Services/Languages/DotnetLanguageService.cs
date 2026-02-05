@@ -41,6 +41,33 @@ public sealed partial class DotnetLanguageService : LanguageService
     public override bool IsCustomizedCodeUpdateSupported => true;
 
     /// <summary>
+    /// .NET packages are identified by .csproj files.
+    /// </summary>
+    protected override string[] PackageManifestPatterns => ["*.csproj"];
+
+    /// <summary>
+    /// For .NET, the .csproj is typically in a src/ or test/ subdirectory.
+    /// The package root is the parent of that directory.
+    /// </summary>
+    protected override string? GetPackageRootFromManifest(string manifestPath)
+    {
+        var directory = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return null;
+        }
+
+        var directoryName = new DirectoryInfo(directory).Name;
+        if (string.Equals(directoryName, "src", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(directoryName, "test", StringComparison.OrdinalIgnoreCase))
+        {
+            return Directory.GetParent(directory)?.FullName;
+        }
+
+        return directory;
+    }
+
+    /// <summary>
     /// Discovers all packages in a service directory with CI parameters populated.
     /// </summary>
     public override async Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
@@ -270,14 +297,6 @@ public sealed partial class DotnetLanguageService : LanguageService
 
     private PackageInfo CreatePackageInfo(ParsedMsBuildPackageInfo parsed, string repoRoot, string relativePath, string fullPath)
     {
-        var sdkType = parsed.SdkType switch
-        {
-            "client" => SdkType.Dataplane,
-            "mgmt" => SdkType.Management,
-            "functions" => SdkType.Functions,
-            _ => SdkType.Unknown
-        };
-
         // Build relative paths for DirectoryPath, ReadMePath, ChangeLogPath
         var directoryPath = $"sdk/{relativePath}";
         var readmePath = Path.Combine(fullPath, "README.md");
@@ -285,7 +304,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = GetReleaseStatusFromChangelog(changelogPath);
+        var releaseStatus = ChangelogHelper.GetReleaseStatus(changelogPath);
 
         return new PackageInfo
         {
@@ -297,7 +316,7 @@ public sealed partial class DotnetLanguageService : LanguageService
             ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
             Language = SdkLanguage.DotNet,
             SamplesDirectory = FindSamplesDirectory(fullPath),
-            SdkType = sdkType,
+            SdkTypeString = parsed.SdkType, // Use string directly - PackageInfo handles conversion
             ServiceDirectory = parsed.ServiceDirectory,
             ArtifactName = parsed.PackageName,
             IsNewSdk = parsed.IsNewSdk,
@@ -322,7 +341,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = GetReleaseStatusFromChangelog(changelogPath);
+        var releaseStatus = ChangelogHelper.GetReleaseStatus(changelogPath);
 
         return new PackageInfo
         {
@@ -395,46 +414,6 @@ public sealed partial class DotnetLanguageService : LanguageService
 
     private static string GetDefaultSamplesDirectory(string packagePath)
         => Path.Combine(packagePath, "tests", "samples");
-
-    /// <summary>
-    /// Extracts the release status (date or "Unreleased") from the first version entry in CHANGELOG.md.
-    /// Format: ## &lt;version&gt; (&lt;date&gt;) or ## &lt;version&gt; (Unreleased)
-    /// </summary>
-    private static string GetReleaseStatusFromChangelog(string changelogPath)
-    {
-        if (!File.Exists(changelogPath))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            foreach (var line in File.ReadLines(changelogPath))
-            {
-                // Match lines like: ## 1.0.3-beta.20 (2022-04-26) or ## 1.0.0 (Unreleased)
-                if (!line.StartsWith("## ", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var openParen = line.IndexOf('(');
-                var closeParen = line.IndexOf(')');
-                if (openParen < 0 || closeParen < openParen)
-                {
-                    continue;
-                }
-
-                var status = line.Substring(openParen + 1, closeParen - openParen - 1).Trim();
-                return status;
-            }
-        }
-        catch
-        {
-            // Ignore errors reading changelog
-        }
-
-        return string.Empty;
-    }
 
     public override async Task<TestRunResponse> RunAllTests(string packagePath, CancellationToken ct = default)
     {

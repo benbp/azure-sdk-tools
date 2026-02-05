@@ -15,6 +15,12 @@ public sealed partial class JavaLanguageService : LanguageService
 {
     public override SdkLanguage Language { get; } = SdkLanguage.Java;
     public override bool IsCustomizedCodeUpdateSupported => true;
+
+    /// <summary>
+    /// Java packages are identified by pom.xml files.
+    /// </summary>
+    protected override string[] PackageManifestPatterns => ["pom.xml"];
+
     private readonly IMicroagentHostService microagentHost;
     private readonly IMavenHelper _mavenHelper;
     private const string CustomizationDirName = "customization";

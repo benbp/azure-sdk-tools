@@ -41,6 +41,11 @@ public partial class GoLanguageService : LanguageService
     public override SdkLanguage Language { get; } = SdkLanguage.Go;
     public override bool IsCustomizedCodeUpdateSupported => true;
 
+    /// <summary>
+    /// Go packages are identified by go.mod files.
+    /// </summary>
+    protected override string[] PackageManifestPatterns => ["go.mod"];
+
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         var fullPath = RealPath.GetRealPath(packagePath);

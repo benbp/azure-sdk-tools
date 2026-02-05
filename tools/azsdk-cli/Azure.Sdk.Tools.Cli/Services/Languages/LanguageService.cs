@@ -107,16 +107,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         /// </summary>
         protected virtual IEnumerable<string> DiscoverPackageDirectories(string searchRoot, bool isServiceDirectory)
         {
-            var patterns = Language switch
-            {
-                SdkLanguage.Java => new[] { "pom.xml" },
-                SdkLanguage.JavaScript => new[] { "package.json" },
-                SdkLanguage.Python => new[] { "setup.py", "pyproject.toml" },
-                SdkLanguage.Go => new[] { "go.mod" },
-                SdkLanguage.DotNet => new[] { "*.csproj" },
-                _ => Array.Empty<string>()
-            };
-
+            var patterns = PackageManifestPatterns;
             if (patterns.Length == 0)
             {
                 return [];
@@ -139,28 +130,19 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         }
 
         /// <summary>
+        /// File patterns used to identify package manifest files (e.g., "pom.xml", "package.json").
+        /// Override in derived classes to specify language-specific patterns.
+        /// </summary>
+        protected virtual string[] PackageManifestPatterns => [];
+
+        /// <summary>
         /// Gets the package root directory from a manifest file path.
+        /// Default implementation returns the directory containing the manifest.
+        /// Override in derived classes if the manifest is in a subdirectory (e.g., src/).
         /// </summary>
         protected virtual string? GetPackageRootFromManifest(string manifestPath)
         {
-            var directory = Path.GetDirectoryName(manifestPath);
-            if (string.IsNullOrEmpty(directory))
-            {
-                return null;
-            }
-
-            // For .NET, manifest is in src/ subdirectory
-            if (Language == SdkLanguage.DotNet)
-            {
-                var directoryName = new DirectoryInfo(directory).Name;
-                if (string.Equals(directoryName, "src", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(directoryName, "test", StringComparison.OrdinalIgnoreCase))
-                {
-                    return Directory.GetParent(directory)?.FullName;
-                }
-            }
-
-            return directory;
+            return Path.GetDirectoryName(manifestPath);
         }
 
         /// <summary>

@@ -29,6 +29,11 @@ public sealed partial class PythonLanguageService : LanguageService
     public override SdkLanguage Language { get; } = SdkLanguage.Python;
     public override bool IsCustomizedCodeUpdateSupported => true;
 
+    /// <summary>
+    /// Python packages are identified by setup.py or pyproject.toml files.
+    /// </summary>
+    protected override string[] PackageManifestPatterns => ["setup.py", "pyproject.toml"];
+
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         logger.LogDebug("Resolving Python package info for path: {packagePath}", packagePath);

@@ -28,6 +28,11 @@ public sealed partial class JavaScriptLanguageService : LanguageService
     public override SdkLanguage Language { get; } = SdkLanguage.JavaScript;
     public override bool IsCustomizedCodeUpdateSupported => true;
 
+    /// <summary>
+    /// JavaScript packages are identified by package.json files.
+    /// </summary>
+    protected override string[] PackageManifestPatterns => ["package.json"];
+
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         logger.LogDebug("Resolving JavaScript package info for path: {packagePath}", packagePath);
