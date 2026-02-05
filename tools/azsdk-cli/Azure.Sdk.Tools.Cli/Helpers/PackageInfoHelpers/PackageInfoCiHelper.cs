@@ -85,6 +85,7 @@ internal static class PackageInfoCiHelper
         // Additional validation packages
         var additionalPackages = artifact?.AdditionalValidationPackages?
             .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => (NormalizedPath)p)
             .ToList() ?? [];
 
         // Update PackageInfo
@@ -229,7 +230,7 @@ internal static class PackageInfoCiHelper
         }
     }
 
-    private static List<string> ResolveTriggeringPaths(List<string> paths, string ciYamlDir, string repoRoot)
+    private static List<NormalizedPath> ResolveTriggeringPaths(List<string> paths, string ciYamlDir, string repoRoot)
     {
         var resolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -269,7 +270,7 @@ internal static class PackageInfoCiHelper
             }
         }
 
-        return resolved.ToList();
+        return resolved.Select(p => (NormalizedPath)p).ToList();
     }
 
     private static string GetRelativePath(string fullPath, string repoRoot)

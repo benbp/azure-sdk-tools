@@ -112,7 +112,10 @@ public class PackageInfoTool(
 
     private async Task<CommandResponse> Execute(PackageInfoOptions options, CancellationToken ct)
     {
-        var repoRoot = await ResolveRepoRoot(options.RepoRootOverride, ct);
+        NormalizedPath repoRoot = !string.IsNullOrEmpty(options.RepoRootOverride)
+                    ? RealPath.GetRealPath(options.RepoRootOverride)
+                    : await gitHelper.DiscoverRepoRootAsync(Environment.CurrentDirectory, ct);
+
         var packages = await GetAllPackages(repoRoot, options.ServiceDirectory, ct);
         if (packages.Count == 0)
         {
@@ -207,16 +210,6 @@ public class PackageInfoTool(
         logger.LogInformation("Output path of json file: {OutputPath}", outputPath);
     }
 
-    private async Task<string> ResolveRepoRoot(string? repoRootOverride, CancellationToken ct)
-    {
-        if (!string.IsNullOrEmpty(repoRootOverride))
-        {
-            return RealPath.GetRealPath(repoRootOverride);
-        }
-
-        return await gitHelper.DiscoverRepoRootAsync(Environment.CurrentDirectory, ct);
-    }
-
     private async Task<PackageInfoDiff> BuildDiff(string repoRoot, CancellationToken ct)
     {
         var sourceCommitish = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_SOURCECOMMITID") ?? "HEAD";
@@ -262,19 +255,20 @@ public class PackageInfoTool(
             .ToList();
 
         var packagesWithChanges = new List<PackageInfo>();
-        var additionalValidationPackages = new List<string>();
+        var additionalValidationPackages = new List<NormalizedPath>();
         var lookup = new Dictionary<string, PackageInfo>(StringComparer.OrdinalIgnoreCase);
         var directoryIndex = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        NormalizedPath normalizedRepoRoot = repoRoot;
 
         foreach (var pkg in allPackages)
         {
-            var pkgDirectory = NormalizePath(ResolveRepoPath(repoRoot, pkg.DirectoryPath));
-            var lookupKey = pkgDirectory.Replace(NormalizePath(repoRoot), string.Empty).TrimStart('/', '\\');
+            var pkgDirectory = ResolveRepoPath(repoRoot, pkg.DirectoryPath);
+            var lookupKey = pkgDirectory.Replace(normalizedRepoRoot, string.Empty).TrimStart('/', '\\');
             lookup[lookupKey] = pkg;
 
             foreach (var file in targetedFiles)
             {
-                var filePath = NormalizePath(Path.Combine(repoRoot, file));
+                NormalizedPath filePath = Path.Combine(repoRoot, file);
                 var shouldInclude = string.Equals(filePath, pkgDirectory, StringComparison.OrdinalIgnoreCase) ||
                                     filePath.StartsWith($"{pkgDirectory}/", StringComparison.OrdinalIgnoreCase);
 
@@ -282,7 +276,7 @@ public class PackageInfoTool(
                 {
                     foreach (var triggerPath in pkg.TriggeringPaths)
                     {
-                        var resolved = NormalizePath(ResolveRepoPath(repoRoot, triggerPath));
+                        var resolved = ResolveRepoPath(repoRoot, triggerPath);
                         var includedForValidation =
                             string.Equals(filePath, resolved, StringComparison.OrdinalIgnoreCase) ||
                             filePath.StartsWith($"{resolved}/", StringComparison.OrdinalIgnoreCase);
@@ -303,14 +297,14 @@ public class PackageInfoTool(
                         foreach (var yml in triggeringCiYmls)
                         {
                             var ciYml = ResolveRepoPath(repoRoot, yml);
-                            var directory = NormalizePath(Path.GetDirectoryName(ciYml) ?? string.Empty);
+                            NormalizedPath directory = Path.GetDirectoryName(ciYml) ?? string.Empty;
 
                             if (!filePath.StartsWith($"{directory}/", StringComparison.OrdinalIgnoreCase))
                             {
                                 continue;
                             }
 
-                            var relative = filePath[(directory.Length + 1)..];
+                            var relative = filePath.Substring(directory.Length + 1);
                             if (relative.Contains("/") || !Path.HasExtension(relative))
                             {
                                 continue;
@@ -356,10 +350,10 @@ public class PackageInfoTool(
                 continue;
             }
 
-            var normalized = NormalizePath(addition);
+            // addition is already normalized (forward slashes) from PackageInfo
             var key = Path.IsPathRooted(addition)
-                ? normalized.Replace(NormalizePath(repoRoot), string.Empty).TrimStart('/', '\\')
-                : normalized.TrimStart('/', '\\');
+                ? addition.Replace(normalizedRepoRoot, string.Empty).TrimStart('/', '\\')
+                : addition.TrimStart('/', '\\');
 
             if (lookup.TryGetValue(key, out var pkg) && !existingPackageNames.Contains(pkg.PackageName ?? string.Empty))
             {
@@ -501,7 +495,7 @@ public class PackageInfoTool(
             var directoryPath = Path.GetDirectoryName(normalized);
             if (!string.IsNullOrEmpty(directoryPath))
             {
-                processedFiles.Add(NormalizePath(directoryPath));
+                processedFiles.Add((NormalizedPath)directoryPath);
             }
             else
             {
@@ -546,17 +540,15 @@ public class PackageInfoTool(
         return Path.GetRelativePath(repoRoot, fullPath).Replace("\\", "/");
     }
 
-    private static string ResolveRepoPath(string repoRoot, string? path)
+    private static NormalizedPath ResolveRepoPath(string repoRoot, NormalizedPath path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (path.IsEmpty)
         {
             return repoRoot;
         }
 
         return Path.IsPathRooted(path) ? path : Path.Combine(repoRoot, path);
     }
-
-    private static string NormalizePath(string path) => path.Replace("\\", "/");
 
     private static string GetCiTargetPath(string repoRoot)
     {

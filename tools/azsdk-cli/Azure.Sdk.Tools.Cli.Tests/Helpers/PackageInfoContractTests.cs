@@ -73,7 +73,7 @@ public class PackageInfoContractTests
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-  
+
   <Target Name=""GetPackageInfo"" Returns=""@(PackageInfoItem)"">
     <ItemGroup>
       <PackageInfoItem Include=""'$(MSBuildProjectDirectory)' 'testservice' '{packageName}' '{version}' '{sdkTypeValue}' 'true' 'bin/Release/net8.0' 'false'"" />
@@ -123,7 +123,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
             SdkType.Dataplane => "client",
             SdkType.Management => "mgmt",
             _ => ""
-        }}}" 
+        }}}"
 }
 """);
     }
@@ -183,7 +183,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
         Assert.Multiple(() =>
         {
             Assert.That(info.PackagePath, Is.EqualTo(RealPath.GetRealPath(pkgPath)));
-            Assert.That(info.RepoRoot, Does.EndWith("azure-sdk-repo-root"));
+            Assert.That((string)info.RepoRoot, Does.EndWith("azure-sdk-repo-root"));
             var expectedRelative = language == SdkLanguage.Go ? Path.Combine(group, service, package) : Path.Combine(service, package);
             Assert.That(info.RelativePath, Is.EqualTo(expectedRelative));
             Assert.That(info.ServiceName, Is.EqualTo(service));

@@ -8,6 +8,7 @@ namespace Azure.Sdk.Tools.Cli.Models;
 /// <summary>
 /// Plain data model representing inferred information about an Azure SDK package.
 /// JSON property names match the expected CI pipeline format.
+/// Path properties use NormalizedPath for cross-platform consistency.
 /// </summary>
 public class PackageInfo
 {
@@ -33,25 +34,25 @@ public class PackageInfo
     /// Directory path relative to repo root (e.g., "sdk/storage/Azure.Storage.Blobs").
     /// </summary>
     [JsonPropertyName("DirectoryPath")]
-    public string DirectoryPath { get; set; } = string.Empty;
+    public NormalizedPath DirectoryPath { get; set; }
 
     /// <summary>
     /// Service directory under sdk/ (may include group/service for Go).
     /// </summary>
     [JsonPropertyName("ServiceDirectory")]
-    public string? ServiceDirectory { get; set; }
+    public NormalizedPath? ServiceDirectory { get; set; }
 
     /// <summary>
     /// Path to README.md relative to repo root.
     /// </summary>
     [JsonPropertyName("ReadMePath")]
-    public string ReadMePath { get; set; } = string.Empty;
+    public NormalizedPath ReadMePath { get; set; }
 
     /// <summary>
     /// Path to CHANGELOG.md relative to repo root.
     /// </summary>
     [JsonPropertyName("ChangeLogPath")]
-    public string ChangeLogPath { get; set; } = string.Empty;
+    public NormalizedPath ChangeLogPath { get; set; }
 
     /// <summary>
     /// Optional group identifier (e.g., Maven groupId).
@@ -88,7 +89,7 @@ public class PackageInfo
     /// Null when empty for PowerShell parity.
     /// </summary>
     [JsonPropertyName("AdditionalValidationPackages")]
-    public List<string>? AdditionalValidationPackages { get; set; }
+    public List<NormalizedPath>? AdditionalValidationPackages { get; set; }
 
     /// <summary>
     /// Artifact details (reserved for future use).
@@ -116,19 +117,19 @@ public class PackageInfo
     /// Absolute path on disk to the root directory of the package.
     /// </summary>
     [JsonIgnore]
-    public string PackagePath { get; set; } = string.Empty;
+    public NormalizedPath PackagePath { get; set; }
 
     /// <summary>
     /// Absolute path to the root of the git repository.
     /// </summary>
     [JsonIgnore]
-    public string RepoRoot { get; set; } = string.Empty;
+    public NormalizedPath RepoRoot { get; set; }
 
     /// <summary>
     /// Path of the package relative to sdk/ directory (e.g., "storage/Azure.Storage.Blobs").
     /// </summary>
     [JsonIgnore]
-    public string RelativePath { get; set; } = string.Empty;
+    public NormalizedPath RelativePath { get; set; }
 
     /// <summary>
     /// Azure service name (e.g., storage, keyvault).
@@ -146,7 +147,7 @@ public class PackageInfo
     /// Absolute path to the samples directory.
     /// </summary>
     [JsonIgnore]
-    public string SamplesDirectory { get; set; } = string.Empty;
+    public NormalizedPath SamplesDirectory { get; set; }
 
     /// <summary>
     /// SDK type enum (internal use).
@@ -182,5 +183,5 @@ public class PackageInfo
     /// Paths that trigger CI for this package when changed (internal use only).
     /// </summary>
     [JsonIgnore]
-    public List<string> TriggeringPaths { get; set; } = [];
+    public List<NormalizedPath> TriggeringPaths { get; set; } = [];
 }

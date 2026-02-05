@@ -107,14 +107,13 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         /// </summary>
         protected virtual IEnumerable<string> DiscoverPackageDirectories(string searchRoot, bool isServiceDirectory)
         {
-            var patterns = PackageManifestPatterns;
-            if (patterns.Length == 0)
+            if (PackageManifestPatterns.Length == 0)
             {
                 return [];
             }
 
             var packageRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var pattern in patterns)
+            foreach (var pattern in PackageManifestPatterns)
             {
                 foreach (var filePath in Directory.EnumerateFiles(searchRoot, pattern, SearchOption.AllDirectories))
                 {
@@ -210,7 +209,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         /// <param name="packagePath">Path to the package directory</param>
         /// <param name="fixCheckErrors">Whether to automatically apply code formatting</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Result of the code formatting operation</returns>  
+        /// <returns>Result of the code formatting operation</returns>
         public virtual Task<PackageCheckResponse> FormatCode(string packagePath, bool fixCheckErrors = false, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new PackageCheckResponse(0, "noop", "This is not an applicable operation for this language."));
@@ -344,7 +343,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
             {
                 return ValidationResult.CreateFailure($"Validation exception: {ex.Message}");
             }
-        }               
+        }
 
         /// <summary>
         /// Updates the package metadata content for a specified package.
@@ -397,7 +396,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
             // Use provided version or get current version from package
             var targetVersion = version;
             if (string.IsNullOrWhiteSpace(targetVersion))
-            {   
+            {
                 targetVersion = packageInfo?.PackageVersion;
                 if (string.IsNullOrWhiteSpace(targetVersion))
                 {
