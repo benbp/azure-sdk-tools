@@ -17,7 +17,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 
 [Description("Generate PackageInfo JSON files used by CI pipelines.")]
 public class PackageInfoTool(
-    IProcessHelper processHelper,
     IGitHelper gitHelper,
     ILogger<PackageInfoTool> _logger,
     IEnumerable<LanguageService> languageServices
@@ -224,8 +223,8 @@ public class PackageInfoTool(
         var targetCommitish = NormalizeTargetBranch(targetBranchValue);
         var diffPath = NormalizeDiffPath(repoRoot, GetCiTargetPath(repoRoot));
 
-        var changedFiles = await GetChangedFiles(repoRoot, targetCommitish, sourceCommitish, diffPath, "d", ct);
-        var deletedFiles = await GetChangedFiles(repoRoot, targetCommitish, sourceCommitish, diffPath, "D", ct);
+        var changedFiles = await gitHelper.GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "d", ct);
+        var deletedFiles = await gitHelper.GetChangedFilesAsync(repoRoot, targetCommitish, sourceCommitish, diffPath, "D", ct);
 
         var changedServices = GetChangedServices(changedFiles);
         var prNumber = Environment.GetEnvironmentVariable("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") ?? "-1";
@@ -374,45 +373,6 @@ public class PackageInfoTool(
         }
 
         return packagesWithChanges;
-    }
-
-    private async Task<List<string>> GetChangedFiles(
-        string repoRoot,
-        string targetCommitish,
-        string sourceCommitish,
-        string? diffPath,
-        string diffFilterType,
-        CancellationToken ct)
-    {
-        var args = new List<string>
-        {
-            "-c",
-            "core.quotepath=off",
-            "-c",
-            "i18n.logoutputencoding=utf-8",
-            "diff",
-            $"{targetCommitish}...{sourceCommitish}",
-            "--name-only",
-            $"--diff-filter={diffFilterType}"
-        };
-
-        if (!string.IsNullOrEmpty(diffPath))
-        {
-            args.Add("--");
-            args.Add(diffPath);
-        }
-
-        var result = await processHelper.Run(new ProcessOptions("git", "git.exe", [.. args], logOutputStream: false, workingDirectory: repoRoot), ct);
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"git diff failed: {result.Output}");
-        }
-
-        return result.Stdout
-            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.Trim())
-            .Where(line => !string.IsNullOrEmpty(line))
-            .ToList();
     }
 
     private static List<string> GetChangedServices(List<string> changedFiles)
