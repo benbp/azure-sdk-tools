@@ -28,6 +28,12 @@ jobs:
         with:
           dotnet-version: 9.0
 
+      # Ignore the azure-sdk nuget package mirror
+      # that github actions cannot access by default
+      - name: disable nuget mirror
+        shell: pwsh
+        run: dotnet nuget disable source azure-sdk-for-net
+
       - name: azsdk-cli verify
         shell: pwsh
         run: |
