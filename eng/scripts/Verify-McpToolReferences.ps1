@@ -5,7 +5,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PSNativeCommandUseErrorActionPreference = $true
 
 function Get-LevenshteinDistance {
     param(
@@ -138,8 +137,16 @@ if ($instructionTools.Count -eq 0) {
 }
 
 $toolProjectPath = Resolve-Path (Join-Path $repoRoot 'tools/azsdk-cli/Azure.Sdk.Tools.Cli')
-Write-Host "dotnet run --project $toolProjectPath -- list -o json | ConvertFrom-Json -AsHashtable"
-$tools = dotnet run --project $toolProjectPath -- list -o json | ConvertFrom-Json -AsHashtable
+
+dotnet build $toolProjectPath --nologo
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$output = dotnet run --project $toolProjectPath --no-build -- list -o json
+if ($LASTEXITCODE -ne 0) {
+    $output
+    exit $LASTEXITCODE
+}
+
+$tools = $output | ConvertFrom-Json -AsHashtable
 
 $declaredTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($tool in $tools.Tools.McpToolName) {
