@@ -33,7 +33,8 @@ internal static class PackageInfoCiHelper
             info.CiParameters = new CiParameters
             {
                 BuildSnippets = true,
-                CheckAotCompat = info.AotCompatOptOut == false
+                CheckAotCompat = info.AotCompatOptOut == false,
+                AotTestInputs = []
             };
             return;
         }

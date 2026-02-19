@@ -3,6 +3,8 @@
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Azure.Sdk.Tools.Cli.Services.Languages;
 
@@ -45,6 +47,25 @@ public partial class GoLanguageService : LanguageService
     /// Go packages are identified by go.mod files.
     /// </summary>
     protected override string[] PackageManifestPatterns => ["go.mod"];
+
+    /// <summary>
+    /// Discovers all packages in a service directory with CI parameters populated.
+    /// </summary>
+    public override async Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
+        string repoRoot,
+        string? serviceDirectory,
+        CancellationToken ct = default)
+    {
+        var packages = await base.DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
+
+        // Populate CI parameters for each package
+        foreach (var package in packages)
+        {
+            PopulateGoCiParameters(package);
+        }
+
+        return packages;
+    }
 
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
@@ -95,24 +116,28 @@ public partial class GoLanguageService : LanguageService
                 throw new Exception($"Failed to deserialized JSON output '{processResult.Stdout}'", ex);
             }
 
-            var sdkType = goModuleProperties.SdkType switch
-            {
-                "mgmt" => SdkType.Management,
-                "client" => SdkType.Dataplane,
-                _ => SdkType.Unknown,
-            };
+            var relativePath = Path.GetRelativePath(sdkRoot, fullPath).TrimStart(Path.DirectorySeparatorChar);
+            var directoryPath = $"sdk/{relativePath}";
 
             var model = new PackageInfo
             {
                 PackagePath = fullPath,
                 RepoRoot = repoRoot,
-                RelativePath = Path.GetRelativePath(sdkRoot, fullPath).TrimStart(Path.DirectorySeparatorChar),
+                RelativePath = relativePath,
                 PackageName = goModuleProperties.Name,
                 PackageVersion = goModuleProperties.Version,
                 ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
-                SdkType = sdkType,
+                SdkTypeString = goModuleProperties.SdkType ?? string.Empty,
                 Language = SdkLanguage.Go,
-                SamplesDirectory = fullPath
+                SamplesDirectory = fullPath,
+                // Map additional fields from PowerShell
+                DirectoryPath = directoryPath,
+                ServiceDirectory = goModuleProperties.ServiceDirectory,
+                ReadMePath = !string.IsNullOrEmpty(goModuleProperties.ReadMePath) ? $"{directoryPath}/README.md" : string.Empty,
+                ChangeLogPath = !string.IsNullOrEmpty(goModuleProperties.ChangeLogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty,
+                IsNewSdk = goModuleProperties.IsNewSdk,
+                ArtifactName = goModuleProperties.ArtifactName ?? goModuleProperties.Name,
+                ReleaseStatus = goModuleProperties.ReleaseStatus ?? string.Empty
             };
 
             logger.LogDebug("Resolved Go package: {packageName} v{packageVersion}", model.PackageName ?? "(unknown)", model.PackageVersion ?? "(unknown)");
@@ -170,7 +195,118 @@ public partial class GoLanguageService : LanguageService
     }
 
     /// <summary>
+    /// Populates Go-specific CI parameters from ci.yml.
+    /// Go CI parameters: LicenseCheck, NonShipping, UsePipelineProxy, IsSdkLibrary
+    /// </summary>
+    private void PopulateGoCiParameters(PackageInfo info)
+    {
+        // Default Go CI parameters
+        info.CiParameters = new CiParameters
+        {
+            LicenseCheck = true,
+            NonShipping = false,
+            UsePipelineProxy = true,
+            IsSdkLibrary = true
+        };
+
+        if (string.IsNullOrWhiteSpace(info.ServiceDirectory))
+        {
+            return;
+        }
+
+        // Try to find and parse ci.yml
+        var ciYamlPath = Path.Combine(info.RepoRoot, "sdk", info.ServiceDirectory, "ci.yml");
+        if (!File.Exists(ciYamlPath))
+        {
+            return;
+        }
+
+        try
+        {
+            var yaml = ParseGoCiYaml(ciYamlPath);
+            if (yaml?.Extends?.Parameters == null)
+            {
+                return;
+            }
+
+            var parameters = yaml.Extends.Parameters;
+
+            // Override defaults with values from ci.yml if present
+            if (parameters.LicenseCheck.HasValue)
+            {
+                info.CiParameters.LicenseCheck = parameters.LicenseCheck.Value;
+            }
+            if (parameters.NonShipping.HasValue)
+            {
+                info.CiParameters.NonShipping = parameters.NonShipping.Value;
+            }
+            if (parameters.UsePipelineProxy.HasValue)
+            {
+                info.CiParameters.UsePipelineProxy = parameters.UsePipelineProxy.Value;
+            }
+            if (parameters.IsSdkLibrary.HasValue)
+            {
+                info.CiParameters.IsSdkLibrary = parameters.IsSdkLibrary.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to parse Go ci.yml at {Path}", ciYamlPath);
+        }
+    }
+
+    private static readonly IDeserializer GoCiYamlDeserializer = new DeserializerBuilder()
+        .WithNamingConvention(NullNamingConvention.Instance)
+        .IgnoreUnmatchedProperties()
+        .Build();
+
+    private static GoCiPipelineYaml? ParseGoCiYaml(string path)
+    {
+        try
+        {
+            using var reader = new StreamReader(path);
+            return GoCiYamlDeserializer.Deserialize<GoCiPipelineYaml>(reader);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// These are the properties that come out of the Get-GoModuleProperties powershell func.
     /// </summary>
-    private record GoModulePropertiesPowershell(string? Name, string? Version, string? SdkType);
+    private record GoModulePropertiesPowershell(
+        string? Name,
+        string? Version,
+        string? DirectoryPath,
+        string? ServiceDirectory,
+        string? ReadMePath,
+        string? ChangeLogPath,
+        string? SdkType,
+        bool IsNewSdk,
+        string? ArtifactName,
+        string? ReleaseStatus);
+
+    /// <summary>
+    /// Go CI pipeline YAML structure for parsing ci.yml.
+    /// </summary>
+    private class GoCiPipelineYaml
+    {
+        public GoCiPipelineYamlExtends? Extends { get; set; }
+    }
+
+    private class GoCiPipelineYamlExtends
+    {
+        [YamlMember(Alias = "parameters")]
+        public GoCiPipelineYamlParameters? Parameters { get; set; }
+    }
+
+    private class GoCiPipelineYamlParameters
+    {
+        public bool? LicenseCheck { get; set; }
+        public bool? NonShipping { get; set; }
+        public bool? UsePipelineProxy { get; set; }
+        public bool? IsSdkLibrary { get; set; }
+    }
 }

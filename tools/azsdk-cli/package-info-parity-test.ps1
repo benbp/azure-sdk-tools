@@ -15,6 +15,9 @@ param(
   [string]$TargetBranch = "main"
 )
 
+# reset $LASTEXITCODE
+pwd > /dev/null
+
 $repoRootFull = Resolve-Path $RepoRoot
 $scriptDir = Join-Path $repoRootFull "eng" "common" "scripts"
 $saveScript = Join-Path $scriptDir "Save-Package-Properties.ps1"

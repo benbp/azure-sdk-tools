@@ -101,7 +101,15 @@ public class PackageInfo
     /// CI parameters extracted from ci*.yml.
     /// </summary>
     [JsonPropertyName("CIParameters")]
-    public CiParameters CiParameters { get; set; } = CiParameters.Default;
+    public CiParameters CiParameters { get; set; } = new();
+
+    /// <summary>
+    /// Path to the TypeSpec project (for TypeSpec-based packages).
+    /// Only serialized when not null.
+    /// </summary>
+    [JsonPropertyName("SpecProjectPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SpecProjectPath { get; set; }
 
     /// <summary>
     /// Dev version (set when addDevVersion is true).
