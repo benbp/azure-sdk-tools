@@ -16,7 +16,7 @@ param(
 )
 
 # reset $LASTEXITCODE
-pwd > /dev/null
+/usr/bin/pwd > /dev/null
 
 $repoRootFull = Resolve-Path $RepoRoot
 $scriptDir = Join-Path $repoRootFull "eng" "common" "scripts"

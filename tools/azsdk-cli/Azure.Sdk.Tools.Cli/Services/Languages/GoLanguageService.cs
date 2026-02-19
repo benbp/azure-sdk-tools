@@ -137,7 +137,8 @@ public partial class GoLanguageService : LanguageService
                 ChangeLogPath = !string.IsNullOrEmpty(goModuleProperties.ChangeLogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty,
                 IsNewSdk = goModuleProperties.IsNewSdk,
                 ArtifactName = goModuleProperties.ArtifactName ?? goModuleProperties.Name,
-                ReleaseStatus = goModuleProperties.ReleaseStatus ?? string.Empty
+                ReleaseStatus = goModuleProperties.ReleaseStatus ?? string.Empty,
+                SpecProjectPath = GetSpecProjectPath(fullPath)
             };
 
             logger.LogDebug("Resolved Go package: {packageName} v{packageVersion}", model.PackageName ?? "(unknown)", model.PackageVersion ?? "(unknown)");
@@ -293,6 +294,7 @@ public partial class GoLanguageService : LanguageService
     /// </summary>
     private class GoCiPipelineYaml
     {
+        [YamlMember(Alias = "extends")]
         public GoCiPipelineYamlExtends? Extends { get; set; }
     }
 

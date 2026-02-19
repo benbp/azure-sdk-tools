@@ -105,10 +105,8 @@ public class PackageInfo
 
     /// <summary>
     /// Path to the TypeSpec project (for TypeSpec-based packages).
-    /// Only serialized when not null.
     /// </summary>
     [JsonPropertyName("SpecProjectPath")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SpecProjectPath { get; set; }
 
     /// <summary>

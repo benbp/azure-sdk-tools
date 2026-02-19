@@ -595,5 +595,37 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
                 return (false, $"An error occurred: {ex.Message}", null);
             }
         }
+
+        protected static string? GetSpecProjectPath(string packagePath)
+        {
+            var tspLocationPath = Path.Combine(packagePath, "tsp-location.yaml");
+            if (!File.Exists(tspLocationPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                using var reader = new StreamReader(tspLocationPath);
+                var tspLocation = TspLocationYamlDeserializer.Deserialize<TspLocation>(reader);
+                return tspLocation?.Directory;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static readonly YamlDotNet.Serialization.IDeserializer TspLocationYamlDeserializer =
+            new YamlDotNet.Serialization.DeserializerBuilder()
+                .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.NullNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+
+        private class TspLocation
+        {
+            [YamlDotNet.Serialization.YamlMember(Alias = "directory")]
+            public string? Directory { get; set; }
+        }
     }
 }
