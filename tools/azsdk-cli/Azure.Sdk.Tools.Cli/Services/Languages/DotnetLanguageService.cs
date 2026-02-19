@@ -93,8 +93,8 @@ public sealed partial class DotnetLanguageService : LanguageService
 
         var parsed = await TryGetSinglePackageInfoFromMsBuildAsync(fullPath, ct);
         var package = parsed.HasValue
-            ? CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath)
-            : CreateBasicPackageInfo(repoRoot, relativePath, fullPath);
+            ? await CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath, ct)
+            : await CreateBasicPackageInfo(repoRoot, relativePath, fullPath, ct);
 
         // Populate CI parameters
         PackageInfoCiHelper.PopulateCiParameters(package);
@@ -259,7 +259,8 @@ public sealed partial class DotnetLanguageService : LanguageService
             }
 
             var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, parsed.Value.PackagePath, ct);
-            packages.Add(CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath));
+            var pkg = await CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath, ct);
+            packages.Add(pkg);
         }
 
         return packages;
@@ -295,16 +296,16 @@ public sealed partial class DotnetLanguageService : LanguageService
         );
     }
 
-    private PackageInfo CreatePackageInfo(ParsedMsBuildPackageInfo parsed, string repoRoot, string relativePath, string fullPath)
+    private async Task<PackageInfo> CreatePackageInfo(ParsedMsBuildPackageInfo parsed, string repoRoot, string relativePath, string fullPath, CancellationToken ct)
     {
         // Build relative paths for DirectoryPath, ReadMePath, ChangeLogPath
         var directoryPath = $"sdk/{relativePath}";
         var readmePath = Path.Combine(fullPath, "README.md");
         var changelogPath = Path.Combine(fullPath, "CHANGELOG.md");
-        
+
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = changelogHelper.GetReleaseStatus(changelogPath);
+        var releaseStatus = await changelogHelper.GetReleaseStatus(changelogPath, ct);
 
         return new PackageInfo
         {
@@ -332,16 +333,16 @@ public sealed partial class DotnetLanguageService : LanguageService
     /// Creates a basic PackageInfo when MSBuild cannot provide package details.
     /// Used when the src directory or .csproj file is missing.
     /// </summary>
-    private PackageInfo CreateBasicPackageInfo(string repoRoot, string relativePath, string fullPath)
+    private async Task<PackageInfo> CreateBasicPackageInfo(string repoRoot, string relativePath, string fullPath, CancellationToken ct)
     {
         // Build relative paths for DirectoryPath, ReadMePath, ChangeLogPath
         var directoryPath = $"sdk/{relativePath}";
         var readmePath = Path.Combine(fullPath, "README.md");
         var changelogPath = Path.Combine(fullPath, "CHANGELOG.md");
-        
+
         var readmeRelative = File.Exists(readmePath) ? $"{directoryPath}/README.md" : string.Empty;
         var changelogRelative = File.Exists(changelogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty;
-        var releaseStatus = changelogHelper.GetReleaseStatus(changelogPath);
+        var releaseStatus = await changelogHelper.GetReleaseStatus(changelogPath, ct);
 
         return new PackageInfo
         {

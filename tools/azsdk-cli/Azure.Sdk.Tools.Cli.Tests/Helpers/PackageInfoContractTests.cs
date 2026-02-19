@@ -93,7 +93,7 @@ public class PackageInfoContractTests
         // Create the eng/scripts directory structure and the get_package_properties.py script
         var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
         var gitHelper = new GitHelper(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
-        var repoRoot = await gitHelper.DiscoverRepoRootAsync(packagePath);
+        var repoRoot = await gitHelper.DiscoverRepoRootAsync(packagePath, CancellationToken.None);
         var scriptsDir = Path.Combine(repoRoot, "eng", "scripts");
         Directory.CreateDirectory(scriptsDir);
 
@@ -133,7 +133,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
         var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
         var gitHelper = new GitHelper(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
 
-        CreateTestFile(Path.Join(await gitHelper.DiscoverRepoRootAsync(packagePath), "eng", "common", "scripts"), "common.ps1",
+        CreateTestFile(Path.Join(await gitHelper.DiscoverRepoRootAsync(packagePath, CancellationToken.None), "eng", "common", "scripts"), "common.ps1",
             $@"function Get-GoModuleProperties($goModPath) {{
                 return @{{
                     Version = ""{version}""

@@ -61,7 +61,9 @@ public class PackageInfo
     public string? Group { get; set; }
 
     /// <summary>
-    /// SDK type as string for JSON: "mgmt", "client", "functions", or empty.
+    /// SDK type for JSON serialization: "mgmt", "client", "spring", "functions", or empty string.
+    /// Empty string is used for unknown/unset types to match PowerShell output format.
+    /// Use the <see cref="SdkType"/> property for type-safe access.
     /// </summary>
     [JsonPropertyName("SdkType")]
     public string SdkTypeString { get; set; } = string.Empty;
@@ -156,7 +158,8 @@ public class PackageInfo
     public NormalizedPath SamplesDirectory { get; set; }
 
     /// <summary>
-    /// SDK type enum (internal use).
+    /// SDK type as a strongly-typed enum. Maps to/from <see cref="SdkTypeString"/> for serialization.
+    /// <see cref="SdkType.Unknown"/> maps to empty string to match PowerShell parity.
     /// </summary>
     [JsonIgnore]
     public SdkType SdkType
