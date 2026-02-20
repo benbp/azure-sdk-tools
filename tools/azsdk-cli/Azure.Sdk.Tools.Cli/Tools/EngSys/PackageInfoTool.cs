@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System.CommandLine;
-using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -77,7 +76,12 @@ public class PackageInfoTool(
     {
         try
         {
-            var options = NormalizeOptions(ParseOptions(parseResult));
+            var options = ParseOptions(parseResult);
+            if (options.CiMode && !string.IsNullOrWhiteSpace(options.ServiceDirectory))
+            {
+                logger.LogWarning("Ignoring --service-directory because --ci is set.");
+                options = options with { ServiceDirectory = string.Empty };
+            }
             return await Execute(options, ct);
         }
         catch (Exception ex)
@@ -96,17 +100,6 @@ public class PackageInfoTool(
             parseResult.GetValue(repoRootOpt),
             parseResult.GetValue(addDevVersionOpt),
             parseResult.GetValue(artifactListOpt) ?? []);
-    }
-
-    private PackageInfoOptions NormalizeOptions(PackageInfoOptions options)
-    {
-        if (options.CiMode && !string.IsNullOrWhiteSpace(options.ServiceDirectory))
-        {
-            logger.LogWarning("Ignoring --service-directory because --ci is set.");
-            return options with { ServiceDirectory = string.Empty };
-        }
-
-        return options;
     }
 
     private async Task<CommandResponse> Execute(PackageInfoOptions options, CancellationToken ct)
@@ -157,9 +150,51 @@ public class PackageInfoTool(
         return SelectPackagesForDiff(repoRoot, packages, diff);
     }
 
-    private List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList)
+    internal List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList)
     {
-        return PackageInfoArtifactFilter.FilterByArtifacts(packages, artifactList, warning => logger.LogWarning("{warning}", warning));
+        if (artifactList is null)
+        {
+            return packages;
+        }
+
+        var artifactArray = artifactList ?? artifactList.ToArray();
+        if (artifactArray.Length == 0)
+        {
+            return packages;
+        }
+
+        var filteredArtifacts = artifactArray
+            .Where(artifact => !string.IsNullOrWhiteSpace(artifact))
+            .Select(artifact => artifact.Trim())
+            .ToArray();
+
+        if (filteredArtifacts.Length == 0)
+        {
+            logger.LogWarning("Artifact list contains no valid entries");
+            return packages;
+        }
+
+        var artifactSet = new HashSet<string>(filteredArtifacts, StringComparer.OrdinalIgnoreCase);
+        foreach (var pkg in packages)
+        {
+            if (string.IsNullOrEmpty(pkg.ArtifactName))
+            {
+                logger.LogWarning(
+                    "Package '{PackageName}' does not have an 'ArtifactName' property and will be excluded from artifact filtering.",
+                    pkg.PackageName ?? "(unknown)");
+            }
+        }
+
+        var filtered = packages
+            .Where(pkg => !string.IsNullOrEmpty(pkg.ArtifactName) && artifactSet.Contains(pkg.ArtifactName))
+            .ToList();
+
+        if (filtered.Count == 0)
+        {
+            throw new InvalidOperationException("No packages found matching the provided artifact list");
+        }
+
+        return filtered;
     }
 
     private List<string> WritePackageInfoFiles(List<PackageInfo> packages, string outDir, bool addDevVersion)
