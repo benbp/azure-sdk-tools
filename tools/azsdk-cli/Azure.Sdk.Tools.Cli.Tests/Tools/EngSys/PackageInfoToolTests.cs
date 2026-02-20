@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using Microsoft.Extensions.Logging;
 using Moq;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
+using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Services.Languages;
 using Azure.Sdk.Tools.Cli.Telemetry;
 using Azure.Sdk.Tools.Cli.Tools.EngSys;
@@ -18,12 +20,13 @@ public class PackageInfoToolTests
     [SetUp]
     public void Setup()
     {
-        var githubHelper = new Mock<GitHelper>();
+        var gitCommandHelper = new GitCommandHelper(Mock.Of<ILogger<GitCommandHelper>>(), Mock.Of<IRawOutputHelper>());
+        var gitHelper = new Mock<GitHelper>(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
         var languageService = new Mock<LanguageService>();
         var languageServices = new List<LanguageService> { languageService.Object };
         var logger = new TestLogger<PackageInfoTool>();
         var outputHelper = new OutputHelper(OutputHelper.OutputModes.Hidden);
-        tool = new PackageInfoTool(githubHelper.Object, logger, languageServices);
+        tool = new PackageInfoTool(gitHelper.Object, logger, languageServices);
         tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object, new MockUpgradeService());
     }
 
