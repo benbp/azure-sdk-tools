@@ -1,8 +1,6 @@
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
-using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Services.Languages;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
 
 namespace Azure.Sdk.Tools.Cli.Tools.Core
 {
@@ -35,6 +33,6 @@ namespace Azure.Sdk.Tools.Cli.Tools.Core
             var service = languageServices.FirstOrDefault(s => s.Language == language);
             return service;
         }
-#pragma warning restore MCP003 // Tool methods must return Response types, built-in value types, or string        
+#pragma warning restore MCP003 // Tool methods must return Response types, built-in value types, or string
     }
 }
