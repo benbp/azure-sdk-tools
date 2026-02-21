@@ -8,12 +8,9 @@ using Azure.Sdk.Tools.Cli.Microagents;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services;
 using Azure.Sdk.Tools.Cli.Services.Languages;
-using Azure.Sdk.Tools.Cli.Telemetry;
-using Azure.Sdk.Tools.Cli.Tools.EngSys;
-using Azure.Sdk.Tools.Cli.Tests.Mocks.Services;
 using Azure.Sdk.Tools.Cli.Tests.TestHelpers;
 
-namespace Azure.Sdk.Tools.Cli.Tests.Helpers;
+namespace Azure.Sdk.Tools.Cli.Tests.Services.Languages;
 
 /// <summary>
 /// Contract-focused tests for all language-specific <see cref="IPackageInfoHelper"/> implementations.
@@ -21,10 +18,10 @@ namespace Azure.Sdk.Tools.Cli.Tests.Helpers;
 /// without duplicating per-language edge case tests.
 /// </summary>
 [TestFixture]
-public class PackageInfoContractTests
+public class LanguageServicePackageInfoTests
 {
-    private PackageInfoTool tool;
-    private TempDirectory _tempRoot = null!;
+    private List<LanguageService> languageServices = null!;
+    private TempDirectory tempRoot = null!;
 
     [SetUp]
     public void Setup()
@@ -33,25 +30,21 @@ public class PackageInfoContractTests
         var gitHelper = new Mock<GitHelper>(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
         var processHelper = new ProcessHelper(new TestLogger<ProcessHelper>(), Mock.Of<IRawOutputHelper>());
         var pythonHelper = new PythonHelper(new TestLogger<PythonHelper>(), Mock.Of<IRawOutputHelper>());
-        var languageServices = new List<LanguageService> {
+        languageServices = [
             new DotnetLanguageService(processHelper, Mock.Of<IPowershellHelper>(), gitHelper.Object, new TestLogger<DotnetLanguageService>(), Mock.Of<ICommonValidationHelpers>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             new JavaLanguageService(new Mock<IProcessHelper>().Object, gitHelper.Object, new Mock<IMavenHelper>().Object, new Mock<IMicroagentHostService>().Object, new TestLogger<JavaLanguageService>(), Mock.Of<ICommonValidationHelpers>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             new PythonLanguageService(new Mock<IProcessHelper>().Object, pythonHelper, new Mock<INpxHelper>().Object, gitHelper.Object, new TestLogger<PythonLanguageService>(), Mock.Of<ICommonValidationHelpers>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             new JavaScriptLanguageService(new Mock<IProcessHelper>().Object, new Mock<INpxHelper>().Object, gitHelper.Object, new TestLogger<JavaScriptLanguageService>(), Mock.Of<ICommonValidationHelpers>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             new GoLanguageService(processHelper, Mock.Of<IPowershellHelper>(), gitHelper.Object, new TestLogger<GoLanguageService>(), Mock.Of<ICommonValidationHelpers>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
-        };
-        var logger = new TestLogger<PackageInfoTool>();
-        var outputHelper = new OutputHelper(OutputHelper.OutputModes.Hidden);
-        tool = new PackageInfoTool(gitHelper.Object, logger, languageServices);
-        tool.Initialize(outputHelper, new Mock<ITelemetryService>().Object, new MockUpgradeService());
+        ];
 
-        _tempRoot = TempDirectory.Create("azsdk_pkginfo_contract_tests");
+        tempRoot = TempDirectory.Create("azsdk_pkginfo_contract_tests");
     }
 
     [TearDown]
-    public void TearDown() => _tempRoot.Dispose();
+    public void TearDown() => tempRoot.Dispose();
 
-    private void CreateTestFile(string packagePath, string relativePath, string content)
+    private static void CreateTestFile(string packagePath, string relativePath, string content)
     {
         var fullPath = Path.Combine(packagePath, relativePath);
         var directory = Path.GetDirectoryName(fullPath);
@@ -62,7 +55,7 @@ public class PackageInfoContractTests
         File.WriteAllText(fullPath, content);
     }
 
-    private void SetupDotNetPackage(string packagePath, string packageName, string version, SdkType sdkType)
+    private static void SetupDotNetPackage(string packagePath, string packageName, string version, SdkType sdkType)
     {
         var sdkTypeValue = sdkType switch
         {
@@ -86,34 +79,32 @@ public class PackageInfoContractTests
         CreateTestFile(packagePath, $"src/{packageName}.csproj", csprojContent);
     }
 
-    private void SetupJavaPackage(string packagePath, string artifactId, string version)
+    private static void SetupJavaPackage(string packagePath, string artifactId, string version)
     {
         CreateTestFile(packagePath, "pom.xml", $"<project><modelVersion>4.0.0</modelVersion><groupId>com.azure</groupId><artifactId>{artifactId}</artifactId><version>{version}</version></project>");
     }
 
-    private async Task SetupPythonPackageAsync(string packagePath, string packageName, string version)
+    private static void SetupPythonPackage(string packagePath, string packageName, string version)
     {
-        // Create the eng/scripts directory structure and the get_package_properties.py script
-        var repoRoot = Path.Combine("../../", packagePath);
-        var scriptsDir = Path.Combine(repoRoot, "eng", "scripts");
-        Directory.CreateDirectory(scriptsDir);
+        // packagePath is like: /tmp/xxx/azure-sdk-for-python/sdk/service/package
+        // repoRoot is: /tmp/xxx/azure-sdk-for-python (3 levels up from package)
+        var repoRoot = Path.GetFullPath(Path.Combine(packagePath, "..", "..", ".."));
 
         // Create a minimal Python script that outputs the package info
         var scriptContent = $@"#!/usr/bin/env python
 import sys
-import os
 
 # Simple mock that returns the expected format
-package_path = sys.argv[sys.argv.index('-s') + 1] if '-s' in sys.argv else ''
+# Format: <name> <version> <is_new_sdk> <directory> <dependent_packages>
 package_name = '{packageName}'
 version = '{version}'
 
-print(f'{{package_name}} {{version}} True {{package_path}} ')
+print(f'{{package_name}} {{version}} True {{sys.argv[-1]}} ')
 ";
         CreateTestFile(repoRoot, Path.Combine("eng", "scripts", "get_package_properties.py"), scriptContent);
     }
 
-    private void SetupJavaScriptPackage(string packagePath, string packageName, string version, SdkType sdkType)
+    private static void SetupJavaScriptPackage(string packagePath, string packageName, string version, SdkType sdkType)
     {
         CreateTestFile(packagePath, "package.json", $$"""
 {
@@ -129,7 +120,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
 """);
     }
 
-    private async Task SetupGoPackageAsync(string packagePath, string version)
+    private static async Task SetupGoPackageAsync(string packagePath, string version)
     {
         var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
         var gitHelper = new GitHelper(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
@@ -152,7 +143,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
     public async Task CommonProperties_AreDerivedCorrectly(SdkLanguage language, string repoName, string serviceDirectory, string package)
     {
         var service = serviceDirectory.Contains('/') ? serviceDirectory.Split('/')[^1] : serviceDirectory;
-        var repoRoot = Path.Combine(_tempRoot.DirectoryPath, repoName);
+        var repoRoot = Path.Combine(tempRoot.DirectoryPath, repoName);
         var sdkPath = Path.Combine(repoRoot, "sdk", service, package);
 
         Directory.CreateDirectory(repoRoot);
@@ -163,7 +154,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
         Directory.CreateDirectory(sdkPath);
 
         var sdkLanguage = SdkLanguageHelpers.GetLanguageForRepo(repoName);
-        var languageService = tool.GetLanguageService(sdkLanguage);
+        var languageService = languageServices.First(s => s.Language == sdkLanguage);
         var info = await languageService.GetPackageInfo(sdkPath);
 
         Assert.Multiple(() =>
@@ -187,7 +178,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
     public async Task VersionParsing_Works(SdkLanguage language, string repoName, string serviceDirectory, string package, string expectedVersion)
     {
         var service = serviceDirectory.Contains('/') ? serviceDirectory.Split('/')[^1] : serviceDirectory;
-        var repoRoot = Path.Combine(_tempRoot.DirectoryPath, repoName);
+        var repoRoot = Path.Combine(tempRoot.DirectoryPath, repoName);
         var sdkPath = Path.Combine(repoRoot, "sdk", service, package);
 
         Directory.CreateDirectory(repoRoot);
@@ -206,7 +197,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
                 SetupJavaPackage(sdkPath, package, expectedVersion);
                 break;
             case SdkLanguage.Python:
-                await SetupPythonPackageAsync(sdkPath, package, expectedVersion);
+                SetupPythonPackage(sdkPath, package, expectedVersion);
                 break;
             case SdkLanguage.JavaScript:
                 SetupJavaScriptPackage(sdkPath, package, expectedVersion, SdkType.Unknown);
@@ -216,7 +207,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
                 break;
         }
 
-        var languageService = tool.GetLanguageService(language);
+        var languageService = languageServices.First(s => s.Language == language);
         var info = await languageService.GetPackageInfo(sdkPath);
         Assert.That(info.PackageVersion, Is.EqualTo(expectedVersion));
     }
@@ -227,7 +218,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
     public async Task SdkType_IsDerivedCorrectly(SdkLanguage language, string repoName, string serviceDirectory, string package, SdkType sdkType)
     {
         var service = serviceDirectory.Contains('/') ? serviceDirectory.Split('/')[^1] : serviceDirectory;
-        var repoRoot = Path.Combine(_tempRoot.DirectoryPath, repoName);
+        var repoRoot = Path.Combine(tempRoot.DirectoryPath, repoName);
         var sdkPath = Path.Combine(repoRoot, "sdk", service, package);
 
         Directory.CreateDirectory(repoRoot);
@@ -239,7 +230,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
 
         SetupJavaScriptPackage(sdkPath, package, "1.2.3", sdkType);
 
-        var languageService = tool.GetLanguageService(language);
+        var languageService = languageServices.First(s => s.Language == language);
         var info = await languageService.GetPackageInfo(sdkPath);
         Assert.That(info.SdkType, Is.EqualTo(sdkType));
     }
@@ -253,7 +244,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
     public async Task VersionParsing_MissingFile_ReturnsNull(SdkLanguage language, string repoName, string serviceDirectory, string package)
     {
         var service = serviceDirectory.Contains('/') ? serviceDirectory.Split('/')[^1] : serviceDirectory;
-        var repoRoot = Path.Combine(_tempRoot.DirectoryPath, repoName);
+        var repoRoot = Path.Combine(tempRoot.DirectoryPath, repoName);
         var sdkPath = Path.Combine(repoRoot, "sdk", service, package);
 
         Directory.CreateDirectory(repoRoot);
@@ -263,7 +254,7 @@ print(f'{{package_name}} {{version}} True {{package_path}} ')
         }
         Directory.CreateDirectory(sdkPath);
 
-        var languageService = tool.GetLanguageService(language);
+        var languageService = languageServices.First(s => s.Language == language);
         var info = await languageService.GetPackageInfo(sdkPath);
         Assert.That(info.PackageVersion, Is.Null);
     }
