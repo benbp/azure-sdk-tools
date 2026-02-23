@@ -30,7 +30,7 @@ internal static class PackageInfoCiHelper
         var ciYamlResult = TryFindCiYaml(info);
         if (ciYamlResult == null)
         {
-            info.CiParameters = new CiParameters
+            info.CiParameters = new CiPipelineParameters
             {
                 BuildSnippets = true,
                 CheckAotCompat = info.AotCompatOptOut == false,
@@ -92,7 +92,7 @@ internal static class PackageInfoCiHelper
         // Update PackageInfo
         info.TriggeringPaths = resolvedTriggers;
         info.AdditionalValidationPackages = additionalPackages.Count > 0 ? additionalPackages : null;
-        info.CiParameters = new CiParameters
+        info.CiParameters = new CiPipelineParameters
         {
             BuildSnippets = buildSnippets,
             CheckAotCompat = checkAotCompat,

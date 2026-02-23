@@ -103,7 +103,7 @@ public class PackageInfo
     /// CI parameters extracted from ci*.yml.
     /// </summary>
     [JsonPropertyName("CIParameters")]
-    public CiParameters CiParameters { get; set; } = new();
+    public CiPipelineParameters CiParameters { get; set; } = new();
 
     /// <summary>
     /// Path to the TypeSpec project (for TypeSpec-based packages).

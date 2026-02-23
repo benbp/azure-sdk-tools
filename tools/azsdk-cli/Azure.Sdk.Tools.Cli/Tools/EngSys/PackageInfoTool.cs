@@ -120,7 +120,7 @@ public class PackageInfoTool(
             return new DefaultCommandResponse { Message = "No packages matched the requested criteria." };
         }
 
-        selectedPackages = FilterPackagesByArtifact(selectedPackages, options.ArtifactList);
+        selectedPackages = PackageInfoArtifactFilter.FilterPackagesByArtifact(selectedPackages, options.ArtifactList, logger);
         var outputFiles = WritePackageInfoFiles(selectedPackages, options.OutDir, options.AddDevVersion);
 
         return new DefaultCommandResponse
@@ -148,53 +148,6 @@ public class PackageInfoTool(
 
         var diff = await BuildDiff(repoRoot, ct);
         return SelectPackagesForDiff(repoRoot, packages, diff);
-    }
-
-    internal List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList)
-    {
-        if (artifactList is null)
-        {
-            return packages;
-        }
-
-        var artifactArray = artifactList ?? artifactList.ToArray();
-        if (artifactArray.Length == 0)
-        {
-            return packages;
-        }
-
-        var filteredArtifacts = artifactArray
-            .Where(artifact => !string.IsNullOrWhiteSpace(artifact))
-            .Select(artifact => artifact.Trim())
-            .ToArray();
-
-        if (filteredArtifacts.Length == 0)
-        {
-            logger.LogWarning("Artifact list contains no valid entries");
-            return packages;
-        }
-
-        var artifactSet = new HashSet<string>(filteredArtifacts, StringComparer.OrdinalIgnoreCase);
-        foreach (var pkg in packages)
-        {
-            if (string.IsNullOrEmpty(pkg.ArtifactName))
-            {
-                logger.LogWarning(
-                    "Package '{PackageName}' does not have an 'ArtifactName' property and will be excluded from artifact filtering.",
-                    pkg.PackageName ?? "(unknown)");
-            }
-        }
-
-        var filtered = packages
-            .Where(pkg => !string.IsNullOrEmpty(pkg.ArtifactName) && artifactSet.Contains(pkg.ArtifactName))
-            .ToList();
-
-        if (filtered.Count == 0)
-        {
-            throw new InvalidOperationException("No packages found matching the provided artifact list");
-        }
-
-        return filtered;
     }
 
     private List<string> WritePackageInfoFiles(List<PackageInfo> packages, string outDir, bool addDevVersion)

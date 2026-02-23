@@ -9,7 +9,7 @@ namespace Azure.Sdk.Tools.Cli.Models;
 /// CI pipeline parameters extracted from ci*.yml files.
 /// Supports multiple languages with conditional serialization - only non-default values are written.
 /// </summary>
-public class CiParameters
+public class CiPipelineParameters
 {
     // ============================================================
     // .NET-specific parameters
@@ -81,7 +81,7 @@ public class CiParameters
     /// <summary>
     /// Default CI parameters for .NET when no ci*.yml is found.
     /// </summary>
-    public static CiParameters DefaultDotNet => new()
+    public static CiPipelineParameters DefaultDotNet => new()
     {
         BuildSnippets = true,
         CheckAotCompat = false,
@@ -91,7 +91,7 @@ public class CiParameters
     /// <summary>
     /// Default CI parameters for Go when no ci*.yml is found.
     /// </summary>
-    public static CiParameters DefaultGo => new()
+    public static CiPipelineParameters DefaultGo => new()
     {
         LicenseCheck = true,
         NonShipping = false,

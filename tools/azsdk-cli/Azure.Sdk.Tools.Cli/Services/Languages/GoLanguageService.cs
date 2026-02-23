@@ -174,7 +174,7 @@ public partial class GoLanguageService : LanguageService
         try
         {
             string[] knownLocations = [CustomizationPathInternalGenerate, CustomizationPathTestdataGenerate];
-            
+
             foreach (var location in knownLocations)
             {
                 var customizationPath = Path.Combine(packagePath, location);
@@ -202,7 +202,7 @@ public partial class GoLanguageService : LanguageService
     private void PopulateGoCiParameters(PackageInfo info)
     {
         // Default Go CI parameters
-        info.CiParameters = new CiParameters
+        info.CiParameters = new CiPipelineParameters
         {
             LicenseCheck = true,
             NonShipping = false,
