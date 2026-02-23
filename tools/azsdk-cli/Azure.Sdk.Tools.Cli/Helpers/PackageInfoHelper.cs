@@ -1,17 +1,70 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Azure.Sdk.Tools.Cli.Models;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Azure.Sdk.Tools.Cli.Models;
 
-namespace Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
+namespace Azure.Sdk.Tools.Cli.Helpers;
 
-/// <summary>
-/// Helper for extracting CI parameters and triggering paths from ci*.yml files.
-/// </summary>
-internal static class PackageInfoCiHelper
+public interface IPackageInfoHelper
 {
+    List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList);
+    void PopulateCiParameters(PackageInfo info);
+    Task<(string RepoRoot, string RelativePath, string FullPath)> ParsePackagePathAsync(string realPackagePath, CancellationToken ct);
+}
+
+public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper gitHelper) : IPackageInfoHelper
+{
+    public List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList)
+    {
+        if (artifactList is null)
+        {
+            return packages;
+        }
+
+        var artifactArray = artifactList ?? artifactList.ToArray();
+        if (artifactArray.Length == 0)
+        {
+            return packages;
+        }
+
+        var filteredArtifacts = artifactArray
+            .Where(artifact => !string.IsNullOrWhiteSpace(artifact))
+            .Select(artifact => artifact.Trim())
+            .ToArray();
+
+        if (filteredArtifacts.Length == 0)
+        {
+            logger.LogWarning("Artifact list contains no valid entries");
+            return packages;
+        }
+
+        var artifactSet = new HashSet<string>(filteredArtifacts, StringComparer.OrdinalIgnoreCase);
+        foreach (var pkg in packages)
+        {
+            if (string.IsNullOrEmpty(pkg.ArtifactName))
+            {
+                logger.LogWarning(
+                    "Package '{PackageName}' does not have an 'ArtifactName' property and will be excluded from artifact filtering.",
+                    pkg.PackageName ?? "(unknown)");
+            }
+        }
+
+        var filtered = packages
+            .Where(pkg => !string.IsNullOrEmpty(pkg.ArtifactName) && artifactSet.Contains(pkg.ArtifactName))
+            .ToList();
+
+        if (filtered.Count == 0)
+        {
+            throw new InvalidOperationException("No packages found matching the provided artifact list");
+        }
+
+        return filtered;
+    }
+
     private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
         .WithNamingConvention(NullNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
@@ -20,7 +73,7 @@ internal static class PackageInfoCiHelper
     /// <summary>
     /// Populates CI parameters and triggering paths on a PackageInfo instance.
     /// </summary>
-    public static void PopulateCiParameters(PackageInfo info)
+    public void PopulateCiParameters(PackageInfo info)
     {
         if (info.Language != SdkLanguage.DotNet)
         {
@@ -284,5 +337,43 @@ internal static class PackageInfoCiHelper
         {
             return string.Empty;
         }
+    }
+
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never
+    };
+
+    public void WritePackageInfoFile(PackageInfo packageInfo, string outputPath, bool addDevVersion)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        if (addDevVersion)
+        {
+            packageInfo.DevVersion = packageInfo.PackageVersion;
+        }
+
+        File.WriteAllText(outputPath, JsonSerializer.Serialize(packageInfo, SerializerOptions));
+    }
+
+    /// <summary>
+    /// Parse a package path.
+    /// Expected general structure: &lt;repoRoot&gt;/sdk/&lt;service&gt;/&lt;package&gt; (language-specific depth checks may vary).
+    /// </summary>
+    /// <param name="realPackagePath">Real (fully resolved) package path.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Tuple of (RepoRoot, RelativePath, FullPath).</returns>
+    public async Task<(string RepoRoot, string RelativePath, string FullPath)> ParsePackagePathAsync(string realPackagePath, CancellationToken ct)
+    {
+        var full = RealPath.GetRealPath(realPackagePath);
+        var repoRoot = await gitHelper.DiscoverRepoRootAsync(full, ct);
+        var sdkRoot = Path.Combine(repoRoot, "sdk");
+        var relativePath = Path.GetRelativePath(sdkRoot, full).TrimStart(Path.DirectorySeparatorChar);
+        return (repoRoot, relativePath, full);
     }
 }

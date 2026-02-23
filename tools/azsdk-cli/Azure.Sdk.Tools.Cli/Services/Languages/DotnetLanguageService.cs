@@ -3,7 +3,6 @@
 
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Models.Responses.Package;
 
@@ -29,10 +28,11 @@ public sealed partial class DotnetLanguageService : LanguageService
         IGitHelper gitHelper,
         ILogger<LanguageService> logger,
         ICommonValidationHelpers commonValidationHelpers,
+        IPackageInfoHelper packageInfoHelper,
         IFileHelper fileHelper,
         ISpecGenSdkConfigHelper specGenSdkConfigHelper,
         IChangelogHelper changelogHelper)
-        : base(processHelper, gitHelper, logger, commonValidationHelpers, fileHelper, specGenSdkConfigHelper, changelogHelper)
+        : base(processHelper, gitHelper, logger, commonValidationHelpers, packageInfoHelper, fileHelper, specGenSdkConfigHelper, changelogHelper)
     {
         this.powershellHelper = powershellHelper;
     }
@@ -80,7 +80,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         // Populate CI parameters and triggering paths for each package
         foreach (var package in packages)
         {
-            PackageInfoCiHelper.PopulateCiParameters(package);
+            packageInfoHelper.PopulateCiParameters(package);
         }
 
         return packages;
@@ -89,7 +89,7 @@ public sealed partial class DotnetLanguageService : LanguageService
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         logger.LogDebug("Resolving .NET package info for path: {packagePath}", packagePath);
-        var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, packagePath, ct);
+        var (repoRoot, relativePath, fullPath) = await packageInfoHelper.ParsePackagePathAsync(packagePath, ct);
 
         var parsed = await TryGetSinglePackageInfoFromMsBuildAsync(fullPath, ct);
         var package = parsed.HasValue
@@ -97,7 +97,7 @@ public sealed partial class DotnetLanguageService : LanguageService
             : await CreateBasicPackageInfo(repoRoot, relativePath, fullPath, ct);
 
         // Populate CI parameters
-        PackageInfoCiHelper.PopulateCiParameters(package);
+        packageInfoHelper.PopulateCiParameters(package);
 
         logger.LogDebug("Resolved .NET package: {packageName} v{packageVersion} at {relativePath} (as {sdkType})",
             package.PackageName ?? "(unknown)",
@@ -258,7 +258,7 @@ public sealed partial class DotnetLanguageService : LanguageService
                 continue;
             }
 
-            var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, parsed.Value.PackagePath, ct);
+            var (repoRoot, relativePath, fullPath) = await packageInfoHelper.ParsePackagePathAsync(parsed.Value.PackagePath, ct);
             var pkg = await CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath, ct);
             packages.Add(pkg);
         }

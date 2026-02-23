@@ -13,6 +13,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         protected readonly IGitHelper gitHelper;
         protected readonly ILogger<LanguageService> logger;
         protected readonly ICommonValidationHelpers commonValidationHelpers;
+        protected readonly IPackageInfoHelper packageInfoHelper;
         protected readonly IFileHelper fileHelper;
         protected readonly ISpecGenSdkConfigHelper specGenSdkConfigHelper;
         protected readonly IChangelogHelper changelogHelper;
@@ -26,6 +27,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
             gitHelper = null!;
             logger = null!;
             commonValidationHelpers = null!;
+            packageInfoHelper = null!;
             fileHelper = null!;
             specGenSdkConfigHelper = null!;
             changelogHelper = null!;
@@ -36,6 +38,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
             IGitHelper gitHelper,
             ILogger<LanguageService> logger,
             ICommonValidationHelpers commonValidationHelpers,
+            IPackageInfoHelper packageInfoHelper,
             IFileHelper fileHelper,
             ISpecGenSdkConfigHelper specGenSdkConfigHelper,
             IChangelogHelper changelogHelper)
@@ -44,6 +47,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
             this.gitHelper = gitHelper;
             this.logger = logger;
             this.commonValidationHelpers = commonValidationHelpers;
+            this.packageInfoHelper = packageInfoHelper;
             this.fileHelper = fileHelper;
             this.specGenSdkConfigHelper = specGenSdkConfigHelper;
             this.changelogHelper = changelogHelper;

@@ -7,7 +7,6 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure.Sdk.Tools.Cli.Commands;
 using Azure.Sdk.Tools.Cli.Helpers;
-using Azure.Sdk.Tools.Cli.Helpers.PackageInfoHelpers;
 using Azure.Sdk.Tools.Cli.Models;
 using Azure.Sdk.Tools.Cli.Services.Languages;
 using Azure.Sdk.Tools.Cli.Tools.Core;
@@ -18,6 +17,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 public class PackageInfoTool(
     IGitHelper gitHelper,
     ILogger<PackageInfoTool> _logger,
+    PackageInfoHelper packageInfoHelper,
     IEnumerable<LanguageService> languageServices
 ) : LanguageMcpTool(languageServices, gitHelper, _logger)
 {
@@ -120,7 +120,7 @@ public class PackageInfoTool(
             return new DefaultCommandResponse { Message = "No packages matched the requested criteria." };
         }
 
-        selectedPackages = PackageInfoArtifactFilter.FilterPackagesByArtifact(selectedPackages, options.ArtifactList, logger);
+        selectedPackages = packageInfoHelper.FilterPackagesByArtifact(selectedPackages, options.ArtifactList);
         var outputFiles = WritePackageInfoFiles(selectedPackages, options.OutDir, options.AddDevVersion);
 
         return new DefaultCommandResponse
@@ -173,7 +173,7 @@ public class PackageInfoTool(
             LogPackageDetails(pkg, outputPath);
 
             exportedPaths[outputPath] = pkg;
-            PackageInfoFileWriter.WritePackageInfoFile(pkg, outputPath, addDevVersion);
+            packageInfoHelper.WritePackageInfoFile(pkg, outputPath, addDevVersion);
             outputFiles.Add(outputPath);
         }
 

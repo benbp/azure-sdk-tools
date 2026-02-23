@@ -365,11 +365,11 @@ public class SampleGeneratorToolTests
         // Use a real FileHelper instance instead of mock
         var fileHelper = new FileHelper(new TestLogger<FileHelper>());
         _languageServices = [
-            new PythonLanguageService(_mockProcessHelper.Object, _mockPythonHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaLanguageService(_mockProcessHelper.Object, realGitHelper, new Mock<IMavenHelper>().Object, microagentHostServiceMock.Object, languageLogger, _commonValidationHelpers.Object, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaScriptLanguageService(_mockProcessHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new PythonLanguageService(_mockProcessHelper.Object, _mockPythonHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaLanguageService(_mockProcessHelper.Object, realGitHelper, new Mock<IMavenHelper>().Object, microagentHostServiceMock.Object, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaScriptLanguageService(_mockProcessHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             _mockGoLanguageService.Object,
-            new DotnetLanguageService(_mockProcessHelper.Object, _mockPowerShellHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
+            new DotnetLanguageService(_mockProcessHelper.Object, _mockPowerShellHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
         ];
 
         _mockGoLanguageService.Setup(ls => ls.Language).Returns(SdkLanguage.Go);
@@ -573,7 +573,7 @@ public class SampleGeneratorToolTests
             Assert.That(response.PackageName, Is.EqualTo("sdk/security/keyvault/azkeys"), "Package name should be set");
             Assert.That(response.PackageType, Is.EqualTo(SdkType.Dataplane), "Package type should be set");
             Assert.That(response.Version, Is.EqualTo("1.5.0"), "Version should be set");
-            
+
             // Verify samples_count is in Result as an anonymous type
             Assert.That(response.Result, Is.Not.Null, "Result should not be null");
             var json = System.Text.Json.JsonSerializer.Serialize(response.Result);

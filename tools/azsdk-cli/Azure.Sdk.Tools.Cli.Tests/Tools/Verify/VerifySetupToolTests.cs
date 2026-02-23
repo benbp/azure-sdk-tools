@@ -64,11 +64,11 @@ internal class VerifySetupToolTests
         .ReturnsAsync((string path, CancellationToken _) => path ?? "/test/repo");
 
         languageServices = [
-            new PythonLanguageService(mockProcessHelper.Object, mockPythonHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaLanguageService(mockProcessHelper.Object, _mockGitHelper.Object, new Mock<IMavenHelper>().Object, _mockMicrohostAgent.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaScriptLanguageService(mockProcessHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new GoLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new DotnetLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
+            new PythonLanguageService(mockProcessHelper.Object, mockPythonHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaLanguageService(mockProcessHelper.Object, _mockGitHelper.Object, new Mock<IMavenHelper>().Object, _mockMicrohostAgent.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaScriptLanguageService(mockProcessHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new GoLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new DotnetLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
         ];
 
         SetupSuccessfulProcessMocks();
@@ -110,7 +110,7 @@ internal class VerifySetupToolTests
                 {
                     var command = kvp.Key;
                     var output = kvp.Value;
-                    if (processOptions.Command.Contains(command) || 
+                    if (processOptions.Command.Contains(command) ||
                         processOptions.Args.Any(a => a.Contains(command)))
                     {
                         return new ProcessResult
@@ -162,6 +162,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -182,6 +183,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -204,6 +206,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -226,6 +229,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -247,6 +251,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -268,6 +273,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -288,6 +294,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 
@@ -308,6 +315,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
+            Mock.Of<IPackageInfoHelper>(),
             languageServices
         );
 

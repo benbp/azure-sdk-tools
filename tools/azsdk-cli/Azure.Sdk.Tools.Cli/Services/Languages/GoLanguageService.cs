@@ -20,10 +20,11 @@ public partial class GoLanguageService : LanguageService
         IGitHelper gitHelper,
         ILogger<LanguageService> logger,
         ICommonValidationHelpers commonValidationHelpers,
+        IPackageInfoHelper packageInfoHelper,
         IFileHelper fileHelper,
         ISpecGenSdkConfigHelper specGenSdkConfigHelper,
         IChangelogHelper changelogHelper)
-        : base(processHelper, gitHelper, logger, commonValidationHelpers, fileHelper, specGenSdkConfigHelper, changelogHelper)
+        : base(processHelper, gitHelper, logger, commonValidationHelpers, packageInfoHelper, fileHelper, specGenSdkConfigHelper, changelogHelper)
     {
         this.powershellHelper = powershellHelper;
     }

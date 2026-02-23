@@ -18,10 +18,11 @@ public sealed partial class PythonLanguageService : LanguageService
         IGitHelper gitHelper,
         ILogger<LanguageService> logger,
         ICommonValidationHelpers commonValidationHelpers,
+        IPackageInfoHelper packageInfoHelper,
         IFileHelper fileHelper,
         ISpecGenSdkConfigHelper specGenSdkConfigHelper,
         IChangelogHelper changelogHelper)
-        : base(processHelper, gitHelper, logger, commonValidationHelpers, fileHelper, specGenSdkConfigHelper, changelogHelper)
+        : base(processHelper, gitHelper, logger, commonValidationHelpers, packageInfoHelper, fileHelper, specGenSdkConfigHelper, changelogHelper)
     {
         this.pythonHelper = pythonHelper;
         this.npxHelper = npxHelper;
@@ -37,9 +38,9 @@ public sealed partial class PythonLanguageService : LanguageService
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
     {
         logger.LogDebug("Resolving Python package info for path: {packagePath}", packagePath);
-        var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, packagePath, ct);
+        var (repoRoot, relativePath, fullPath) = await packageInfoHelper.ParsePackagePathAsync(packagePath, ct);
         var (packageName, packageVersion) = await TryGetPackageInfoAsync(fullPath, ct);
-        
+
         if (packageName == null)
         {
             logger.LogWarning("Could not determine package name for Python package at {fullPath}", fullPath);
@@ -56,7 +57,7 @@ public sealed partial class PythonLanguageService : LanguageService
                 ? SdkType.Management
                 : SdkType.Dataplane;
         }
-        
+
         var model = new PackageInfo
         {
             PackagePath = fullPath,
@@ -69,58 +70,58 @@ public sealed partial class PythonLanguageService : LanguageService
             SamplesDirectory = Path.Combine(fullPath, "samples"),
             SdkType = sdkType
         };
-        
-        logger.LogDebug("Resolved Python package: {sdkType} {packageName} v{packageVersion} at {relativePath}", 
+
+        logger.LogDebug("Resolved Python package: {sdkType} {packageName} v{packageVersion} at {relativePath}",
             sdkType, packageName ?? "(unknown)", packageVersion ?? "(unknown)", relativePath);
-        
+
         return model;
     }
 
-private async Task<(string? Name, string? Version)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
-{
-    string? packageName = null;
-    string? packageVersion = null;
-    
-    try
+    private async Task<(string? Name, string? Version)> TryGetPackageInfoAsync(string packagePath, CancellationToken ct)
     {
-        logger.LogTrace("Calling get_package_properties.py for {packagePath}", packagePath);
-        var (repoRoot, relativePath, fullPath) = await PackagePathParser.ParseAsync(gitHelper, packagePath, ct);
-        var scriptPath = Path.Combine(repoRoot, "eng", "scripts", "get_package_properties.py");
-        
-        var result = await pythonHelper.Run(new PythonOptions(
-                "python",
-                [scriptPath, "-s", packagePath],
-                workingDirectory: repoRoot,
-                logOutputStream: false
-            ),
-            ct
-        );
-        
-        if (result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output))
+        string? packageName = null;
+        string? packageVersion = null;
+
+        try
         {
-            // Parse the output from get_package_properties.py
-            // Format: <name> <version> <is_new_sdk> <directory> <dependent_packages>
-            var lines = result.Output.Trim().Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length > 0)
+            logger.LogTrace("Calling get_package_properties.py for {packagePath}", packagePath);
+            var (repoRoot, relativePath, fullPath) = await packageInfoHelper.ParsePackagePathAsync(packagePath, ct);
+            var scriptPath = Path.Combine(repoRoot, "eng", "scripts", "get_package_properties.py");
+
+            var result = await pythonHelper.Run(new PythonOptions(
+                    "python",
+                    [scriptPath, "-s", packagePath],
+                    workingDirectory: repoRoot,
+                    logOutputStream: false
+                ),
+                ct
+            );
+
+            if (result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output))
             {
-                var parts = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                packageName = parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]) ? parts[0] : null;
-                packageVersion = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1] : null;
-                
-                logger.LogTrace("Python script returned: name={packageName}, version={packageVersion}", packageName, packageVersion);
-                return (packageName, packageVersion);
+                // Parse the output from get_package_properties.py
+                // Format: <name> <version> <is_new_sdk> <directory> <dependent_packages>
+                var lines = result.Output.Trim().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length > 0)
+                {
+                    var parts = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    packageName = parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]) ? parts[0] : null;
+                    packageVersion = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1] : null;
+
+                    logger.LogTrace("Python script returned: name={packageName}, version={packageVersion}", packageName, packageVersion);
+                    return (packageName, packageVersion);
+                }
             }
+
+            logger.LogWarning("Python script failed with exit code {exitCode}. Output: {output}", result.ExitCode, result.Output);
         }
-        
-        logger.LogWarning("Python script failed with exit code {exitCode}. Output: {output}", result.ExitCode, result.Output);
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error running Python script for {packagePath}", packagePath);
+
+        }
+        return (packageName, packageVersion);
     }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Error running Python script for {packagePath}", packagePath);
-        
-    }
-    return (packageName, packageVersion);
-}
 
     public override bool HasCustomizations(string packagePath, CancellationToken ct)
     {
@@ -184,18 +185,18 @@ private async Task<(string? Name, string? Version)> TryGetPackageInfoAsync(strin
                     {
                         return true;
                     }
-                    
+
                     // If line has [ but not ] on same line, it's multiline = non-empty
                     if (line.Contains('[') && !line.Contains(']'))
                     {
                         return true;
                     }
-                    
+
                     // Single-line empty: __all__ = [] or __all__: List[str] = []
                     return false;
                 }
             }
-            
+
             // No __all__ found - assume no customizations (template file)
             return false;
         }
