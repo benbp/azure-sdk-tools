@@ -68,7 +68,7 @@ elseif (-not [string]::IsNullOrEmpty($ServiceDirectory)) {
   $cliArgs += @("--service-directory", $ServiceDirectory)
 }
 
-$cliProject = Join-Path $repoRoot "tools" "azsdk-cli" "Azure.Sdk.Tools.Cli"
+$cliProject = Join-Path $PSScriptRoot 'Azure.Sdk.Tools.Cli'
 $cmdString = "dotnet run --project $cliProject -- $cliArgs"
 Write-Host $cmdString
 & dotnet run --project $cliProject -- @cliArgs

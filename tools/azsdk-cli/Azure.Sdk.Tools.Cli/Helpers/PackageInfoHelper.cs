@@ -13,6 +13,7 @@ public interface IPackageInfoHelper
 {
     List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList);
     void PopulateCommonCiMetadata(PackageInfo info);
+    void WritePackageInfoFile(PackageInfo packageInfo, string outputPath, bool addDevVersion);
     TParameters? GetLanguageCiParameters<TParameters>(PackageInfo info)
         where TParameters : CiPipelineYamlParametersBase;
     Task<(string RepoRoot, string RelativePath, string FullPath)> ParsePackagePathAsync(string realPackagePath, CancellationToken ct);

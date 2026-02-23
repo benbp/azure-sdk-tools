@@ -17,7 +17,7 @@ namespace Azure.Sdk.Tools.Cli.Tools.EngSys;
 public class PackageInfoTool(
     IGitHelper gitHelper,
     ILogger<PackageInfoTool> _logger,
-    PackageInfoHelper packageInfoHelper,
+    IPackageInfoHelper packageInfoHelper,
     IEnumerable<LanguageService> languageServices
 ) : LanguageMcpTool(languageServices, gitHelper, _logger)
 {
