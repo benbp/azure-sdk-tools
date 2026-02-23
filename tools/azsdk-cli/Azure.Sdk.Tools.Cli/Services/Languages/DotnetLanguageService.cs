@@ -80,7 +80,7 @@ public sealed partial class DotnetLanguageService : LanguageService
         // Populate CI parameters and triggering paths for each package
         foreach (var package in packages)
         {
-            packageInfoHelper.PopulateCiParameters(package);
+            PopulateCiMetadata(package);
         }
 
         return packages;
@@ -96,8 +96,7 @@ public sealed partial class DotnetLanguageService : LanguageService
             ? await CreatePackageInfo(parsed.Value, repoRoot, relativePath, fullPath, ct)
             : await CreateBasicPackageInfo(repoRoot, relativePath, fullPath, ct);
 
-        // Populate CI parameters
-        packageInfoHelper.PopulateCiParameters(package);
+        PopulateCiMetadata(package);
 
         logger.LogDebug("Resolved .NET package: {packageName} v{packageVersion} at {relativePath} (as {sdkType})",
             package.PackageName ?? "(unknown)",

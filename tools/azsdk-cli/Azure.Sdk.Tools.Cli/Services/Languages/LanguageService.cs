@@ -94,6 +94,7 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
                 try
                 {
                     var packageInfo = await GetPackageInfo(packageDirectory, ct);
+                    PopulateCiMetadata(packageInfo);
                     packages.Add(packageInfo);
                 }
                 catch (Exception ex)
@@ -137,6 +138,16 @@ namespace Azure.Sdk.Tools.Cli.Services.Languages
         /// Override in derived classes to specify language-specific patterns.
         /// </summary>
         protected virtual string[] PackageManifestPatterns => [];
+
+        protected virtual void ApplyLanguageCiParameters(PackageInfo packageInfo)
+        {
+        }
+
+        protected void PopulateCiMetadata(PackageInfo packageInfo)
+        {
+            packageInfoHelper.PopulateCommonCiMetadata(packageInfo);
+            ApplyLanguageCiParameters(packageInfo);
+        }
 
         /// <summary>
         /// Gets the package root directory from a manifest file path.

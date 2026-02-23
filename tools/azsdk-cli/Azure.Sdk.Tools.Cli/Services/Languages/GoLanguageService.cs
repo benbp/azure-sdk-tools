@@ -3,8 +3,6 @@
 using System.Text.Json;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Azure.Sdk.Tools.Cli.Services.Languages;
 
@@ -49,23 +47,15 @@ public partial class GoLanguageService : LanguageService
     /// </summary>
     protected override string[] PackageManifestPatterns => ["go.mod"];
 
-    /// <summary>
-    /// Discovers all packages in a service directory with CI parameters populated.
-    /// </summary>
-    public override async Task<IReadOnlyList<PackageInfo>> DiscoverPackagesAsync(
-        string repoRoot,
-        string? serviceDirectory,
-        CancellationToken ct = default)
+    protected override void ApplyLanguageCiParameters(PackageInfo packageInfo)
     {
-        var packages = await base.DiscoverPackagesAsync(repoRoot, serviceDirectory, ct);
+        var parameters = packageInfoHelper.GetLanguageCiParameters<GoCiPipelineYamlParameters>(packageInfo)
+            ?? new GoCiPipelineYamlParameters();
 
-        // Populate CI parameters for each package
-        foreach (var package in packages)
-        {
-            PopulateGoCiParameters(package);
-        }
-
-        return packages;
+        packageInfo.CiParameters.LicenseCheck = parameters.LicenseCheck;
+        packageInfo.CiParameters.NonShipping = parameters.NonShipping;
+        packageInfo.CiParameters.UsePipelineProxy = parameters.UsePipelineProxy;
+        packageInfo.CiParameters.IsSdkLibrary = parameters.IsSdkLibrary;
     }
 
     public override async Task<PackageInfo> GetPackageInfo(string packagePath, CancellationToken ct = default)
@@ -197,85 +187,6 @@ public partial class GoLanguageService : LanguageService
     }
 
     /// <summary>
-    /// Populates Go-specific CI parameters from ci.yml.
-    /// Go CI parameters: LicenseCheck, NonShipping, UsePipelineProxy, IsSdkLibrary
-    /// </summary>
-    private void PopulateGoCiParameters(PackageInfo info)
-    {
-        // Default Go CI parameters
-        info.CiParameters = new CiPipelineParameters
-        {
-            LicenseCheck = true,
-            NonShipping = false,
-            UsePipelineProxy = true,
-            IsSdkLibrary = true
-        };
-
-        if (string.IsNullOrWhiteSpace(info.ServiceDirectory))
-        {
-            return;
-        }
-
-        // Try to find and parse ci.yml
-        var ciYamlPath = Path.Combine(info.RepoRoot, "sdk", info.ServiceDirectory, "ci.yml");
-        if (!File.Exists(ciYamlPath))
-        {
-            return;
-        }
-
-        try
-        {
-            var yaml = ParseGoCiYaml(ciYamlPath);
-            if (yaml?.Extends?.Parameters == null)
-            {
-                return;
-            }
-
-            var parameters = yaml.Extends.Parameters;
-
-            // Override defaults with values from ci.yml if present
-            if (parameters.LicenseCheck.HasValue)
-            {
-                info.CiParameters.LicenseCheck = parameters.LicenseCheck.Value;
-            }
-            if (parameters.NonShipping.HasValue)
-            {
-                info.CiParameters.NonShipping = parameters.NonShipping.Value;
-            }
-            if (parameters.UsePipelineProxy.HasValue)
-            {
-                info.CiParameters.UsePipelineProxy = parameters.UsePipelineProxy.Value;
-            }
-            if (parameters.IsSdkLibrary.HasValue)
-            {
-                info.CiParameters.IsSdkLibrary = parameters.IsSdkLibrary.Value;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to parse Go ci.yml at {Path}", ciYamlPath);
-        }
-    }
-
-    private static readonly IDeserializer GoCiYamlDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(NullNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
-        .Build();
-
-    private static GoCiPipelineYaml? ParseGoCiYaml(string path)
-    {
-        try
-        {
-            using var reader = new StreamReader(path);
-            return GoCiYamlDeserializer.Deserialize<GoCiPipelineYaml>(reader);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     /// These are the properties that come out of the Get-GoModuleProperties powershell func.
     /// </summary>
     private record GoModulePropertiesPowershell(
@@ -290,26 +201,11 @@ public partial class GoLanguageService : LanguageService
         string? ArtifactName,
         string? ReleaseStatus);
 
-    /// <summary>
-    /// Go CI pipeline YAML structure for parsing ci.yml.
-    /// </summary>
-    private class GoCiPipelineYaml
+    internal sealed class GoCiPipelineYamlParameters : CiPipelineYamlParametersBase
     {
-        [YamlMember(Alias = "extends")]
-        public GoCiPipelineYamlExtends? Extends { get; set; }
-    }
-
-    private class GoCiPipelineYamlExtends
-    {
-        [YamlMember(Alias = "parameters")]
-        public GoCiPipelineYamlParameters? Parameters { get; set; }
-    }
-
-    private class GoCiPipelineYamlParameters
-    {
-        public bool? LicenseCheck { get; set; }
-        public bool? NonShipping { get; set; }
-        public bool? UsePipelineProxy { get; set; }
-        public bool? IsSdkLibrary { get; set; }
+        public bool? LicenseCheck { get; set; } = true;
+        public bool? NonShipping { get; set; } = false;
+        public bool? UsePipelineProxy { get; set; } = true;
+        public bool? IsSdkLibrary { get; set; } = true;
     }
 }

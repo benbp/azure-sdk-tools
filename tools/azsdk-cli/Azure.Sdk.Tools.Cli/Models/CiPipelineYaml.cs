@@ -5,33 +5,31 @@ using YamlDotNet.Serialization;
 
 namespace Azure.Sdk.Tools.Cli.Models;
 
+internal interface ICiPipelineYaml
+{
+    CiPipelineYamlParametersBase? Parameters { get; }
+}
+
 /// <summary>
-/// Model for deserializing Azure DevOps CI pipeline YAML files (ci*.yml).
-/// Only includes fields relevant to package info extraction.
+/// Generic model for deserializing Azure DevOps CI pipeline YAML files (ci*.yml).
+/// Allows each language to provide a derived parameters type.
 /// </summary>
-internal class CiPipelineYaml
+internal class CiPipelineYaml<TParameters> : ICiPipelineYaml where TParameters : CiPipelineYamlParametersBase
 {
     [YamlMember(Alias = "extends")]
-    public CiPipelineYamlExtends? Extends { get; set; }
+    public CiPipelineYamlExtends<TParameters>? Extends { get; set; }
+
+    CiPipelineYamlParametersBase? ICiPipelineYaml.Parameters => Extends?.Parameters;
 }
 
-internal class CiPipelineYamlExtends
+internal class CiPipelineYamlExtends<TParameters> where TParameters : CiPipelineYamlParametersBase
 {
     [YamlMember(Alias = "parameters")]
-    public CiPipelineYamlParameters? Parameters { get; set; }
+    public TParameters? Parameters { get; set; }
 }
 
-internal class CiPipelineYamlParameters
+public class CiPipelineYamlParametersBase
 {
-    [YamlMember(Alias = "BuildSnippets")]
-    public bool? BuildSnippets { get; set; }
-
-    [YamlMember(Alias = "CheckAOTCompat")]
-    public bool? CheckAotCompat { get; set; }
-
-    [YamlMember(Alias = "AOTTestInputs")]
-    public List<CiPipelineYamlAotTestInput>? AotTestInputs { get; set; }
-
     [YamlMember(Alias = "MatrixConfigs")]
     public List<Dictionary<string, object>>? MatrixConfigs { get; set; }
 
@@ -45,31 +43,7 @@ internal class CiPipelineYamlParameters
     public List<CiPipelineYamlArtifact>? Artifacts { get; set; }
 }
 
-internal class CiPipelineYamlAotTestInput
-{
-    [YamlMember(Alias = "ArtifactName")]
-    public string? ArtifactName { get; set; }
-
-    [YamlMember(Alias = "ExpectedWarningsFilePath")]
-    public string? ExpectedWarningsFilePath { get; set; }
-
-    [YamlMember(Alias = "ExpectedWarningsFilepath")]
-    public string? ExpectedWarningsFilepathAlt { get; set; }
-
-    /// <summary>
-    /// Gets the warnings file path from either casing variant.
-    /// </summary>
-    public string? WarningsFilePath => ExpectedWarningsFilePath ?? ExpectedWarningsFilepathAlt;
-
-    /// <summary>
-    /// Indicates whether a warnings file is configured (and not "None").
-    /// </summary>
-    public bool HasWarningsFile =>
-        !string.IsNullOrWhiteSpace(WarningsFilePath) &&
-        !string.Equals(WarningsFilePath, "None", StringComparison.OrdinalIgnoreCase);
-}
-
-internal class CiPipelineYamlArtifact
+public class CiPipelineYamlArtifact
 {
     [YamlMember(Alias = "name")]
     public string? Name { get; set; }

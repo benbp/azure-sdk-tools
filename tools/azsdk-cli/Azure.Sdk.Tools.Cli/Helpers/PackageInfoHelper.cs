@@ -12,7 +12,9 @@ namespace Azure.Sdk.Tools.Cli.Helpers;
 public interface IPackageInfoHelper
 {
     List<PackageInfo> FilterPackagesByArtifact(List<PackageInfo> packages, string[] artifactList);
-    void PopulateCiParameters(PackageInfo info);
+    void PopulateCommonCiMetadata(PackageInfo info);
+    TParameters? GetLanguageCiParameters<TParameters>(PackageInfo info)
+        where TParameters : CiPipelineYamlParametersBase;
     Task<(string RepoRoot, string RelativePath, string FullPath)> ParsePackagePathAsync(string realPackagePath, CancellationToken ct);
 }
 
@@ -71,29 +73,30 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
         .Build();
 
     /// <summary>
-    /// Populates CI parameters and triggering paths on a PackageInfo instance.
+    /// Populates CI metadata shared across languages.
     /// </summary>
-    public void PopulateCiParameters(PackageInfo info)
+    public void PopulateCommonCiMetadata(PackageInfo info)
     {
-        if (info.Language != SdkLanguage.DotNet)
-        {
-            return;
-        }
+        var ciYamlResult = TryFindCiYaml<CiPipelineYamlParametersBase>(info);
+        PopulateCommonCiMetadata(info, ciYamlResult);
+    }
 
-        var ciYamlResult = TryFindCiYaml(info);
+    public TParameters? GetLanguageCiParameters<TParameters>(PackageInfo info)
+        where TParameters : CiPipelineYamlParametersBase
+    {
+        var ciYamlResult = TryFindCiYaml<TParameters>(info);
+        return ciYamlResult?.Yaml.Parameters as TParameters;
+    }
+
+    private static void PopulateCommonCiMetadata(PackageInfo info, (ICiPipelineYaml Yaml, string Path)? ciYamlResult)
+    {
         if (ciYamlResult == null)
         {
-            info.CiParameters = new CiPipelineParameters
-            {
-                BuildSnippets = true,
-                CheckAotCompat = info.AotCompatOptOut == false,
-                AotTestInputs = []
-            };
             return;
         }
 
         var (ciYaml, ciYamlPath) = ciYamlResult.Value;
-        var parameters = ciYaml.Extends?.Parameters;
+        var parameters = ciYaml.Parameters;
         var repoRoot = info.RepoRoot;
         var ciYamlDir = Path.GetDirectoryName(ciYamlPath) ?? string.Empty;
 
@@ -101,21 +104,11 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
         var artifact = parameters?.Artifacts?
             .FirstOrDefault(a => string.Equals(a.Name, info.ArtifactName, StringComparison.OrdinalIgnoreCase));
 
-        // Extract AOT test inputs for this artifact
-        var aotInputs = parameters?.AotTestInputs?
-            .Where(a => string.IsNullOrWhiteSpace(info.ArtifactName) ||
-                        string.Equals(a.ArtifactName, info.ArtifactName, StringComparison.OrdinalIgnoreCase))
-            .ToList() ?? [];
-
-        var hasBaselinedWarnings = aotInputs.Any(a => a.HasWarningsFile);
-
-        var buildSnippets = parameters?.BuildSnippets ?? true;
-        var checkAotCompat = parameters?.CheckAotCompat ?? (hasBaselinedWarnings || info.AotCompatOptOut != true);
-
         // Collect matrix configs
         var matrixConfigs = new List<Dictionary<string, object?>>();
         AddMatrixConfigs(matrixConfigs, parameters?.MatrixConfigs);
         AddMatrixConfigs(matrixConfigs, parameters?.AdditionalMatrixConfigs);
+        info.CiParameters.MatrixConfigs = matrixConfigs;
 
         // Collect triggering paths
         var triggeringPaths = new List<string>();
@@ -134,7 +127,7 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
             triggeringPaths.Add("/" + ciYamlRelative);
         }
 
-        var resolvedTriggers = ResolveTriggeringPaths(triggeringPaths, ciYamlDir, repoRoot);
+        info.TriggeringPaths = ResolveTriggeringPaths(triggeringPaths, ciYamlDir, repoRoot);
 
         // Additional validation packages
         var additionalPackages = artifact?.AdditionalValidationPackages?
@@ -142,19 +135,11 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
             .Select(p => (NormalizedPath)p)
             .ToList() ?? [];
 
-        // Update PackageInfo
-        info.TriggeringPaths = resolvedTriggers;
         info.AdditionalValidationPackages = additionalPackages.Count > 0 ? additionalPackages : null;
-        info.CiParameters = new CiPipelineParameters
-        {
-            BuildSnippets = buildSnippets,
-            CheckAotCompat = checkAotCompat,
-            AotTestInputs = checkAotCompat ? ConvertAotInputs(aotInputs) : [],
-            MatrixConfigs = matrixConfigs
-        };
     }
 
-    private static (CiPipelineYaml Yaml, string Path)? TryFindCiYaml(PackageInfo info)
+    private static (ICiPipelineYaml Yaml, string Path)? TryFindCiYaml<TParameters>(PackageInfo info)
+        where TParameters : CiPipelineYamlParametersBase
     {
         if (string.IsNullOrWhiteSpace(info.ServiceDirectory))
         {
@@ -184,7 +169,7 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
 
         foreach (var ciFile in ciFiles)
         {
-            var yaml = DeserializeYaml<CiPipelineYaml>(ciFile);
+            var yaml = DeserializeYaml<CiPipelineYaml<TParameters>>(ciFile);
             if (yaml == null)
             {
                 continue;
@@ -199,12 +184,12 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
         return null;
     }
 
-    private static T? DeserializeYaml<T>(string path) where T : class
+    private static TModel? DeserializeYaml<TModel>(string path) where TModel : class
     {
         try
         {
             using var reader = new StreamReader(path);
-            return YamlDeserializer.Deserialize<T>(reader);
+            return YamlDeserializer.Deserialize<TModel>(reader);
         }
         catch
         {
@@ -212,9 +197,9 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
         }
     }
 
-    private static bool MatchesArtifact(CiPipelineYaml yaml, string? artifactName, string? group)
+    private static bool MatchesArtifact(ICiPipelineYaml yaml, string? artifactName, string? group)
     {
-        var artifacts = yaml.Extends?.Parameters?.Artifacts;
+        var artifacts = yaml.Parameters?.Artifacts;
         if (artifacts == null)
         {
             return false;
@@ -240,33 +225,6 @@ public class PackageInfoHelper(ILogger<PackageInfoHelper> logger, IGitHelper git
         }
 
         return false;
-    }
-
-    private static List<Dictionary<string, object?>> ConvertAotInputs(List<CiPipelineYamlAotTestInput> inputs)
-    {
-        var result = new List<Dictionary<string, object?>>();
-
-        foreach (var input in inputs)
-        {
-            var dict = new Dictionary<string, object?>
-            {
-                ["ArtifactName"] = input.ArtifactName
-            };
-
-            // Use the original property name from the YAML
-            if (!string.IsNullOrWhiteSpace(input.ExpectedWarningsFilePath))
-            {
-                dict["ExpectedWarningsFilePath"] = input.ExpectedWarningsFilePath;
-            }
-            else if (!string.IsNullOrWhiteSpace(input.ExpectedWarningsFilepathAlt))
-            {
-                dict["ExpectedWarningsFilepath"] = input.ExpectedWarningsFilepathAlt;
-            }
-
-            result.Add(dict);
-        }
-
-        return result;
     }
 
     private static void AddMatrixConfigs(List<Dictionary<string, object?>> destination, List<Dictionary<string, object>>? source)
