@@ -68,9 +68,12 @@ elseif (-not [string]::IsNullOrEmpty($ServiceDirectory)) {
   $cliArgs += @("--service-directory", $ServiceDirectory)
 }
 
-& dotnet run --no-restore --project /home/ben/ai/projects/package-info-generate/tools/azsdk-cli/Azure.Sdk.Tools.Cli/ -- @cliArgs
+$cliProject = Join-Path $repoRoot "tools" "azsdk-cli" "Azure.Sdk.Tools.Cli"
+$cmdString = "dotnet run --project $cliProject -- $cliArgs"
+Write-Host $cmdString
+& dotnet run --project $cliProject -- @cliArgs
 if ($LASTEXITCODE -ne 0) {
-  throw "dotnet run -- eng package-info failed with exit code $LASTEXITCODE"
+  throw "'$cmdString' failed with exit code $LASTEXITCODE"
 }
 
 function ConvertTo-OrderedObject {
