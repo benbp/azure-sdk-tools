@@ -120,17 +120,11 @@ print(f'{{package_name}} {{version}} True {{sys.argv[-1]}} ')
 """);
     }
 
-    private static async Task SetupGoPackageAsync(string packagePath, string version)
+    private static Task SetupGoPackageAsync(string packagePath, string version)
     {
-        var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
-        var gitHelper = new GitHelper(Mock.Of<IGitHubService>(), gitCommandHelper, Mock.Of<ILogger<GitHelper>>());
-
-        CreateTestFile(Path.Join(await gitHelper.DiscoverRepoRootAsync(packagePath, CancellationToken.None), "eng", "common", "scripts"), "common.ps1",
-            $@"function Get-GoModuleProperties($goModPath) {{
-                return @{{
-                    Version = ""{version}""
-                }}
-            }}");
+        CreateTestFile(packagePath, "go.mod", "module github.com/Azure/azure-sdk-for-go/sdk/test/testpkg\ngo 1.24.0\n");
+        CreateTestFile(packagePath, "internal/version.go", $"package internal\n\nconst Version = \"v{version}\"\n");
+        return Task.CompletedTask;
     }
 
 
@@ -174,7 +168,7 @@ print(f'{{package_name}} {{version}} True {{sys.argv[-1]}} ')
     [TestCase(SdkLanguage.Java, "azure-sdk-for-java", "core", "azure-core", "1.2.3")]
     [TestCase(SdkLanguage.Python, "azure-sdk-for-python", "ai", "azure-ai-test", "1.0.1")]
     [TestCase(SdkLanguage.JavaScript, "azure-sdk-for-js", "test", "azure-testpkg", "2.3.4")]
-    [TestCase(SdkLanguage.Go, "azure-sdk-for-go", "security/keyvault", "azkeys", "v1.4.1-beta.1")]
+    [TestCase(SdkLanguage.Go, "azure-sdk-for-go", "security/keyvault", "azkeys", "1.4.1-beta.1")]
     public async Task VersionParsing_Works(SdkLanguage language, string repoName, string serviceDirectory, string package, string expectedVersion)
     {
         var service = serviceDirectory.Contains('/') ? serviceDirectory.Split('/')[^1] : serviceDirectory;
@@ -233,6 +227,34 @@ print(f'{{package_name}} {{version}} True {{sys.argv[-1]}} ')
         var languageService = languageServices.First(s => s.Language == language);
         var info = await languageService.GetPackageInfo(sdkPath);
         Assert.That(info.SdkType, Is.EqualTo(sdkType));
+    }
+
+    [Test]
+    [TestCase("sdk/resourcemanager/workloads/armworkloads", SdkType.Management)]
+    [TestCase("sdk/security/keyvault/azadmin", SdkType.Dataplane)]
+    public async Task GoSdkType_IsDerivedCorrectly(string packagePathUnderRepo, SdkType sdkType)
+    {
+        var repoRoot = Path.Combine(tempRoot.DirectoryPath, "azure-sdk-for-go");
+        var sdkPath = Path.Combine(repoRoot, packagePathUnderRepo.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(repoRoot);
+        if (!Directory.Exists(Path.Combine(repoRoot, ".git")))
+        {
+            await GitTestHelper.GitInitAsync(repoRoot);
+        }
+
+        Directory.CreateDirectory(sdkPath);
+        await SetupGoPackageAsync(sdkPath, "1.2.3");
+
+        var languageService = languageServices.First(s => s.Language == SdkLanguage.Go);
+        var info = await languageService.GetPackageInfo(sdkPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(info.PackageName, Is.EqualTo(packagePathUnderRepo));
+            Assert.That(info.ServiceDirectory, Is.EqualTo(packagePathUnderRepo["sdk/".Length..]));
+            Assert.That(info.SdkType, Is.EqualTo(sdkType));
+        });
     }
 
     [Test]

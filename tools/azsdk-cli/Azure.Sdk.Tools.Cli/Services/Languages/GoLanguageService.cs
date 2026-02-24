@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using Azure.Sdk.Tools.Cli.Helpers;
 using Azure.Sdk.Tools.Cli.Models;
 
@@ -63,52 +63,26 @@ public partial class GoLanguageService : LanguageService
         var fullPath = RealPath.GetRealPath(packagePath);
         var repoRoot = await gitHelper.DiscoverRepoRootAsync(packagePath, ct);
         var sdkRoot = Path.Combine(repoRoot, "sdk");
+        var relativePath = Path.GetRelativePath(sdkRoot, fullPath).TrimStart(Path.DirectorySeparatorChar);
+        var directoryPath = $"sdk/{relativePath}";
 
         try
         {
-            var commonPS1 = Path.Join(repoRoot, "eng", "common", "scripts", "common.ps1");
-
-            // The powershell outputs this:
-            // {
-            //   "Name": "sdk/messaging/azservicebus",
-            //   "Version": "1.10.1-beta.1",
-            //   "DirectoryPath": "../sdk/messaging/azservicebus",
-            //   "ServiceDirectory": "messaging/azservicebus",
-            //   "ReadMePath": "../sdk/messaging/azservicebus/README.md",
-            //   "ChangeLogPath": "../sdk/messaging/azservicebus/CHANGELOG.md",
-            //   "SdkType": "client",
-            //   "IsNewSdk": true,
-            //   "ReleaseStatus": "Unreleased",
-            //   "IncludedForValidation": false,
-            //   "CIParameters": {
-            //     "CIMatrixConfigs": []
-            //   },
-            //   "VersionFile": "/home/ripark/src/az/sdk/messaging/azservicebus/internal/constants.go",
-            //   "ModuleName": "azservicebus"
-            // }
             logger.LogDebug("Resolving Go package info for path: {packagePath}", packagePath);
-            string[] args = [$". {commonPS1}; Get-GoModuleProperties('{packagePath}') | ConvertTo-Json"];
-            var processResult = await processHelper.Run(new PowershellOptions(args, workingDirectory: repoRoot), ct);
-
-            if (processResult.ExitCode != 0)
+            var goModuleProperties = await TryGetGoModulePropertiesAsync(fullPath, repoRoot, ct);
+            if (goModuleProperties is null)
             {
-                throw new Exception($"Failed to extract package properties for {packagePath}: {processResult.Output}");
+                logger.LogDebug("Unable to derive Go module properties for package path: {PackagePath}", packagePath);
+                return CreateEmptyPackageInfo(fullPath, repoRoot, relativePath);
             }
 
-            GoModulePropertiesPowershell goModuleProperties;
-
-            try
-            {
-                goModuleProperties = JsonSerializer.Deserialize<GoModulePropertiesPowershell>(processResult.Stdout)
-                    ?? throw new Exception($"Failed to deserialize results from Get-GoModuleProperties.");
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Failed to deserialized JSON output '{processResult.Stdout}'", ex);
-            }
-
-            var relativePath = Path.GetRelativePath(sdkRoot, fullPath).TrimStart(Path.DirectorySeparatorChar);
-            var directoryPath = $"sdk/{relativePath}";
+            var readmePath = Path.Combine(fullPath, "README.md");
+            var changelogPath = Path.Combine(fullPath, "CHANGELOG.md");
+            var readmeRelative = File.Exists(readmePath) ? $"{goModuleProperties.Name}/README.md" : string.Empty;
+            var changelogRelative = File.Exists(changelogPath) ? $"{goModuleProperties.Name}/CHANGELOG.md" : string.Empty;
+            var releaseStatus = File.Exists(changelogPath)
+                ? await changelogHelper.GetReleaseStatus(changelogPath, ct)
+                : string.Empty;
 
             var model = new PackageInfo
             {
@@ -118,17 +92,16 @@ public partial class GoLanguageService : LanguageService
                 PackageName = goModuleProperties.Name,
                 PackageVersion = goModuleProperties.Version,
                 ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
-                SdkTypeString = goModuleProperties.SdkType ?? string.Empty,
+                SdkTypeString = goModuleProperties.SdkType,
                 Language = SdkLanguage.Go,
                 SamplesDirectory = fullPath,
-                // Map additional fields from PowerShell
                 DirectoryPath = directoryPath,
                 ServiceDirectory = goModuleProperties.ServiceDirectory,
-                ReadMePath = !string.IsNullOrEmpty(goModuleProperties.ReadMePath) ? $"{directoryPath}/README.md" : string.Empty,
-                ChangeLogPath = !string.IsNullOrEmpty(goModuleProperties.ChangeLogPath) ? $"{directoryPath}/CHANGELOG.md" : string.Empty,
+                ReadMePath = readmeRelative,
+                ChangeLogPath = changelogRelative,
                 IsNewSdk = goModuleProperties.IsNewSdk,
-                ArtifactName = goModuleProperties.ArtifactName ?? goModuleProperties.Name,
-                ReleaseStatus = goModuleProperties.ReleaseStatus ?? string.Empty,
+                ArtifactName = goModuleProperties.Name,
+                ReleaseStatus = releaseStatus,
                 SpecProjectPath = GetSpecProjectPath(fullPath)
             };
 
@@ -139,18 +112,7 @@ public partial class GoLanguageService : LanguageService
         {
             // NOTE: this method, via the LanguageService, cannot throw these exceptions, so we only log it.
             logger.LogDebug(ex, "Exception thrown when trying to get package properties for {Path}", packagePath);
-            return new PackageInfo()
-            {
-                PackagePath = fullPath,
-                RepoRoot = repoRoot,
-                RelativePath = Path.GetRelativePath(sdkRoot, fullPath).TrimStart(Path.DirectorySeparatorChar),
-                PackageName = null,
-                PackageVersion = null,
-                ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
-                SdkType = SdkType.Unknown,
-                Language = SdkLanguage.Go,
-                SamplesDirectory = fullPath
-            };
+            return CreateEmptyPackageInfo(fullPath, repoRoot, relativePath);
         }
     }
 
@@ -186,20 +148,127 @@ public partial class GoLanguageService : LanguageService
         }
     }
 
-    /// <summary>
-    /// These are the properties that come out of the Get-GoModuleProperties powershell func.
-    /// </summary>
-    private record GoModulePropertiesPowershell(
-        string? Name,
+    private async Task<GoModuleProperties?> TryGetGoModulePropertiesAsync(string packagePath, string repoRoot, CancellationToken ct)
+    {
+        var relativePath = Path.GetRelativePath(repoRoot, packagePath)
+            .Replace(Path.DirectorySeparatorChar, '/')
+            .Trim('/');
+
+        if (relativePath.Contains("testdata", StringComparison.OrdinalIgnoreCase)
+            || relativePath.Contains("sdk/samples", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var modMatch = GoModulePathRegex().Match(relativePath);
+        if (!modMatch.Success)
+        {
+            return null;
+        }
+
+        var modulePath = modMatch.Groups["modPath"].Value;
+        var moduleName = modMatch.Groups["modName"].Value;
+        var serviceDirectory = modulePath[(modulePath.IndexOf('/') + 1)..];
+        var sdkType = GetSdkType(modulePath, moduleName);
+
+        var (version, _) = await GetGoModuleVersionInfoAsync(packagePath, ct);
+        if (string.IsNullOrEmpty(version) && !string.Equals(sdkType, "eng", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new GoModuleProperties(
+            Name: modulePath,
+            Version: version,
+            ServiceDirectory: serviceDirectory,
+            SdkType: sdkType,
+            IsNewSdk: true);
+    }
+
+    private async Task<(string? Version, string? VersionFile)> GetGoModuleVersionInfoAsync(string packagePath, CancellationToken ct)
+    {
+        foreach (var goFile in Directory.EnumerateFiles(packagePath, "*.go", SearchOption.AllDirectories))
+        {
+            var fileName = Path.GetFileName(goFile);
+            if (!fileName.Contains("constant", StringComparison.OrdinalIgnoreCase)
+                && !fileName.Contains("version", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var content = await File.ReadAllTextAsync(goFile, ct);
+            var versionMatch = GoVersionLineRegex().Match(content);
+            if (versionMatch.Success)
+            {
+                return (versionMatch.Groups["version"].Value, goFile);
+            }
+
+            var badVersionMatch = GoVersionLineNoPrefixRegex().Match(content);
+            if (badVersionMatch.Success)
+            {
+                var badVersion = badVersionMatch.Groups["badVersion"].Value;
+                logger.LogError("Version in {VersionFile} should be 'v{ExpectedVersion}' not '{ActualVersion}'", goFile, badVersion, badVersion);
+            }
+        }
+
+        logger.LogWarning("Unable to find version for {ModulePath}", packagePath);
+        return (null, null);
+    }
+
+    private static string GetSdkType(string modulePath, string moduleName)
+    {
+        if (modulePath.Contains("eng/tools", StringComparison.OrdinalIgnoreCase))
+        {
+            return "eng";
+        }
+
+        if (moduleName.StartsWith("arm", StringComparison.OrdinalIgnoreCase)
+            || modulePath.Contains("resourcemanager", StringComparison.OrdinalIgnoreCase))
+        {
+            return "mgmt";
+        }
+
+        return "client";
+    }
+
+    private static PackageInfo CreateEmptyPackageInfo(string fullPath, string repoRoot, string relativePath)
+    {
+        return new PackageInfo
+        {
+            PackagePath = fullPath,
+            RepoRoot = repoRoot,
+            RelativePath = relativePath,
+            PackageName = null,
+            PackageVersion = null,
+            ServiceName = Path.GetFileName(Path.GetDirectoryName(fullPath)) ?? string.Empty,
+            SdkType = SdkType.Unknown,
+            Language = SdkLanguage.Go,
+            SamplesDirectory = fullPath,
+            DirectoryPath = $"sdk/{relativePath}",
+            ReadMePath = string.Empty,
+            ChangeLogPath = string.Empty,
+            ReleaseStatus = string.Empty,
+            SpecProjectPath = GetSpecProjectPath(fullPath)
+        };
+    }
+
+    private sealed record GoModuleProperties(
+        string Name,
         string? Version,
-        string? DirectoryPath,
-        string? ServiceDirectory,
-        string? ReadMePath,
-        string? ChangeLogPath,
-        string? SdkType,
-        bool IsNewSdk,
-        string? ArtifactName,
-        string? ReleaseStatus);
+        string ServiceDirectory,
+        string SdkType,
+        bool IsNewSdk);
+
+    private const string SemVerPattern = @"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(?:\+[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*)?";
+
+    [GeneratedRegex(@"^(?<modPath>(sdk|profile|eng)/(?<serviceDir>(.*?(?<serviceName>[^/]+)/)?(?<modName>[^/]+)))$", RegexOptions.CultureInvariant)]
+    private static partial Regex GoModulePathRegex();
+
+    [GeneratedRegex(".+\\s*=\\s*\".*v(?<version>" + SemVerPattern + ")\"", RegexOptions.CultureInvariant)]
+    private static partial Regex GoVersionLineRegex();
+
+    [GeneratedRegex(".+\\s*=\\s*\"(?<badVersion>" + SemVerPattern + ")\"", RegexOptions.CultureInvariant)]
+    private static partial Regex GoVersionLineNoPrefixRegex();
 
     internal sealed class GoCiPipelineYamlParameters : CiPipelineYamlParametersBase
     {

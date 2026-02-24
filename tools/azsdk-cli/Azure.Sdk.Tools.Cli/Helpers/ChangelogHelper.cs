@@ -137,7 +137,7 @@ public partial class ChangelogHelper : IChangelogHelper
     // Release title pattern: ## VERSION (STATUS) where VERSION is semver and STATUS is date or "Unreleased"
     // Compiled once at class level for performance
     private static readonly Regex ReleaseTitleRegex = new(
-        $@"^(?<headerLevel>#+)\s+(?<version>{SemVerPattern})(\s+(?<releaseStatus>\(.+\)))?",
+        $@"^(?<headerLevel>#+)\s+v?(?<version>{SemVerPattern})(\s+(?<releaseStatus>\(.+\)))?",
         RegexOptions.Compiled);
 
     public ChangelogHelper(ILogger<ChangelogHelper> logger)
@@ -188,20 +188,19 @@ public partial class ChangelogHelper : IChangelogHelper
 
         await foreach (var line in File.ReadLinesAsync(changelogPath, ct))
         {
-            // Match lines like: ## 1.0.3-beta.20 (2022-04-26) or ## 1.0.0 (Unreleased)
-            if (!line.StartsWith("## ", StringComparison.Ordinal))
+            // Match lines like: ## 1.0.3-beta.20 (2022-04-26), ### 1.0.0 (Unreleased), ## v1.0.0 (...)
+            var match = ReleaseTitleRegex.Match(line);
+            if (!match.Success)
             {
                 continue;
             }
 
-            var openParen = line.IndexOf('(');
-            var closeParen = line.IndexOf(')');
-            if (openParen < 0 || closeParen < openParen)
+            if (!match.Groups["releaseStatus"].Success)
             {
                 continue;
             }
 
-            var status = line.Substring(openParen + 1, closeParen - openParen - 1).Trim();
+            var status = match.Groups["releaseStatus"].Value.Trim().Trim('(', ')').Trim();
             return status;
         }
 
