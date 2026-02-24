@@ -27,6 +27,7 @@ internal class VerifySetupToolTests
     private Mock<IMicroagentHostService> _mockMicrohostAgent;
     private Mock<IGitHelper> _mockGitHelper;
     private Mock<ICommonValidationHelpers> _commonValidationHelpers;
+    private IPackageInfoHelper _packageInfoHelper;
 
     [SetUp]
     public void Setup()
@@ -41,6 +42,7 @@ internal class VerifySetupToolTests
         _mockPowerShellHelper = new Mock<IPowershellHelper>();
         _mockGitHelper = new Mock<IGitHelper>();
         _commonValidationHelpers = new Mock<ICommonValidationHelpers>();
+        _packageInfoHelper = new PackageInfoHelper(new TestLogger<PackageInfoHelper>(), _mockGitHelper.Object);
 
         _mockGitHelper.Setup(x => x.GetRepoNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
         .ReturnsAsync((string path, CancellationToken _) =>
@@ -64,11 +66,11 @@ internal class VerifySetupToolTests
         .ReturnsAsync((string path, CancellationToken _) => path ?? "/test/repo");
 
         languageServices = [
-            new PythonLanguageService(mockProcessHelper.Object, mockPythonHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaLanguageService(mockProcessHelper.Object, _mockGitHelper.Object, new Mock<IMavenHelper>().Object, _mockMicrohostAgent.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaScriptLanguageService(mockProcessHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new GoLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new DotnetLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
+            new PythonLanguageService(mockProcessHelper.Object, mockPythonHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, _packageInfoHelper, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaLanguageService(mockProcessHelper.Object, _mockGitHelper.Object, new Mock<IMavenHelper>().Object, _mockMicrohostAgent.Object, _languageLogger, _commonValidationHelpers.Object, _packageInfoHelper, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaScriptLanguageService(mockProcessHelper.Object, _mockNpxHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, _packageInfoHelper, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new GoLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, _packageInfoHelper, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new DotnetLanguageService(mockProcessHelper.Object, _mockPowerShellHelper.Object, _mockGitHelper.Object, _languageLogger, _commonValidationHelpers.Object, _packageInfoHelper, Mock.Of<IFileHelper>(), Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
         ];
 
         SetupSuccessfulProcessMocks();
@@ -162,7 +164,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -183,7 +185,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -206,7 +208,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -229,7 +231,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -251,7 +253,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -273,7 +275,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -294,7 +296,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 
@@ -315,7 +317,7 @@ internal class VerifySetupToolTests
             mockProcessHelper.Object,
             logger,
             _mockGitHelper.Object,
-            Mock.Of<IPackageInfoHelper>(),
+            _packageInfoHelper,
             languageServices
         );
 

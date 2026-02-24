@@ -362,14 +362,15 @@ public class SampleGeneratorToolTests
         var gitHubServiceMock = new Mock<IGitHubService>();
         var gitCommandHelper = new GitCommandHelper(NullLogger<GitCommandHelper>.Instance, Mock.Of<IRawOutputHelper>());
         realGitHelper = new GitHelper(gitHubServiceMock.Object, gitCommandHelper, gitLogger);
+        var packageInfoHelper = new PackageInfoHelper(new TestLogger<PackageInfoHelper>(), realGitHelper);
         // Use a real FileHelper instance instead of mock
         var fileHelper = new FileHelper(new TestLogger<FileHelper>());
         _languageServices = [
-            new PythonLanguageService(_mockProcessHelper.Object, _mockPythonHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaLanguageService(_mockProcessHelper.Object, realGitHelper, new Mock<IMavenHelper>().Object, microagentHostServiceMock.Object, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
-            new JavaScriptLanguageService(_mockProcessHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new PythonLanguageService(_mockProcessHelper.Object, _mockPythonHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, packageInfoHelper, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaLanguageService(_mockProcessHelper.Object, realGitHelper, new Mock<IMavenHelper>().Object, microagentHostServiceMock.Object, languageLogger, _commonValidationHelpers.Object, packageInfoHelper, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
+            new JavaScriptLanguageService(_mockProcessHelper.Object, _mockNpxHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, packageInfoHelper, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>()),
             _mockGoLanguageService.Object,
-            new DotnetLanguageService(_mockProcessHelper.Object, _mockPowerShellHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, Mock.Of<IPackageInfoHelper>(), fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
+            new DotnetLanguageService(_mockProcessHelper.Object, _mockPowerShellHelper.Object, realGitHelper, languageLogger, _commonValidationHelpers.Object, packageInfoHelper, fileHelper, Mock.Of<ISpecGenSdkConfigHelper>(), Mock.Of<IChangelogHelper>())
         ];
 
         _mockGoLanguageService.Setup(ls => ls.Language).Returns(SdkLanguage.Go);
